@@ -1,0 +1,292 @@
+
+
+import React, { useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
+import { Sources, Source, SourceCategory, sourceCategoryLabels } from '../types';
+import { findSourcesWithAI } from '../services/geminiService';
+import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon } from './icons';
+
+interface SourcesManagerProps {
+  sources: Sources;
+  onSourcesChange: (sources: Sources) => void;
+}
+
+const getCredibilityClass = (credibility: string) => {
+    const str = credibility.toLowerCase();
+    if (str.includes('بسیار') || str.includes('high') || str.includes('بالا')) return {dot: 'bg-green-400', text: 'text-green-300' };
+    if (str.includes('معتبر') || str.includes('medium') || str.includes('متوسط')) return {dot: 'bg-yellow-400', text: 'text-yellow-300' };
+    if (str.includes('نیازمند') || str.includes('low') || str.includes('ضعیف')) return {dot: 'bg-red-400', text: 'text-red-300' };
+    return { dot: 'bg-gray-400', text: 'text-gray-300' };
+};
+
+const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChange }) => {
+  const [editingSource, setEditingSource] = useState<Source | null>(null);
+  const [isAdding, setIsAdding] = useState<SourceCategory | null>(null);
+  const [aiLoading, setAiLoading] = useState<SourceCategory | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddOrEdit = (category: SourceCategory, source: Source) => {
+    const newSources = { ...sources };
+    if (editingSource) { // Edit
+      newSources[category] = newSources[category].map(s => s.id === source.id ? source : s);
+    } else { // Add
+        // Check for duplicates before adding
+        const isDuplicate = newSources[category].some(s => s.url.toLowerCase() === source.url.toLowerCase());
+        if(isDuplicate) {
+            alert("منبعی با این آدرس (URL) از قبل وجود دارد.");
+            return;
+        }
+      newSources[category] = [...newSources[category], source];
+    }
+    onSourcesChange(newSources);
+    setEditingSource(null);
+    setIsAdding(null);
+  };
+  
+  const handleDelete = (category: SourceCategory, sourceId: string) => {
+    if (window.confirm('آیا از حذف این منبع اطمینان دارید؟')) {
+      const newSources = { ...sources };
+      newSources[category] = newSources[category].filter(s => s.id !== sourceId);
+      onSourcesChange(newSources);
+    }
+  };
+
+  const handleFindWithAI = async (category: SourceCategory) => {
+    setAiLoading(category);
+    try {
+        const existingSources = sources[category];
+        const newFoundSources = await findSourcesWithAI(category, existingSources);
+        
+        if(newFoundSources.length === 0) {
+            alert("منبع جدیدی توسط هوش مصنوعی یافت نشد.");
+            return;
+        }
+
+        const sourcesToAdd: Source[] = [];
+        let skippedCount = 0;
+        const existingUrls = new Set(sources[category].map(s => s.url.toLowerCase().trim()));
+
+        newFoundSources.forEach(s => {
+            if(existingUrls.has(s.url.toLowerCase().trim())) {
+                skippedCount++;
+            } else {
+                sourcesToAdd.push({...s, id: self.crypto.randomUUID()});
+                existingUrls.add(s.url.toLowerCase().trim()); // Add to set to prevent duplicates within the same AI response
+            }
+        });
+
+        if (sourcesToAdd.length > 0) {
+            const newSources = { ...sources };
+            newSources[category] = [...newSources[category], ...sourcesToAdd];
+            onSourcesChange(newSources);
+        }
+
+        let alertMessage = '';
+        if (sourcesToAdd.length > 0) {
+            alertMessage += `${sourcesToAdd.length} منبع جدید با موفقیت اضافه شد.`;
+        }
+        if (skippedCount > 0) {
+            alertMessage += `\n${skippedCount} منبع تکراری یافت شد و اضافه نگردید.`;
+        }
+        alert(alertMessage || "عملیات کامل شد، ولی منبع جدیدی برای افزودن وجود نداشت.");
+
+    } catch (error) {
+        alert("خطا در یافتن منابع با هوش مصنوعی.");
+        console.error(error);
+    } finally {
+        setAiLoading(null);
+    }
+  };
+
+  const handleExportFile = () => {
+    const allSourcesWithCategory = (Object.keys(sources) as SourceCategory[]).flatMap(category => 
+        sources[category].map(source => ({
+            "نام سایت": source.name,
+            "حوزه": source.field,
+            "آدرس سایت": source.url,
+            "فعالیت": source.activity,
+            "درجه اعتبار": source.credibility,
+            "کشور یا منطقه": source.region,
+            "دسته بندی": category
+        }))
+    );
+
+    if (allSourcesWithCategory.length === 0) {
+        alert("منبعی برای خروجی گرفتن وجود ندارد.");
+        return;
+    }
+    
+    const worksheet = XLSX.utils.json_to_sheet(allSourcesWithCategory);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sources");
+    XLSX.writeFile(workbook, "news_sources_backup.xlsx");
+  };
+
+  const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: ["نام سایت", "حوزه", "آدرس سایت", "فعالیت", "درجه اعتبار", "کشور یا منطقه", "دسته بندی"] });
+
+            const newSources: Sources = JSON.parse(JSON.stringify(sources));
+            const existingUrls = new Set(Object.values(sources).flat().map(s => s.url.toLowerCase().trim()));
+            let addedCount = 0;
+            let skippedCount = 0;
+            
+            const dataRows = json.slice(1);
+
+            dataRows.forEach(row => {
+                const url = row['آدرس سایت'] || '';
+                const category = row['دسته بندی'] as SourceCategory;
+
+                if(category && newSources[category] && url) {
+                     if (existingUrls.has(url.toLowerCase().trim())) {
+                        skippedCount++;
+                     } else {
+                        newSources[category].push({
+                            id: self.crypto.randomUUID(),
+                            name: row['نام سایت'] || '',
+                            field: row['حوزه'] || '',
+                            url: url,
+                            activity: row['فعالیت'] || '',
+                            credibility: row['درجه اعتبار'] || '',
+                            region: row['کشور یا منطقه'] || ''
+                        });
+                        existingUrls.add(url.toLowerCase().trim()); // Add to set to prevent duplicates within the file
+                        addedCount++;
+                     }
+                }
+            });
+            onSourcesChange(newSources);
+            alert(`${addedCount} منبع جدید وارد شد. ${skippedCount} منبع تکراری نادیده گرفته شد.`);
+        } catch (error) {
+            alert('خطا در پردازش فایل.');
+            console.error(error);
+        } finally {
+            setIsImporting(false);
+            if(fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const SourceForm: React.FC<{ category: SourceCategory; source?: Source }> = ({ category, source }) => {
+    const [formData, setFormData] = useState(source || { id: self.crypto.randomUUID(), name: '', field: '', url: '', activity: '', credibility: '', region: '' });
+    
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleAddOrEdit(category, formData);
+    };
+
+    return (
+        <tr className="bg-gray-800/50">
+            <td colSpan={5} className="p-4">
+                <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+                    <input name="name" value={formData.name} onChange={handleChange} placeholder="نام" className="bg-gray-700 p-2 rounded col-span-1" required />
+                    <input name="field" value={formData.field} onChange={handleChange} placeholder="حوزه" className="bg-gray-700 p-2 rounded col-span-1" />
+                    <input name="url" type="url" value={formData.url} onChange={handleChange} placeholder="آدرس" className="bg-gray-700 p-2 rounded col-span-2" required/>
+                    <input name="activity" value={formData.activity} onChange={handleChange} placeholder="فعالیت" className="bg-gray-700 p-2 rounded col-span-2" />
+                    <input name="credibility" value={formData.credibility} onChange={handleChange} placeholder="اعتبار" className="bg-gray-700 p-2 rounded col-span-1" />
+                    <input name="region" value={formData.region} onChange={handleChange} placeholder="منطقه" className="bg-gray-700 p-2 rounded col-span-1" />
+                    <div className="col-span-2 flex gap-2">
+                        <button type="submit" className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded text-white">ذخیره</button>
+                        <button type="button" onClick={() => { setEditingSource(null); setIsAdding(null); }} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-white">انصراف</button>
+                    </div>
+                </form>
+            </td>
+        </tr>
+    );
+  };
+
+
+  return (
+    <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <h2 className="text-xl font-bold text-cyan-300">مدیریت منابع خبری</h2>
+            <div className="flex gap-2">
+                <input type="file" ref={fileInputRef} onChange={handleImportFile} accept=".xlsx, .xls, .csv" className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm disabled:opacity-50">
+                    {isImporting ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <ImportIcon className="w-5 h-5"/>}
+                    <span>{isImporting ? "در حال ورود..." : "ورود از فایل"}</span>
+                </button>
+                 <button onClick={handleExportFile} className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 text-sm">
+                    <ImportIcon className="w-5 h-5"/>
+                    خروجی فایل
+                </button>
+            </div>
+        </div>
+        
+        <div className="space-y-8">
+        {(Object.keys(sourceCategoryLabels) as SourceCategory[]).map(category => (
+            <div key={category}>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-cyan-200">{sourceCategoryLabels[category]}</h3>
+                    <div className="flex gap-2">
+                         <button onClick={() => handleFindWithAI(category)} disabled={aiLoading === category} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 text-white font-bold py-2 px-3 rounded-lg transition duration-300 text-sm">
+                            {aiLoading === category ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <MagicIcon className="w-5 h-5"/>}
+                            <span>جستجو با AI</span>
+                        </button>
+                        <button onClick={() => setIsAdding(category)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-black font-bold py-2 px-3 rounded-lg transition duration-300 text-sm">
+                            <PlusIcon className="w-5 h-5"/>
+                            <span>افزودن</span>
+                        </button>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-right text-gray-300">
+                        <thead className="text-xs text-cyan-200 uppercase bg-gray-700/50">
+                            <tr>
+                                <th scope="col" className="px-4 py-3">نام</th>
+                                <th scope="col" className="px-4 py-3">حوزه</th>
+                                <th scope="col" className="px-4 py-3">اعتبار</th>
+                                <th scope="col" className="px-4 py-3">منطقه</th>
+                                <th scope="col" className="px-4 py-3">عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {sources[category].map(source => {
+                                const credibilityClasses = getCredibilityClass(source.credibility);
+                                return editingSource?.id === source.id ? 
+                                <SourceForm key={source.id} category={category} source={source} />
+                                :
+                                <tr key={source.id} className="border-b border-gray-700 hover:bg-gray-800/50">
+                                    <td className="px-4 py-3 font-medium"><a href={source.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{source.name}</a></td>
+                                    <td className="px-4 py-3">{source.field}</td>
+                                    <td className="px-4 py-3">
+                                        <div className={`flex items-center gap-2 ${credibilityClasses.text}`}>
+                                            <span className={`w-2.5 h-2.5 rounded-full ${credibilityClasses.dot}`}></span>
+                                            <span>{source.credibility}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">{source.region}</td>
+                                    <td className="px-4 py-3 flex gap-2">
+                                        <button onClick={() => setEditingSource(source)} className="text-yellow-400 hover:text-yellow-300"><PencilIcon className="w-5 h-5"/></button>
+                                        <button onClick={() => handleDelete(category, source.id)} className="text-red-400 hover:text-red-300"><TrashIcon className="w-5 h-5"/></button>
+                                    </td>
+                                </tr>
+                            })}
+                            {isAdding === category && <SourceForm category={category} />}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        ))}
+        </div>
+    </div>
+  );
+};
+
+export default SourcesManager;

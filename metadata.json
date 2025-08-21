@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Smart News Search",
+  "description": "An intelligent web tool for real-time searching of national and international news with advanced filtering capabilities, a news ticker, and an AI-powered fact-checking feature.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
