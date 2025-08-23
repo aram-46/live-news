@@ -1,10 +1,11 @@
 
 
+
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Sources, Source, SourceCategory, sourceCategoryLabels } from '../types';
-import { findSourcesWithAI } from '../services/geminiService';
-import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon } from './icons';
+import { findSourcesWithAI, FindSourcesOptions } from '../services/geminiService';
+import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
 
 interface SourcesManagerProps {
   sources: Sources;
@@ -22,8 +23,16 @@ const getCredibilityClass = (credibility: string) => {
 const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChange }) => {
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [isAdding, setIsAdding] = useState<SourceCategory | null>(null);
-  const [aiLoading, setAiLoading] = useState<SourceCategory | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [activeAiCategory, setActiveAiCategory] = useState<SourceCategory | null>(null);
+  const [aiOptions, setAiOptions] = useState<FindSourcesOptions>({
+      region: 'any',
+      language: 'any',
+      count: 3,
+      credibility: 'any',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddOrEdit = (category: SourceCategory, source: Source) => {
@@ -52,11 +61,17 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
     }
   };
 
-  const handleFindWithAI = async (category: SourceCategory) => {
-    setAiLoading(category);
+  const openAiModal = (category: SourceCategory) => {
+    setActiveAiCategory(category);
+    setIsAiModalOpen(true);
+  };
+
+  const handleFindWithAI = async () => {
+    if (!activeAiCategory) return;
+    setAiLoading(true);
     try {
-        const existingSources = sources[category];
-        const newFoundSources = await findSourcesWithAI(category, existingSources);
+        const existingSources = sources[activeAiCategory];
+        const newFoundSources = await findSourcesWithAI(activeAiCategory, existingSources, aiOptions);
         
         if(newFoundSources.length === 0) {
             alert("منبع جدیدی توسط هوش مصنوعی یافت نشد.");
@@ -65,7 +80,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
 
         const sourcesToAdd: Source[] = [];
         let skippedCount = 0;
-        const existingUrls = new Set(sources[category].map(s => s.url.toLowerCase().trim()));
+        const existingUrls = new Set(sources[activeAiCategory].map(s => s.url.toLowerCase().trim()));
 
         newFoundSources.forEach(s => {
             if(existingUrls.has(s.url.toLowerCase().trim())) {
@@ -78,7 +93,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
 
         if (sourcesToAdd.length > 0) {
             const newSources = { ...sources };
-            newSources[category] = [...newSources[category], ...sourcesToAdd];
+            newSources[activeAiCategory] = [...newSources[activeAiCategory], ...sourcesToAdd];
             onSourcesChange(newSources);
         }
 
@@ -95,7 +110,8 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
         alert("خطا در یافتن منابع با هوش مصنوعی.");
         console.error(error);
     } finally {
-        setAiLoading(null);
+        setAiLoading(false);
+        setIsAiModalOpen(false);
     }
   };
 
@@ -135,7 +151,18 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
             const workbook = XLSX.read(data, { type: 'binary' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: ["نام سایت", "حوزه", "آدرس سایت", "فعالیت", "درجه اعتبار", "کشور یا منطقه", "دسته بندی"] });
+            
+            type ImportedRow = {
+                "نام سایت"?: string;
+                "حوزه"?: string;
+                "آدرس سایت"?: string;
+                "فعالیت"?: string;
+                "درجه اعتبار"?: string;
+                "کشور یا منطقه"?: string;
+                "دسته بندی"?: SourceCategory;
+            };
+
+            const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet, { header: ["نام سایت", "حوزه", "آدرس سایت", "فعالیت", "درجه اعتبار", "کشور یا منطقه", "دسته بندی"] });
 
             const newSources: Sources = JSON.parse(JSON.stringify(sources));
             const existingUrls = new Set(Object.values(sources).flat().map(s => s.url.toLowerCase().trim()));
@@ -144,7 +171,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
             
             const dataRows = json.slice(1);
 
-            dataRows.forEach(row => {
+            dataRows.forEach((row: ImportedRow) => {
                 const url = row['آدرس سایت'] || '';
                 const category = row['دسته بندی'] as SourceCategory;
 
@@ -210,9 +237,56 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
         </tr>
     );
   };
+  
+  const AiSearchModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setIsAiModalOpen(false)}>
+        <div className="bg-gray-900 border border-cyan-400/30 rounded-lg shadow-2xl p-6 w-full max-w-md text-primary" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-cyan-300">جستجوی هوشمند منابع</h3>
+                <button onClick={() => setIsAiModalOpen(false)} className="text-gray-400 hover:text-white"><CloseIcon className="w-6 h-6" /></button>
+            </div>
+            <div className="space-y-4">
+                 <div>
+                    <label className="block text-sm font-medium text-cyan-300 mb-2">منطقه</label>
+                    <select value={aiOptions.region} onChange={e => setAiOptions({...aiOptions, region: e.target.value as any})} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg p-2">
+                        <option value="any">همه</option>
+                        <option value="internal">داخلی (ایران)</option>
+                        <option value="external">خارجی</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-cyan-300 mb-2">زبان</label>
+                    <select value={aiOptions.language} onChange={e => setAiOptions({...aiOptions, language: e.target.value as any})} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg p-2">
+                        <option value="any">همه</option>
+                        <option value="persian">فارسی</option>
+                        <option value="non-persian">غیرفارسی</option>
+                    </select>
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-cyan-300 mb-2">سطح اعتبار</label>
+                    <select value={aiOptions.credibility} onChange={e => setAiOptions({...aiOptions, credibility: e.target.value as any})} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg p-2">
+                        <option value="any">همه</option>
+                        <option value="high">بالا</option>
+                        <option value="medium">متوسط</option>
+                    </select>
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-cyan-300 mb-2">تعداد نتایج: {aiOptions.count}</label>
+                    <input type="range" min="1" max="10" value={aiOptions.count} onChange={e => setAiOptions({...aiOptions, count: Number(e.target.value)})} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                </div>
+                <button onClick={handleFindWithAI} disabled={aiLoading} className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 text-white font-bold py-3 px-4 rounded-lg transition">
+                    {aiLoading ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <MagicIcon className="w-5 h-5"/>}
+                    <span>{aiLoading ? 'در حال جستجو...' : 'شروع جستجو'}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+  );
 
 
   return (
+    <>
+    {isAiModalOpen && <AiSearchModal />}
     <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-xl font-bold text-cyan-300">مدیریت منابع خبری</h2>
@@ -235,8 +309,8 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-cyan-200">{sourceCategoryLabels[category]}</h3>
                     <div className="flex gap-2">
-                         <button onClick={() => handleFindWithAI(category)} disabled={aiLoading === category} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 text-white font-bold py-2 px-3 rounded-lg transition duration-300 text-sm">
-                            {aiLoading === category ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <MagicIcon className="w-5 h-5"/>}
+                         <button onClick={() => openAiModal(category)} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-3 rounded-lg transition duration-300 text-sm">
+                            <MagicIcon className="w-5 h-5"/>
                             <span>جستجو با AI</span>
                         </button>
                         <button onClick={() => setIsAdding(category)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-black font-bold py-2 px-3 rounded-lg transition duration-300 text-sm">
@@ -286,6 +360,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
         ))}
         </div>
     </div>
+    </>
   );
 };
 

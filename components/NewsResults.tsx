@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { NewsArticle, AppSettings } from '../types';
+import { NewsArticle, AppSettings, FontSettings } from '../types';
 import NewsCard from './NewsCard';
 
 interface NewsResultsProps {
@@ -10,6 +10,7 @@ interface NewsResultsProps {
   settings: AppSettings;
   onOpenUrl: (url: string) => void;
   onRemoveArticle?: (link: string) => void;
+  fontSettings?: FontSettings;
 }
 
 export const LoadingSkeleton: React.FC = () => (
@@ -25,7 +26,7 @@ export const LoadingSkeleton: React.FC = () => (
   </div>
 );
 
-const NewsResults: React.FC<NewsResultsProps> = ({ news, isLoading, error, settings, onOpenUrl, onRemoveArticle }) => {
+const NewsResults: React.FC<NewsResultsProps> = ({ news, isLoading, error, settings, onOpenUrl, onRemoveArticle, fontSettings }) => {
   const gridClasses: Record<number, string> = {
       1: 'grid-cols-1',
       2: 'grid-cols-1 md:grid-cols-2',
@@ -72,6 +73,7 @@ const NewsResults: React.FC<NewsResultsProps> = ({ news, isLoading, error, setti
             onOpenUrl={onOpenUrl} 
             settings={settings}
             onRemove={onRemoveArticle}
+            fontSettings={fontSettings}
         />
       ))}
     </div>

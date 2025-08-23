@@ -11,22 +11,33 @@ const DraggableDialog: React.FC<DraggableDialogProps> = ({ url, onClose }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [size, setSize] = useState({ width: '60vw', height: '70vh' });
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  // State to make the component fully controlled
+  const [position, setPosition] = useState({ 
+    x: (window.innerWidth * (1 - 0.6)) / 2, // Center horizontally
+    y: (window.innerHeight * (1 - 0.7)) / 2 // Center vertically
+  });
+  const [lastPosition, setLastPosition] = useState(position);
   const nodeRef = useRef(null);
 
   const handleMaximize = () => {
     if (isMaximized) {
       setSize({ width: '60vw', height: '70vh' });
+      setPosition(lastPosition); // Restore last position
     } else {
+      setLastPosition(position); // Save current position
       setSize({ width: '100vw', height: '100vh' });
       setPosition({x: 0, y: 0});
     }
     setIsMaximized(!isMaximized);
   };
 
-  const dialogStyle: React.CSSProperties = isMaximized ? 
-    { width: '100vw', height: '100vh', top: 0, left: 0, transform: 'none', borderRadius: 0, transition: 'all 0.3s ease-in-out' } :
-    { width: size.width, height: size.height, transition: 'all 0.3s ease-in-out' };
+  const dialogStyle: React.CSSProperties = {
+    width: size.width,
+    height: size.height,
+    borderRadius: isMaximized ? 0 : undefined,
+    transition: 'width 0.3s ease-in-out, height 0.3s ease-in-out',
+  };
 
   if (isMinimized) {
     return (
@@ -42,7 +53,8 @@ const DraggableDialog: React.FC<DraggableDialogProps> = ({ url, onClose }) => {
   return (
     <Draggable
         handle=".handle"
-        position={isMaximized ? {x: 0, y: 0} : undefined}
+        position={position}
+        onStop={(e, data) => setPosition({ x: data.x, y: data.y })}
         disabled={isMaximized}
         bounds="parent"
         nodeRef={nodeRef}

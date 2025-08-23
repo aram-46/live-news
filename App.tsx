@@ -1,7 +1,8 @@
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
-import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon } from './components/icons';
+import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
@@ -12,8 +13,9 @@ import FactCheck from './components/FactCheck';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { INITIAL_SETTINGS } from './data/defaults';
 import DraggableDialog from './components/DraggableDialog';
+import Chatbot from './components/Chatbot';
 
-type View = 'live' | 'search' | 'factcheck' | 'settings';
+type View = 'live' | 'search' | 'factcheck' | 'settings' | 'chatbot';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('live');
@@ -67,6 +69,7 @@ const App: React.FC = () => {
             {renderNavButton('live', <NewsIcon className="w-5 h-5" />, 'اخبار زنده')}
             {renderNavButton('search', <SearchIcon className="w-5 h-5" />, 'جستجو')}
             {renderNavButton('factcheck', <CheckCircleIcon className="w-5 h-5" />, 'فکت چک')}
+            {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
           </nav>
         </div>
@@ -89,6 +92,7 @@ const App: React.FC = () => {
             settings={settings}
             onOpenUrl={setDialogUrl}
           />}
+        {activeView === 'chatbot' && <Chatbot />}
         {activeView === 'settings' && (
           <Settings 
             settings={settings}

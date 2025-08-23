@@ -34,11 +34,33 @@ export interface FactCheckSource {
     title: string;
 }
 
-export interface FactCheckResult {
-    credibility: Credibility;
-    justification: string;
-    sources: FactCheckSource[];
+export interface OriginalSourceInfo {
+    name: string;
+    credibility: string;
+    publicationDate: string;
+    author: string;
+    evidenceType: string;
+    evidenceCredibility: string;
+    authorCredibility: string;
+    link: string;
 }
+
+export interface StanceHolder {
+    name: string;
+    argument: string;
+}
+
+export interface FactCheckResult {
+    overallCredibility: Credibility;
+    summary: string;
+    originalSource: OriginalSourceInfo;
+    acceptancePercentage: number;
+    proponents: StanceHolder[];
+    opponents: StanceHolder[];
+    relatedSuggestions: string[];
+    relatedSources: FactCheckSource[];
+}
+
 
 export type MediaFile = {
     name: string;
@@ -72,13 +94,17 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'fact-check': 'دستورالعمل فکت چک',
   'news-search': 'دستورالعمل جستجوی خبر',
   'news-display': 'دستورالعمل نمایش اخبار زنده',
   'news-ticker': 'دستورالعمل نوار اخبار متحرک',
+  'telegram-bot': 'رفتار ربات تلگرام',
+  'discord-bot': 'رفتار ربات دیسکورد',
+  'website-bot': 'رفتار ربات وب‌سایت',
+  'twitter-bot': 'رفتار ربات توییتر',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;
@@ -108,6 +134,31 @@ export interface TickerSettings {
     hoverColor: string;
 }
 
+export interface WebsiteSettings {
+    apiUrl: string;
+    apiKey: string;
+    botUserId: string;
+    roomIds: string[];
+}
+
+export interface TwitterSettings {
+    apiKey: string;
+    apiSecretKey: string;
+    accessToken: string;
+    accessTokenSecret: string;
+}
+
+export interface AppwriteSettings {
+    endpoint: string;
+    projectId: string;
+    apiKey: string;
+}
+
+export interface SupabaseSettings {
+    projectUrl: string;
+    anonKey: string;
+}
+
 export interface IntegrationSettings {
     telegram: {
         botToken: string;
@@ -116,6 +167,10 @@ export interface IntegrationSettings {
     discord: {
         webhookUrl: string;
     };
+    website: WebsiteSettings;
+    twitter: TwitterSettings;
+    appwrite: AppwriteSettings;
+    supabase: SupabaseSettings;
 }
 
 export interface DatabaseSettings {
@@ -134,12 +189,38 @@ export interface AppAIModelSettings {
     groq: AIProviderSettings;
 }
 
+export interface FontSettings {
+  family: string;
+  size: number;
+  color: {
+    from: string;
+    to: string;
+  };
+}
+
+export interface UpdateSettings {
+  autoCheck: boolean;
+  interval: number; // in minutes
+}
+
+export interface LiveNewsSpecificSettings {
+  categories: string[];
+  newsGroups: string[];
+  regions: string[];
+  selectedSources: Record<string, string[]>;
+  font: FontSettings;
+  updates: UpdateSettings;
+  autoSend: boolean;
+}
+
+
 export interface AppSettings {
     theme: Theme;
     sources: Sources;
     aiInstructions: AIInstructions;
     display: DisplaySettings;
     ticker: TickerSettings;
+    liveNewsSpecifics: LiveNewsSpecificSettings;
     integrations: IntegrationSettings;
     database: DatabaseSettings;
     aiModelSettings: AppAIModelSettings;

@@ -1,5 +1,6 @@
 
-import { NewsArticle } from '../types';
+
+import { NewsArticle, IntegrationSettings } from '../types';
 
 interface TelegramSettings {
     botToken: string;
@@ -131,18 +132,61 @@ export async function testDiscordConnection(settings: DiscordSettings): Promise<
     }
 }
 
+export async function testWebsiteConnection(settings: IntegrationSettings['website']): Promise<boolean> {
+    if (!settings.apiUrl || !settings.apiKey) return false;
+    console.log("Testing Website (Grupo) connection (placeholder)...", settings);
+    try {
+        new URL(settings.apiUrl);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (settings.apiKey.length > 10) {
+            // In a real app, you'd send a test message here.
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error("Website connection test failed:", error);
+        return false;
+    }
+}
+
+export async function testTwitterConnection(settings: IntegrationSettings['twitter']): Promise<boolean> {
+    if (!settings.apiKey || !settings.apiSecretKey || !settings.accessToken || !settings.accessTokenSecret) return false;
+    console.log("Testing Twitter connection (placeholder)...");
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return true; // Placeholder
+}
+
+export async function testAppwriteConnection(settings: IntegrationSettings['appwrite']): Promise<boolean> {
+    if (!settings.endpoint || !settings.projectId || !settings.apiKey) return false;
+    console.log("Testing Appwrite connection (placeholder)...");
+    try {
+        new URL(settings.endpoint);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export async function testSupabaseConnection(settings: IntegrationSettings['supabase']): Promise<boolean> {
+    if (!settings.projectUrl || !settings.anonKey) return false;
+    console.log("Testing Supabase connection (placeholder)...");
+     try {
+        new URL(settings.projectUrl);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+
 export async function testOpenAIConnection(apiKey: string): Promise<boolean> {
     if (!apiKey) {
         return false;
     }
-    // This is a placeholder for demonstration purposes, as the app does not include the OpenAI SDK.
-    // A real implementation would involve making a call to an actual OpenAI API endpoint, e.g., listing models.
     console.log("Testing OpenAI connection (placeholder)...");
-    
-    // Simulate a network request.
     await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Simulate a basic validation check. Real keys often start with 'sk-'.
     if (apiKey.startsWith('sk-') && apiKey.length > 20) {
         console.log("OpenAI connection test successful (placeholder).");
         return true;
@@ -158,7 +202,6 @@ export async function testOpenRouterConnection(apiKey: string): Promise<boolean>
     }
     console.log("Testing OpenRouter connection (placeholder)...");
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // OpenRouter keys often start with 'sk-or-'.
     if (apiKey.startsWith('sk-or-') && apiKey.length > 20) {
         console.log("OpenRouter connection test successful (placeholder).");
         return true;
@@ -174,7 +217,6 @@ export async function testGroqConnection(apiKey: string): Promise<boolean> {
     }
     console.log("Testing Groq connection (placeholder)...");
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // Groq keys often start with 'gsk_'.
     if (apiKey.startsWith('gsk_') && apiKey.length > 20) {
         console.log("Groq connection test successful (placeholder).");
         return true;

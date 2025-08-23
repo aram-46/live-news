@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { NewsArticle, AppSettings } from '../types';
-import { fetchLiveNews } from '../services/geminiService';
+import { fetchLiveNews, checkForUpdates } from '../services/geminiService';
 import NewsResults from './NewsResults';
 import { RefreshIcon } from './icons';
 
@@ -24,12 +24,20 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings, onOpenUrl }) => {
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<Record<string, string | null>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
 
-  const loadNewsForTab = useCallback(async (tabId: string) => {
+  const loadNewsForTab = useCallback(async (tabId: string, force = false) => {
     setLoading(prev => ({ ...prev, [tabId]: true }));
     setError(prev => ({ ...prev, [tabId]: null }));
+    setUpdateAvailable(false);
     try {
-      const results = await fetchLiveNews(tabId, settings.sources, settings.aiInstructions['news-display'], settings.display.showImages);
+      const results = await fetchLiveNews(
+        tabId, 
+        settings.sources, 
+        settings.aiInstructions['news-display'], 
+        settings.display.showImages,
+        settings.liveNewsSpecifics
+      );
       setNews(prev => ({ ...prev, [tabId]: results }));
       setLastUpdated(new Date());
     } catch (err) {
@@ -40,19 +48,31 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings, onOpenUrl }) => {
     }
   }, [settings]);
 
+  // Initial load and tab change effect
   useEffect(() => {
-    if (!news[activeTab] || (lastUpdated && new Date().getTime() - lastUpdated.getTime() > 3600000)) {
+    if (!news[activeTab]) {
       loadNewsForTab(activeTab);
     }
-  }, [activeTab, news, loadNewsForTab, lastUpdated]);
+  }, [activeTab, news, loadNewsForTab]);
   
+  // Auto-update checker effect
   useEffect(() => {
-    const interval = setInterval(() => {
-      TABS.forEach(tab => loadNewsForTab(tab.id));
-    }, 3600000); // 1 hour
+    if (!settings.liveNewsSpecifics.updates.autoCheck) {
+        return;
+    }
+
+    const check = async () => {
+        const hasUpdate = await checkForUpdates(settings.sources);
+        if(hasUpdate) {
+            setUpdateAvailable(true);
+        }
+    };
+
+    const intervalInMs = settings.liveNewsSpecifics.updates.interval * 60 * 1000;
+    const timer = setInterval(check, intervalInMs);
     
-    return () => clearInterval(interval);
-  }, [loadNewsForTab]);
+    return () => clearInterval(timer);
+  }, [settings.liveNewsSpecifics.updates, settings.sources]);
 
   return (
     <div className="space-y-6">
@@ -75,12 +95,13 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings, onOpenUrl }) => {
         <div className="flex items-center gap-4">
             {lastUpdated && <p className="text-xs text-gray-500">آخرین بروزرسانی: {lastUpdated.toLocaleString('fa-IR')}</p>}
              <button
-                onClick={() => loadNewsForTab(activeTab)}
+                onClick={() => loadNewsForTab(activeTab, true)}
                 disabled={loading[activeTab]}
-                className="p-2 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-colors disabled:opacity-50"
+                className={`relative p-2 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-colors disabled:opacity-50 ${updateAvailable ? 'animate-pulse' : ''}`}
                 aria-label="رفرش اخبار"
             >
                 <RefreshIcon className={`w-5 h-5 ${loading[activeTab] ? 'animate-spin' : ''}`} />
+                {updateAvailable && <span className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-gray-900"></span>}
             </button>
         </div>
       </div>
@@ -92,6 +113,7 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings, onOpenUrl }) => {
             error={error[activeTab] || null}
             settings={settings}
             onOpenUrl={onOpenUrl}
+            fontSettings={settings.liveNewsSpecifics.font}
         />
       </div>
     </div>

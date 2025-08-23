@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { NewsArticle, Credibility, AppSettings } from '../types';
+import { NewsArticle, Credibility, AppSettings, FontSettings } from '../types';
 import { LinkIcon, ShareIcon, TelegramIcon, DiscordIcon, CloseIcon } from './icons';
 import { sendToTelegram, sendToDiscord } from '../services/integrationService';
 
@@ -10,6 +10,7 @@ interface NewsCardProps {
   onOpenUrl: (url: string) => void;
   settings: AppSettings;
   onRemove?: (link: string) => void;
+  fontSettings?: FontSettings;
 }
 
 const getCredibilityClass = (credibility: Credibility | string) => {
@@ -26,7 +27,7 @@ const getCredibilityClass = (credibility: Credibility | string) => {
   return { dot: 'bg-gray-400', text: 'text-gray-300', shadow: 'shadow-gray-500/50' };
 };
 
-const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRemove }) => {
+const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRemove, fontSettings }) => {
   const credibilityClasses = getCredibilityClass(article.credibility);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
@@ -50,6 +51,17 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRem
         setIsShareMenuOpen(false);
       }, 3000);
   };
+  
+  const summaryStyle: React.CSSProperties = fontSettings ? {
+      fontFamily: fontSettings.family,
+      fontSize: `${fontSettings.size}px`,
+      backgroundImage: `linear-gradient(to right, ${fontSettings.color.from}, ${fontSettings.color.to})`,
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+      color: 'transparent'
+  } : {};
+
 
   return (
     <article className="bg-black/20 backdrop-blur-lg rounded-xl border border-cyan-400/10 shadow-lg shadow-cyan-900/20 p-5 transition-all duration-300 hover:border-cyan-400/30 hover:shadow-cyan-700/20 flex flex-col relative group">
@@ -75,7 +87,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRem
           <span className="text-xs bg-cyan-900/50 text-cyan-300 px-2 py-1 rounded-full whitespace-nowrap">{article.category}</span>
         </div>
       </header>
-      <p className="text-gray-300 text-sm leading-relaxed mb-4 flex-grow">{article.summary}</p>
+      <p style={summaryStyle} className="text-gray-300 text-sm leading-relaxed mb-4 flex-grow">{article.summary}</p>
       <footer className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-gray-400 gap-3 mt-auto">
         <div className="flex items-center gap-4">
           <span className="font-semibold">{article.source}</span>

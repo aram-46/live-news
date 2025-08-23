@@ -30,10 +30,14 @@ export const INITIAL_SETTINGS: AppSettings = {
     ],
   },
   aiInstructions: {
-    'fact-check': 'You are an expert fact-checker. Your analysis must be neutral, objective, and based on verifiable evidence from reputable sources.',
-    'news-search': 'You are a news aggregator AI. Prioritize recent, relevant, and diverse news from reliable sources. Avoid sensationalism and clickbait.',
-    'news-display': 'You are an AI news curator. Provide the most significant and timely news headlines. Ensure the summaries are concise and accurately reflect the article content.',
-    'news-ticker': 'You are an AI assistant for a news ticker. Provide very short, breaking news headlines. The headlines must be in Persian and link to a reputable source.',
+    'fact-check': 'شما یک فکت-چکر متخصص هستید. تحلیل شما باید بی‌طرف، عینی و بر اساس شواهد قابل راستی‌آزمایی از منابع معتبر باشد.',
+    'news-search': 'شما یک هوش مصنوعی агрегатор خبر هستید. اخبار جدید، مرتبط و متنوع از منابع معتبر را در اولویت قرار دهید. از اخبار زرد و جنجالی پرهیز کنید.',
+    'news-display': 'شما یک نمایش‌دهنده اخبار هوشمند هستید. مهم‌ترین و به‌روزترین عناوین خبری را ارائه دهید. اطمینان حاصل کنید که خلاصه‌ها کوتاه و دقیق هستند.',
+    'news-ticker': 'شما دستیار هوش مصنوعی برای نوار اخبار هستید. عناوین خبری بسیار کوتاه و فوری را ارائه دهید. عناوین باید به زبان فارسی و دارای لینک به منبع معتبر باشند.',
+    'telegram-bot': 'به عنوان ربات تلگرام، هنگام اشتراک‌گذاری اخبار، مختصر و مفید باشید و از قالب‌بندی مارک‌داون استفاده کنید. با عنوان به صورت بولد شروع کنید، سپس منبع و خلاصه کوتاه را بیاورید و با لینک به مقاله کامل تمام کنید.',
+    'discord-bot': 'به عنوان ربات دیسکورد، از امبد (embed) برای اشتراک‌گذاری اخبار استفاده کنید. عنوان خبر باید عنوان امبد و خلاصه خبر توضیحات آن باشد. فیلدهایی برای منبع، اعتبار و دسته‌بندی قرار دهید.',
+    'website-bot': 'به عنوان ربات چت وب‌سایت، به شیوه‌ای دوستانه و حرفه‌ای تعامل کنید. هنگام اشتراک‌گذاری اخبار، یک عنوان واضح، خلاصه کوتاه و لینک مستقیم ارائه دهید.',
+    'twitter-bot': 'به عنوان ربات توییتر، برای هر خبر یک رشته توییت (thread) ایجاد کنید. توییت اول باید شامل تیتر و لینک باشد. توییت‌های بعدی باید نکات کلیدی را خلاصه کنند. از هشتگ‌های مرتبط استفاده کنید.',
   },
   display: {
     columns: 2,
@@ -52,6 +56,25 @@ export const INITIAL_SETTINGS: AppSettings = {
       textColor: '#67e8f9',
       hoverColor: '#ffffff',
   },
+  liveNewsSpecifics: {
+    categories: ['ایران', 'جهان'],
+    newsGroups: ['فوری', 'تحلیلی'],
+    regions: ['خاورمیانه'],
+    selectedSources: {},
+    font: {
+      family: 'system-ui, sans-serif',
+      size: 14,
+      color: {
+        from: '#e5e7eb',
+        to: '#d1d5db'
+      }
+    },
+    updates: {
+      autoCheck: true,
+      interval: 60, // minutes
+    },
+    autoSend: false,
+  },
   integrations: {
       telegram: {
           botToken: '',
@@ -59,6 +82,27 @@ export const INITIAL_SETTINGS: AppSettings = {
       },
       discord: {
           webhookUrl: ''
+      },
+      website: {
+          apiUrl: '',
+          apiKey: '',
+          botUserId: '',
+          roomIds: []
+      },
+      twitter: {
+          apiKey: '',
+          apiSecretKey: '',
+          accessToken: '',
+          accessTokenSecret: ''
+      },
+      appwrite: {
+          endpoint: '',
+          projectId: '',
+          apiKey: ''
+      },
+      supabase: {
+          projectUrl: '',
+          anonKey: ''
       }
   },
   database: {
