@@ -1,5 +1,6 @@
 
 
+
 export enum Credibility {
   High = 'بسیار معتبر',
   Medium = 'معتبر',
@@ -228,4 +229,5 @@ export interface AppSettings {
     searchCategories: string[];
     searchRegions: string[];
     allTickerCategories: string[];
+    password?: string;
 }

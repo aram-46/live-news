@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import ThemeSelector from './ThemeSelector';
@@ -15,13 +16,14 @@ import CloudflareSettings from './settings/CloudflareSettings';
 import GitHubSettings from './settings/GitHubSettings';
 import AboutTab from './settings/AboutTab';
 import FontSettingsEditor from './settings/FontSettingsEditor';
+import PasswordSettings from './settings/PasswordSettings';
 
 interface SettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type SettingsTab = 'theme' | 'content' | 'ai' | 'integrations' | 'sources' | 'backend' | 'cloudflare' | 'github' | 'about';
+type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'backend' | 'cloudflare' | 'github' | 'about' | 'security';
 
 const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('content');
@@ -51,6 +53,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('sources', 'منابع')}
         {renderTabButton('ai', 'هوش مصنوعی')}
         {renderTabButton('integrations', 'اتصالات')}
+        {renderTabButton('security', 'امنیت')}
         {renderTabButton('backend', 'بک‌اند و دیتابیس')}
         {renderTabButton('cloudflare', 'کلودفلر')}
         {renderTabButton('github', 'گیت‌هاب')}
@@ -109,6 +112,13 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
             <SourcesManager
                 sources={settings.sources}
                 onSourcesChange={(sources) => handlePartialChange({ sources })}
+            />
+        )}
+
+        {activeTab === 'security' && (
+            <PasswordSettings
+                password={settings.password || ''}
+                onPasswordChange={(password) => handlePartialChange({ password })}
             />
         )}
 

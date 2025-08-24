@@ -1,4 +1,3 @@
-
 // This file centralizes the content for downloadable files to keep components clean.
 
 export const backendFiles = {
@@ -134,6 +133,15 @@ CREATE TABLE IF NOT EXISTS settings (
 -- VALUES ('theme', '{"id":"neon-dreams","name":"رویای نئونی","className":"theme-neon-dreams"}');
 `,
     
+    wranglerToml: `# Cloudflare Worker configuration file
+# This file is used by the Wrangler CLI to deploy your worker.
+# See https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "smart-news-telegram-bot" # You can change this to your preferred worker name
+main = "cloudflare/worker.js"   # Path to your main worker script
+compatibility_date = "2024-05-15"
+`,
+
     workerJs: `/**
  * Cloudflare Worker for a Telegram Bot
  *

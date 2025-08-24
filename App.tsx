@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
@@ -14,6 +15,7 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { INITIAL_SETTINGS } from './data/defaults';
 import DraggableDialog from './components/DraggableDialog';
 import Chatbot from './components/Chatbot';
+import PasswordPrompt from './components/PasswordPrompt';
 
 type View = 'live' | 'search' | 'factcheck' | 'settings' | 'chatbot';
 
@@ -22,6 +24,15 @@ const App: React.FC = () => {
   const [settings, setSettings] = useLocalStorage<AppSettings>('app-settings', INITIAL_SETTINGS);
   const [tickerHeadlines, setTickerHeadlines] = useState<any[]>([]);
   const [dialogUrl, setDialogUrl] = useState<string | null>(null);
+  const [isSettingsLocked, setIsSettingsLocked] = useState(!!settings.password);
+
+  const handleSettingsChange = (newSettings: AppSettings) => {
+    // If password is being set or changed, re-lock the settings for the next visit.
+    if (settings.password !== newSettings.password) {
+      setIsSettingsLocked(!!newSettings.password);
+    }
+    setSettings(newSettings);
+  };
 
   const loadTicker = useCallback(async () => {
       try {
@@ -94,10 +105,17 @@ const App: React.FC = () => {
           />}
         {activeView === 'chatbot' && <Chatbot />}
         {activeView === 'settings' && (
-          <Settings 
-            settings={settings}
-            onSettingsChange={setSettings}
-          />
+          isSettingsLocked ? (
+            <PasswordPrompt
+              password={settings.password || ''}
+              onUnlock={() => setIsSettingsLocked(false)}
+            />
+          ) : (
+            <Settings 
+              settings={settings}
+              onSettingsChange={handleSettingsChange}
+            />
+          )
         )}
       </main>
       

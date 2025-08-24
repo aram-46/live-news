@@ -1,5 +1,6 @@
 
 
+
 import { AppSettings, Theme } from '../types';
 
 export const ALL_THEMES: Theme[] = [
@@ -125,4 +126,5 @@ export const INITIAL_SETTINGS: AppSettings = {
   searchCategories: ['سیاسی', 'اقتصادی', 'ورزشی', 'حوادث', 'فناوری', 'خاورمیانه', 'جهان'],
   searchRegions: ['ایران', 'جهان', 'خاورمیانه'],
   allTickerCategories: ['ایران', 'جهان', 'سیاسی', 'اقتصادی', 'ورزشی', 'فناوری'],
+  password: '',
 };

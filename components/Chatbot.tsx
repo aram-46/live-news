@@ -1,6 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+import { PaperClipIcon, CloseIcon, ClipboardIcon, ShareIcon, CheckCircleIcon } from './icons';
+import { MediaFile } from '../types';
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable not set");
@@ -8,6 +9,10 @@ if (!process.env.API_KEY) {
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const expertSystemInstruction = `You are a friendly and highly knowledgeable expert assistant for the "Smart News Search" application. Your primary goal is to provide comprehensive, clear, and step-by-step help to users. Your responses must be in PERSIAN.
+
+**Your Capabilities:**
+*   You can analyze text prompts.
+*   You can analyze uploaded files, including **images (screenshots), code files (.js, .tsx, .json, etc.), and log files (.log, .txt)**. Use the file as the primary context for the user's question.
 
 **Your Knowledge Base:**
 
@@ -54,7 +59,11 @@ const Chatbot: React.FC = () => {
   const [chatSession, setChatSession] = useState<Chat | null>(null);
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [mediaFile, setMediaFile] = useState<MediaFile | null>(null);
+  const [copyStatus, setCopyStatus] = useState<Record<number, boolean>>({});
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Initialize or re-initialize chat session when tab changes
@@ -67,23 +76,61 @@ const Chatbot: React.FC = () => {
     });
     setChatSession(newChat);
     setMessages([]); // Clear messages when switching context
+    setMediaFile(null); // Clear file on tab switch
   }, [activeTab]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const base64Data = (e.target?.result as string).split(',')[1];
+        setMediaFile({
+            name: file.name,
+            type: file.type,
+            data: base64Data,
+            url: URL.createObjectURL(file)
+        });
+    };
+    reader.readAsDataURL(file);
+    if(event.target) event.target.value = ''; // Reset file input
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userInput.trim() || !chatSession || isLoading) return;
+    if ((!userInput.trim() && !mediaFile) || !chatSession || isLoading) return;
 
-    const userMessage: ChatMessage = { role: 'user', text: userInput };
+    const userMessage: ChatMessage = { role: 'user', text: userInput || `(فایل: ${mediaFile?.name})` };
     setMessages(prev => [...prev, userMessage]);
     setUserInput('');
     setIsLoading(true);
 
     try {
-        const responseStream = await chatSession.sendMessageStream({ message: userInput });
+        const contentParts: any[] = [];
+        
+        // Add file part if it exists (should be first for better context)
+        if (mediaFile && activeTab === 'expert') {
+            contentParts.push({
+                inlineData: {
+                    data: mediaFile.data,
+                    mimeType: mediaFile.type,
+                }
+            });
+        }
+        
+        // Add text part if it exists
+        if (userInput.trim()) {
+            contentParts.push({ text: userInput });
+        }
+        
+        setMediaFile(null); // Clear file from UI after adding to parts
+        
+        const responseStream = await chatSession.sendMessageStream({ message: contentParts });
         
         let modelResponse = '';
         setMessages(prev => [...prev, { role: 'model', text: '...' }]);
@@ -103,6 +150,25 @@ const Chatbot: React.FC = () => {
         setIsLoading(false);
     }
   };
+
+  const handleCopy = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopyStatus({ [index]: true });
+    setTimeout(() => setCopyStatus({ [index]: false }), 2000);
+  };
+
+  const handleDownload = (userMessage: string, modelMessage: string) => {
+      const content = `[USER PROMPT]\n${userMessage}\n\n[ASSISTANT RESPONSE]\n${modelMessage}`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `chatbot-response-${Date.now()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+  };
   
   const renderMessage = (msg: ChatMessage, index: number) => {
     const isUser = msg.role === 'user';
@@ -118,8 +184,26 @@ const Chatbot: React.FC = () => {
         .replace(/\n/g, '<br />');
 
     return (
-        <div key={index} className={`max-w-xl w-fit p-3 rounded-xl ${bubbleClasses}`}>
+        <div key={index} className={`max-w-xl w-fit p-3 rounded-xl relative group ${bubbleClasses}`}>
             <p className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formattedText }} />
+             {!isUser && msg.text !== '...' && (
+                <div className="absolute -top-2 -left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={() => handleCopy(msg.text, index)}
+                        className="p-1.5 bg-gray-800/80 rounded-full text-gray-300 hover:text-white"
+                        title="کپی"
+                    >
+                        {copyStatus[index] ? <CheckCircleIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
+                    </button>
+                    <button
+                        onClick={() => handleDownload(messages[index-1]?.text || "No prompt", msg.text)}
+                        className="p-1.5 bg-gray-800/80 rounded-full text-gray-300 hover:text-white"
+                        title="دانلود به عنوان فایل متنی"
+                    >
+                        <ShareIcon className="w-4 h-4" />
+                    </button>
+                </div>
+            )}
         </div>
     );
   };
@@ -142,11 +226,11 @@ const Chatbot: React.FC = () => {
       <div className="flex-grow p-4 space-y-4 overflow-y-auto flex flex-col">
         {messages.length === 0 && (
             <div className="text-center text-gray-500 m-auto">
-                {activeTab === 'general' ? 'می‌توانید هر سوالی دارید از من بپرسید.' : 'سلام! من دستیار متخصص شما برای این برنامه هستم. چگونه می‌توانم کمکتان کنم؟'}
+                {activeTab === 'general' ? 'می‌توانید هر سوالی دارید از من بپرسید.' : 'سلام! من دستیار متخصص شما برای این برنامه هستم. چگونه می‌توانم کمکتان کنم؟ می‌توانید فایل یا تصویر هم برای تحلیل آپلود کنید.'}
             </div>
         )}
         {messages.map(renderMessage)}
-        {isLoading && messages[messages.length-1].role === 'user' && (
+        {isLoading && messages[messages.length-1]?.role === 'user' && (
              <div className="max-w-xl w-fit p-3 rounded-xl bg-gray-700/50 self-start rounded-bl-none">
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse delay-0"></span>
@@ -157,9 +241,30 @@ const Chatbot: React.FC = () => {
         )}
         <div ref={messagesEndRef} />
       </div>
+        
+      {mediaFile && (
+        <div className="flex-shrink-0 p-2 px-4 border-t border-cyan-400/20">
+            <div className="flex items-center justify-between bg-gray-700/50 p-2 rounded-lg">
+                <span className="text-xs text-gray-300 truncate">فایل ضمیمه شده: {mediaFile.name}</span>
+                <button onClick={() => setMediaFile(null)} className="text-gray-400 hover:text-white"><CloseIcon className="w-4 h-4" /></button>
+            </div>
+        </div>
+      )}
 
       <div className="flex-shrink-0 p-4 border-t border-cyan-400/20">
         <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+            {activeTab === 'expert' && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                className="bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-bold p-2.5 rounded-lg transition"
+                title="ضمیمه کردن فایل"
+              >
+                  <PaperClipIcon className="w-5 h-5" />
+              </button>
+            )}
           <input
             type="text"
             value={userInput}
@@ -170,7 +275,7 @@ const Chatbot: React.FC = () => {
           />
           <button
             type="submit"
-            disabled={isLoading || !userInput.trim()}
+            disabled={isLoading || (!userInput.trim() && !mediaFile)}
             className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 disabled:cursor-not-allowed text-black font-bold py-2 px-4 rounded-lg transition"
           >
             ارسال
