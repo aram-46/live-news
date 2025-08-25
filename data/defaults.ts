@@ -1,7 +1,8 @@
 
 
 
-import { AppSettings, Theme } from '../types';
+
+import { AppSettings, Theme, generateUUID } from '../types';
 
 export const ALL_THEMES: Theme[] = [
   { id: 'base', name: 'پیش‌فرض (اقیانوس)', className: 'theme-base' },
@@ -13,21 +14,21 @@ export const INITIAL_SETTINGS: AppSettings = {
   theme: ALL_THEMES[0],
   sources: {
     'fact-check': [
-      { id: self.crypto.randomUUID(), name: 'دوجداره', field: 'سیاسی، اجتماعی، فکت چک', url: 'http://www.dorjeh.com', activity: 'بررسی اخبار و شایعات، تحلیل منتقد', credibility: 'بالا (شفاف و مستقل)', region: 'خارج از ایران' },
-      { id: self.crypto.randomUUID(), name: 'ویس چک', field: 'فکت چک، شبکه‌های اجتماعی', url: 'http://www.vicecheck.ir', activity: 'بررسی شایعات و اخبار جعلی', credibility: 'بالا (مستقل، تخصصی)', region: 'ایران (فعالیت از خارج)' }
+      { id: generateUUID(), name: 'دوجداره', field: 'سیاسی، اجتماعی، فکت چک', url: 'http://www.dorjeh.com', activity: 'بررسی اخبار و شایعات، تحلیل منتقد', credibility: 'بالا (شفاف و مستقل)', region: 'خارج از ایران' },
+      { id: generateUUID(), name: 'ویس چک', field: 'فکت چک، شبکه‌های اجتماعی', url: 'http://www.vicecheck.ir', activity: 'بررسی شایعات و اخبار جعلی', credibility: 'بالا (مستقل، تخصصی)', region: 'ایران (فعالیت از خارج)' }
     ],
     'news-agencies': [
-      { id: self.crypto.randomUUID(), name: 'خبرگزاری ایسنا', field: 'سیاسی، اجتماعی، علمی', url: 'https://www.isna.ir', activity: 'گزارش‌های نسبتاً بی‌طرف از رویدادهای کشور', credibility: 'بالا (نسبت به داخلی‌ها)', region: 'ایران' },
-      { id: self.crypto.randomUUID(), name: 'بی‌بی‌سی فارسی', field: 'سیاسی، اجتماعی، بین‌المللی', url: 'https://www.bbc.com/persian', activity: 'گزارش‌های تحقیقی، تحلیل بی‌طرف، فکت چک', credibility: 'بسیار بالا (مستقل، بین‌المللی)', region: 'بریتانیا' },
-      { id: self.crypto.randomUUID(), name: 'The New York Times (NYT)', field: 'سیاسی، بین‌المللی، فرهنگی', url: 'https://www.nytimes.com', activity: 'خبر و تحلیل عمیق', credibility: 'بسیار بالا', region: 'ایالات متحده' },
-      { id: self.crypto.randomUUID(), name: 'Reuters', field: 'اقتصاد، بین‌المللی، تجارت', url: 'https://www.reuters.com', activity: 'خبرگزاری بین‌المللی، سریع و دقیق', credibility: 'بسیار بالا', region: 'بریتانیا' },
+      { id: generateUUID(), name: 'خبرگزاری ایسنا', field: 'سیاسی، اجتماعی، علمی', url: 'https://www.isna.ir', activity: 'گزارش‌های نسبتاً بی‌طرف از رویدادهای کشور', credibility: 'بالا (نسبت به داخلی‌ها)', region: 'ایران' },
+      { id: generateUUID(), name: 'بی‌بی‌سی فارسی', field: 'سیاسی، اجتماعی، بین‌المللی', url: 'https://www.bbc.com/persian', activity: 'گزارش‌های تحقیقی، تحلیل بی‌طرف، فکت چک', credibility: 'بسیار بالا (مستقل، بین‌المللی)', region: 'بریتانیا' },
+      { id: generateUUID(), name: 'The New York Times (NYT)', field: 'سیاسی، بین‌المللی، فرهنگی', url: 'https://www.nytimes.com', activity: 'خبر و تحلیل عمیق', credibility: 'بسیار بالا', region: 'ایالات متحده' },
+      { id: generateUUID(), name: 'Reuters', field: 'اقتصاد، بین‌المللی، تجارت', url: 'https://www.reuters.com', activity: 'خبرگزاری بین‌المللی، سریع و دقیق', credibility: 'بسیار بالا', region: 'بریتانیا' },
     ],
     'social-media': [],
     'financial': [
-      { id: self.crypto.randomUUID(), name: 'Bloomberg', field: 'اقتصاد، مالی، بازارهای جهانی', url: 'https://www.bloomberg.com', activity: 'تخصصی در اخبار مالی و تحلیل داده', credibility: 'بسیار بالا', region: 'ایالات متحده' },
+      { id: generateUUID(), name: 'Bloomberg', field: 'اقتصاد، مالی، بازارهای جهانی', url: 'https://www.bloomberg.com', activity: 'تخصصی در اخبار مالی و تحلیل داده', credibility: 'بسیار بالا', region: 'ایالات متحده' },
     ],
     'analytical': [
-      { id: self.crypto.randomUUID(), name: 'The Economist', field: 'سیاست، اقتصاد، تحلیل', url: 'https://www.economist.com', activity: 'تحلیل‌های استراتژیک', credibility: 'بسیار بالا (تحلیلی)', region: 'بریتانیا' },
+      { id: generateUUID(), name: 'The Economist', field: 'سیاست، اقتصاد، تحلیل', url: 'https://www.economist.com', activity: 'تحلیل‌های استراتژیک', credibility: 'بسیار بالا (تحلیلی)', region: 'بریتانیا' },
     ],
   },
   aiInstructions: {

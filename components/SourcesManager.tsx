@@ -1,9 +1,10 @@
 
 
 
+
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Sources, Source, SourceCategory, sourceCategoryLabels } from '../types';
+import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID } from '../types';
 import { findSourcesWithAI, FindSourcesOptions } from '../services/geminiService';
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
 
@@ -86,7 +87,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
             if(existingUrls.has(s.url.toLowerCase().trim())) {
                 skippedCount++;
             } else {
-                sourcesToAdd.push({...s, id: self.crypto.randomUUID()});
+                sourcesToAdd.push({...s, id: generateUUID()});
                 existingUrls.add(s.url.toLowerCase().trim()); // Add to set to prevent duplicates within the same AI response
             }
         });
@@ -180,7 +181,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
                         skippedCount++;
                      } else {
                         newSources[category].push({
-                            id: self.crypto.randomUUID(),
+                            id: generateUUID(),
                             name: row['نام سایت'] || '',
                             field: row['حوزه'] || '',
                             url: url,
@@ -207,7 +208,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
   };
 
   const SourceForm: React.FC<{ category: SourceCategory; source?: Source }> = ({ category, source }) => {
-    const [formData, setFormData] = useState(source || { id: self.crypto.randomUUID(), name: '', field: '', url: '', activity: '', credibility: '', region: '' });
+    const [formData, setFormData] = useState(source || { id: generateUUID(), name: '', field: '', url: '', activity: '', credibility: '', region: '' });
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });

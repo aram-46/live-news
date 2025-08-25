@@ -1,5 +1,19 @@
 
 
+/**
+ * Generates a universally unique identifier (UUID).
+ * Uses the standard `crypto.randomUUID` if available in a secure context,
+ * otherwise falls back to a simple pseudo-random string to ensure
+ * functionality in non-secure contexts (like HTTP) or older browsers.
+ */
+export function generateUUID(): string {
+  if (self.crypto && self.crypto.randomUUID) {
+    return self.crypto.randomUUID();
+  }
+  // Basic fallback for insecure contexts (http) or older browsers
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}
+
 
 export enum Credibility {
   High = 'بسیار معتبر',

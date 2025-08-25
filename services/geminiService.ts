@@ -1,11 +1,8 @@
 
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, AIInstructions, Source, SourceCategory, Sources, TickerSettings, LiveNewsSpecificSettings } from '../types';
-
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -335,10 +332,8 @@ export async function generateEditableListItems(listName: string, existingItems:
 
 export async function testGeminiConnection(): Promise<boolean> {
     try {
-        if (!process.env.API_KEY) {
-            console.error("Gemini API key not found in environment variables.");
-            return false;
-        }
+        // A check for process.env.API_KEY is not needed here because esbuild replaces it.
+        // If it's undefined, the GoogleGenAI constructor will receive an undefined key and the API call will fail gracefully.
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: "test",
