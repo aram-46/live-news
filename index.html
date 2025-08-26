@@ -15,12 +15,6 @@
         0% { transform: translateX(-100%); }
         100% { transform: translateX(100%); }
       }
-      .animate-marquee-left {
-        animation: marquee-left 30s linear infinite;
-      }
-      .animate-marquee-right {
-        animation: marquee-right 30s linear infinite;
-      }
       body {
         background-color: #0a0a0a;
       }
@@ -36,8 +30,7 @@
         --text-secondary: #9ca3af; /* gray-400 */
         --text-accent: #67e8f9; /* cyan-300 */
         --accent-color: #06b6d4; /* cyan-500 */
-        --ticker-text: #67e8f9;
-        --ticker-hover: #ffffff;
+        --accent-shadow-color: #06b6d4;
       }
 
       /* Neon Dreams Theme */
@@ -51,8 +44,7 @@
         --text-secondary: #d8b4fe; /* violet-300 */
         --text-accent: #f472b6; /* pink-400 */
         --accent-color: #ec4899; /* pink-500 */
-        --ticker-text: #f472b6;
-        --ticker-hover: #ffffff;
+        --accent-shadow-color: #ec4899;
       }
 
       /* Solar Flare Theme */
@@ -66,8 +58,63 @@
         --text-secondary: #fed7aa; /* orange-200 */
         --text-accent: #fbbf24; /* amber-400 */
         --accent-color: #f59e0b; /* amber-500 */
-        --ticker-text: #fbbf24;
-        --ticker-hover: #000000;
+        --accent-shadow-color: #f59e0b;
+      }
+      
+      /* New Theme: Sunset Glow */
+      .theme-sunset-glow {
+        --bg-gradient-from: #2d1942;
+        --bg-gradient-via: #5f275e;
+        --bg-gradient-to: rgba(157, 58, 112, 0.5);
+        --header-bg: rgba(45, 25, 66, 0.4);
+        --border-color: rgba(244, 114, 182, 0.3); /* pink-400/30 */
+        --text-primary: #fce7f3; /* pink-50 */
+        --text-secondary: #f9a8d4; /* pink-300 */
+        --text-accent: #c084fc; /* purple-400 */
+        --accent-color: #a855f7; /* purple-500 */
+        --accent-shadow-color: #e879f9;
+      }
+
+      /* New Theme: Citrus Burst */
+      .theme-citrus-burst {
+        --bg-gradient-from: #422006;
+        --bg-gradient-via: #854d0e;
+        --bg-gradient-to: rgba(217, 119, 6, 0.5);
+        --header-bg: rgba(66, 32, 6, 0.4);
+        --border-color: rgba(251, 146, 60, 0.4); /* orange-400/40 */
+        --text-primary: #fefce8;
+        --text-secondary: #fde68a; /* yellow-200 */
+        --text-accent: #f472b6; /* pink-400 */
+        --accent-color: #fbbf24; /* amber-400 */
+        --accent-shadow-color: #fef08a;
+      }
+
+      /* New Theme: Ocean Breeze */
+      .theme-ocean-breeze {
+        --bg-gradient-from: #0c2a4c;
+        --bg-gradient-via: #1d4ed8;
+        --bg-gradient-to: rgba(56, 189, 248, 0.5);
+        --header-bg: rgba(12, 42, 76, 0.4);
+        --border-color: rgba(56, 189, 248, 0.3); /* sky-400/30 */
+        --text-primary: #e0f2fe; /* sky-50 */
+        --text-secondary: #7dd3fc; /* sky-300 */
+        --text-accent: #a5f3fc; /* cyan-200 */
+        --accent-color: #2563eb; /* blue-600 */
+        --accent-shadow-color: #38bdf8;
+      }
+
+      /* New Theme: Crimson Fire */
+      .theme-crimson-fire {
+        --bg-gradient-from: #450a0a;
+        --bg-gradient-via: #991b1b;
+        --bg-gradient-to: rgba(249, 115, 22, 0.5);
+        --header-bg: rgba(69, 10, 10, 0.4);
+        --border-color: rgba(248, 113, 113, 0.3); /* red-400/30 */
+        --text-primary: #fef2f2; /* red-50 */
+        --text-secondary: #fca5a5; /* red-300 */
+        --text-accent: #fb923c; /* orange-400 */
+        --accent-color: #ef4444; /* red-500 */
+        --accent-shadow-color: #f87171;
       }
 
       /* Transparent Gradient Styles */
@@ -78,19 +125,19 @@
       .text-secondary { color: var(--text-secondary); }
       .text-accent { color: var(--text-accent); }
       .accent-bg { background-color: var(--accent-color); }
-      .accent-shadow { box-shadow: 0 0 15px 0 var(--accent-color); }
-      .accent-shadow-sm { box-shadow: 0 0 5px 0 var(--accent-color); }
+      .accent-shadow { box-shadow: 0 0 15px 0 var(--accent-shadow-color); }
+      .accent-shadow-sm { box-shadow: 0 0 5px 0 var(--accent-shadow-color); }
 
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.1.1",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
-    "react/": "https://esm.sh/react@^19.1.1/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.15.0",
+    "react": "https://esm.sh/react@^18.2.0",
+    "react-dom/": "https://esm.sh/react-dom@^18.2.0/",
+    "react/": "https://esm.sh/react@^18.2.0/",
+    "@google/genai": "https://esm.sh/@google/genai@1.15.0",
     "xlsx": "https://esm.sh/xlsx@^0.18.5",
-    "react-draggable": "https://esm.sh/react-draggable@^4.5.0"
+    "react-draggable": "https://esm.sh/react-draggable@^4.4.6"
   }
 }
 </script>

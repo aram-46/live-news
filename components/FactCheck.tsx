@@ -121,9 +121,9 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
     <div className="max-w-4xl mx-auto p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
       <h2 className="text-xl font-bold mb-4 text-cyan-300 flex items-center gap-3">
         <CheckCircleIcon className="w-6 h-6" />
-        فکت چک محتوا
+        فکت چک و ردیابی شایعات
       </h2>
-      <p className="text-sm text-gray-400 mb-6">متن، تصویر، صدا یا ویدئوی مورد نظر خود را برای بررسی اعتبار و منبع، آپلود کنید.</p>
+      <p className="text-sm text-gray-400 mb-6">متن، تصویر، صدا یا ویدئوی مورد نظر خود را برای بررسی اعتبار و **ردیابی منبع اولیه** در شبکه‌های اجتماعی، آپلود کنید.</p>
       
       {renderTabs()}
 

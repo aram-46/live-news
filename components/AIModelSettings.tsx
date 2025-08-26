@@ -33,7 +33,7 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
 
     const handleTestGemini = async () => {
         setGeminiStatus('testing');
-        const success = await testGeminiConnection();
+        const success = await testGeminiConnection(settings.gemini.apiKey);
         setGeminiStatus(success ? 'success' : 'error');
         setTimeout(() => setGeminiStatus('idle'), 4000);
     };
@@ -71,20 +71,31 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
             <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Gemini Settings */}
-                <div className="space-y-4 p-4 border border-gray-700 rounded-lg bg-gray-900/30">
-                    <h3 className="flex items-center gap-2 text-lg font-semibold text-cyan-200">
-                        <BrainIcon className="w-6 h-6"/>
-                        <span>Google Gemini</span>
+                <div className="space-y-4 p-4 border border-cyan-500 rounded-lg bg-gray-900/30 ring-2 ring-cyan-500/50">
+                    <h3 className="flex items-center justify-between text-lg font-semibold text-cyan-200">
+                        <div className="flex items-center gap-2">
+                            <BrainIcon className="w-6 h-6"/>
+                            <span>Google Gemini (اصلی)</span>
+                        </div>
+                        <span className="text-xs bg-cyan-500/20 text-cyan-200 px-2 py-1 rounded-full">فعال</span>
                     </h3>
                     <div>
-                        <label className="block text-sm font-medium text-cyan-300 mb-2">کلید API</label>
-                        <div className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-gray-400 p-2.5 text-sm italic">
-                            از متغیرهای محیطی (environment variable) بارگذاری شده است.
-                        </div>
-                         <p className="text-xs text-gray-500 mt-1">برای امنیت، کلید API اصلی برنامه از کد جدا نگهداری می‌شود.</p>
+                        <label htmlFor="gemini-apiKey" className="block text-sm font-medium text-cyan-300 mb-2">کلید API</label>
+                        <input
+                            id="gemini-apiKey"
+                            name="apiKey"
+                            type="password"
+                            value={settings.gemini.apiKey}
+                            onChange={(e) => handleApiKeyChange('gemini', e, setGeminiStatus)}
+                            placeholder="کلید API جمینای خود را وارد کنید"
+                            className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5"
+                        />
+                         <p className="text-xs text-amber-400 mt-2">
+                            <strong>هشدار امنیتی:</strong> ذخیره کلید API در مرورگر امن نیست. هر کسی با دسترسی به این کامپیوتر می‌تواند آن را مشاهده کند. این روش فقط برای استفاده شخصی و تست مناسب است.
+                        </p>
                     </div>
                      <div className="flex items-center gap-2">
-                        <button onClick={handleTestGemini} disabled={geminiStatus === 'testing'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
+                        <button onClick={handleTestGemini} disabled={!settings.gemini.apiKey || geminiStatus === 'testing'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
                         <div className="w-5 h-5">{renderStatusIcon(geminiStatus)}</div>
                     </div>
                 </div>

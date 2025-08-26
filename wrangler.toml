@@ -1,7 +1,0 @@
-# Cloudflare Worker configuration file
-# This file is used by the Wrangler CLI to deploy your worker.
-# See https://developers.cloudflare.com/workers/wrangler/configuration/
-
-name = "smart-news-telegram-bot" # You can change this to your preferred worker name
-main = "cloudflare/worker.js"   # Path to your main worker script
-compatibility_date = "2024-05-15"

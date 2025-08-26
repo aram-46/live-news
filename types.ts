@@ -76,6 +76,59 @@ export interface FactCheckResult {
     relatedSources: FactCheckSource[];
 }
 
+export interface ChartData {
+    type: 'bar' | 'pie' | 'line' | 'table';
+    title: string;
+    labels: string[];
+    datasets: {
+        label: string;
+        data: number[];
+        color?: string; // Optional: for multi-color charts
+    }[];
+}
+
+export interface StructuredSource {
+    name: string;
+    link: string;
+    publicationDate: string;
+    author: string;
+    credibility: string;
+}
+
+export interface StructuredAnalysis {
+    proponents: StanceHolder[];
+    opponents: StanceHolder[];
+    acceptancePercentage: number;
+    currentValidity: string;
+    alternativeResults?: string;
+}
+
+export interface StatisticsResult {
+    title: string;
+    summary: string;
+    keywords: string[];
+    chart: ChartData;
+    sourceDetails: StructuredSource & {
+        methodology: string;
+        sampleSize: string;
+    };
+    analysis: StructuredAnalysis;
+    relatedSuggestions: string[];
+    references: FactCheckSource[];
+}
+
+export interface ScientificArticleResult {
+    title: string;
+    summary: string;
+    keywords: string[];
+    sourceDetails: StructuredSource & {
+        researchType: string;
+        targetAudience: string;
+    };
+    analysis: StructuredAnalysis;
+    relatedSuggestions: string[];
+    references: FactCheckSource[];
+}
 
 export type MediaFile = {
     name: string;
@@ -109,13 +162,16 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
-  'fact-check': 'دستورالعمل فکت چک',
+  'fact-check': 'دستورالعمل فکت چک و ردیابی شایعه',
   'news-search': 'دستورالعمل جستجوی خبر',
   'news-display': 'دستورالعمل نمایش اخبار زنده',
   'news-ticker': 'دستورالعمل نوار اخبار متحرک',
+  'statistics-search': 'دستورالعمل جستجوی آمار',
+  'science-search': 'دستورالعمل جستجوی علمی',
+  'religion-search': 'دستورالعمل جستجوی دینی',
   'telegram-bot': 'رفتار ربات تلگرام',
   'discord-bot': 'رفتار ربات دیسکورد',
   'website-bot': 'رفتار ربات وب‌سایت',
@@ -147,6 +203,10 @@ export interface TickerSettings {
     direction: 'left' | 'right';
     textColor: string;
     hoverColor: string;
+    linkColor: string;
+    borderColor: string;
+    pauseOnHover: boolean;
+    effect: 'none' | 'glow';
 }
 
 export interface WebsiteSettings {
@@ -199,6 +259,7 @@ export interface AIProviderSettings {
 }
 
 export interface AppAIModelSettings {
+    gemini: AIProviderSettings;
     openai: AIProviderSettings;
     openrouter: AIProviderSettings;
     groq: AIProviderSettings;
@@ -228,7 +289,6 @@ export interface LiveNewsSpecificSettings {
   autoSend: boolean;
 }
 
-
 export interface AppSettings {
     theme: Theme;
     sources: Sources;
@@ -242,6 +302,10 @@ export interface AppSettings {
     customCss: string;
     searchCategories: string[];
     searchRegions: string[];
+    searchSources: string[];
     allTickerCategories: string[];
     password?: string;
+    structuredSearchDomains: string[];
+    structuredSearchRegions: string[];
+    structuredSearchSources: string[];
 }

@@ -396,6 +396,7 @@ main();
 - **ارسال به شبکه‌های اجتماعی:** اتصال به تلگرام، دیسکورد و توییتر برای ارسال خودکار اخبار.
 - **اتصال به وب‌سایت:** یکپارچه‌سازی با پلتفرم چت Grupo.
 - **اتصال به BaaS:** تنظیمات اولیه برای اتصال به پلتفرم‌های Appwrite و Supabase.
+- **ربات دیسکورد:** ارائه کد کامل و راهنمای راه‌اندازی یک ربات دیسکورد با تمام قابلیت‌های برنامه که روی **Cloudflare Workers** اجرا می‌شود.
 
 ## زیرساخت و قابلیت‌های استقرار
 
@@ -411,5 +412,739 @@ main();
 ### ۳. یکپارچه‌سازی با GitHub
 - ارائه فایل‌های نمونه برای **GitHub Actions** جهت اجرای وظایف خودکار (مانند جمع‌آوری اخبار روزانه).
 - راهنمای کامل استفاده در تب **گیت‌هاب**.
-`
+`,
+
+    // --- NEW DISCORD BOT FILES ---
+
+    discordBotGuideMd: `# راهنمای کامل راه‌اندازی و استفاده از ربات دیسکورد
+
+این راهنما شما را قدم به قدم برای ساخت، استقرار و استفاده از ربات دیسکورد هوشمند راهنمایی می‌کند. این ربات بر روی زیرساخت **Cloudflare Workers** اجرا می‌شود که بسیار بهینه و مقرون به صرفه است.
+
+---
+
+### بخش اول: ساخت اپلیکیشن ربات در دیسکورد
+
+در این مرحله، هویت ربات خود را در دیسکورد ایجاد می‌کنیم.
+
+1.  **ورود به پورتال توسعه‌دهندگان:** به [Discord Developer Portal](https://discord.com/developers/applications) بروید و با اکانت دیسکورد خود وارد شوید.
+
+2.  **ساخت اپلیکیشن جدید:**
+    *   روی دکمه **"New Application"** در گوشه بالا سمت راست کلیک کنید.
+    *   یک نام برای اپلیکیشن خود انتخاب کنید (مثلاً "Smart News Bot") و تیک موافقت با قوانین را زده و روی **"Create"** کلیک کنید.
+
+3.  **دریافت اطلاعات کلیدی:**
+    *   در صفحه اپلیکیشن، مقادیر **\`APPLICATION ID\`** و **\`PUBLIC KEY\`** را کپی کرده و در جایی امن ذخیره کنید. این مقادیر را در مراحل بعد نیاز خواهید داشت.
+
+4.  **تبدیل اپلیکیشن به ربات:**
+    *   از منوی سمت چپ، به تب **"Bot"** بروید.
+    *   روی دکمه **"Add Bot"** و سپس **"Yes, do it!"** کلیک کنید.
+    *   در زیر نام ربات، روی **"Reset Token"** کلیک کنید تا توکن ربات شما نمایش داده شود. این توکن مانند رمز عبور ربات شماست. آن را کپی کرده و در جایی **بسیار امن** ذخیره کنید. **این توکن را با هیچکس به اشتراک نگذارید.**
+
+5.  **دعوت ربات به سرور:**
+    *   از منوی سمت چپ به تب **"OAuth2"** و سپس زیرمنوی **"URL Generator"** بروید.
+    *   در بخش **SCOPES**، تیک **\`bot\`** و **\`applications.commands\`** را بزنید.
+    *   در بخش **BOT PERMISSIONS** که ظاهر می‌شود، دسترسی‌های زیر را به ربات بدهید:
+        *   \`Send Messages\`
+        *   \`Embed Links\`
+        *   \`Attach Files\`
+        *   \`Read Message History\`
+    *   یک لینک در پایین صفحه ساخته می‌شود. آن را کپی کرده، در مرورگر خود باز کنید و سروری که می‌خواهید ربات را به آن اضافه کنید، انتخاب نمایید.
+
+---
+
+### بخش دوم: ثبت دستورات اسلش (Slash Commands)
+
+این مرحله را فقط **یک بار** باید انجام دهید تا دستورات ربات در دیسکورد ثبت شوند.
+
+1.  **دانلود فایل‌ها:** فایل‌های **\`register-commands.js\`** و **\`package.json\`** را از این صفحه دانلود کنید و در یک پوشه جدید روی کامپیوتر خود قرار دهید.
+
+2.  **ایجاد فایل .env:** در همان پوشه، یک فایل جدید با نام \`.env\` بسازید و اطلاعاتی که در بخش اول ذخیره کردید را به شکل زیر در آن وارد کنید:
+    \`\`\`
+    DISCORD_APP_ID=YOUR_APPLICATION_ID
+    DISCORD_BOT_TOKEN=YOUR_BOT_TOKEN
+    \`\`\`
+
+3.  **نصب وابستگی‌ها:** ترمینال را در آن پوشه باز کرده و دستور زیر را اجرا کنید:
+    \`\`\`bash
+    npm install
+    \`\`\`
+
+4.  **اجرای اسکریپت:** دستور زیر را در ترمینال اجرا کنید:
+    \`\`\`bash
+    node register-commands.js
+    \`\`\`
+    اگر پیام "Successfully registered commands!" را دیدید، دستورات با موفقیت ثبت شده‌اند.
+
+---
+
+### بخش سوم: استقرار ربات روی Cloudflare Workers
+
+حالا کد اصلی ربات را روی اینترنت مستقر می‌کنیم.
+
+1.  **دانلود فایل ورکر:** فایل **\`worker.js\`** را از این صفحه دانلود کنید.
+
+2.  **ورود به کلودفلر:** وارد داشبورد [Cloudflare](https://dash.cloudflare.com/) خود شوید و از منوی سمت چپ به بخش **Workers & Pages** بروید.
+
+3.  **ساخت سرویس ورکر:**
+    *   روی **"Create application"** و سپس تب **"Workers"** کلیک کرده و **"Create worker"** را بزنید.
+    *   یک نام برای ورکر خود انتخاب کنید (مثلاً \`discord-news-bot\`) و روی **"Deploy"** کلیک کنید.
+
+4.  **بارگذاری کد:**
+    *   پس از ساخت، روی **"Configure worker"** و سپس **"Quick edit"** کلیک کنید.
+    *   تمام محتوای موجود در ویرایشگر را پاک کرده و محتوای فایل \`worker.js\` را که دانلود کرده‌اید، در آن جای‌گذاری کنید.
+    *   روی **"Save and deploy"** کلیک کنید.
+
+5.  **تنظیم کلیدهای محرمانه (Secrets):**
+    *   به صفحه تنظیمات ورکر خود برگردید (از داشبورد اصلی روی ورکر خود کلیک کنید).
+    *   به تب **"Settings"** و سپس زیربخش **"Variables"** بروید.
+    *   در قسمت **"Environment Variables"**، روی **"Add variable"** کلیک کرده و سه متغیر محرمانه زیر را **با فعال کردن گزینه Encrypt** اضافه کنید:
+        *   \`DISCORD_PUBLIC_KEY\` (کلید عمومی که در بخش اول ذخیره کردید)
+        *   \`DISCORD_BOT_TOKEN\` (توکن رباتی که در بخش اول ذخیره کردید)
+        *   \`GEMINI_API_KEY\` (کلید API جمینای خود)
+
+6.  **دریافت آدرس ورکر:** آدرس ورکر شما در بالای صفحه داشبورد ورکر قابل مشاهده است (مثلاً \`https://your-name.workers.dev\`). آن را کپی کنید.
+
+---
+
+### بخش چهارم: اتصال نهایی دیسکورد به ورکر
+
+این آخرین مرحله برای فعال‌سازی ربات است.
+
+1.  **بازگشت به پورتال توسعه‌دهندگان:** به صفحه اپلیکیشن خود در [Discord Developer Portal](https://discord.com/developers/applications) برگردید.
+2.  **وارد کردن آدرس:** در تب **"General Information"**، فیلدی با نام **\`INTERACTIONS ENDPOINT URL\`** وجود دارد. آدرس ورکر کلودفلر خود را که در مرحله قبل کپی کردید، در این فیلد جای‌گذاری کنید و روی **"Save Changes"** کلیک کنید.
+
+**تبریک! ربات شما اکنون فعال و آماده استفاده در سرور دیسکورد است.**
+
+---
+
+### بخش پنجم: لیست دستورات و نحوه استفاده
+
+در سرور دیسکورد خود می‌توانید از دستورات زیر استفاده کنید:
+
+*   **\`/help\`**
+    *   **توضیح:** نمایش لیست تمام دستورات و راهنمای استفاده از آن‌ها.
+
+*   **\`/search [query] [category] [region] [source]\`**
+    *   **توضیح:** جستجوی پیشرفته اخبار. همه پارامترها اختیاری هستند.
+    *   **مثال:** \`/search query: تحولات خاورمیانه category: سیاسی\`
+
+*   **\`/factcheck [claim] [image]\`**
+    *   **توضیح:** بررسی اعتبار یک ادعا یا تصویر.
+    *   **مثال ۱ (متن):** \`/factcheck claim: ادعای مربوط به رویداد اخیر\`
+    *   **مثال ۲ (تصویر):** \`/factcheck image: [فایل تصویر خود را آپلود کنید]\`
+
+*   **\`/stats [topic]\`**
+    *   **توضیح:** جستجوی آمار و داده‌های معتبر در مورد یک موضوع.
+    *   **مثال:** \`/stats topic: نرخ تورم در ایران در سال گذشته\`
+
+*   **\`/science [topic]\`**
+    *   **توضیح:** یافتن مقالات و تحقیقات علمی مرتبط با یک موضوع.
+    *   **مثال:** \`/science topic: آخرین تحقیقات در مورد سیاهچاله‌ها\`
+
+*   **\`/religion [topic]\`**
+    *   **توضیح:** جستجو در منابع معتبر دینی در مورد یک موضوع.
+    *   **مثال:** \`/religion topic: تاریخچه ماه رمضان\`
+`,
+
+    discordBotWorkerJs: `// Import the discord-interactions library
+import { InteractionResponseType, InteractionType, verifyKey } from 'discord-interactions';
+// Import the Gemini AI library
+import { GoogleGenAI } from '@google/genai';
+
+// --- UTILITY AND HELPER FUNCTIONS ---
+
+/**
+ * A simple utility function to get an option value from the interaction data.
+ * @param {object} interaction - The interaction object from Discord.
+ * @param {string} name - The name of the option to retrieve.
+ * @returns {string | undefined} The value of the option or undefined if not found.
+ */
+function getOption(interaction, name) {
+  const options = interaction.data.options;
+  if (options) {
+    const option = options.find((opt) => opt.name === name);
+    if (option) {
+      return option.value;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * A utility function to get an attachment from the interaction data.
+ * @param {object} interaction - The interaction object from Discord.
+ * @param {string} name - The name of the attachment option.
+ * @returns {object | undefined} The attachment object or undefined.
+ */
+function getAttachment(interaction, name) {
+    const options = interaction.data.options;
+    if (options) {
+        const option = options.find((opt) => opt.name === name);
+        if (option && interaction.data.resolved && interaction.data.resolved.attachments) {
+            return interaction.data.resolved.attachments[option.value];
+        }
+    }
+    return undefined;
+}
+
+
+/**
+ * Converts an image from a URL to a base64 string.
+ * @param {string} url - The URL of the image.
+ * @returns {Promise<{data: string, mimeType: string} | null>} Base64 data and MIME type.
+ */
+async function urlToGenerativePart(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(\`Failed to fetch image: \${response.statusText}\`);
+        }
+        const mimeType = response.headers.get('content-type');
+        const buffer = await response.arrayBuffer();
+        const data = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+        return { data, mimeType };
+    } catch (error) {
+        console.error('Error converting URL to generative part:', error);
+        return null;
+    }
+}
+
+// --- GEMINI API INTERACTION FUNCTIONS ---
+
+// NOTE: The prompts and schemas below are adapted from the main web application's
+// geminiService.ts file to work within this JavaScript worker environment.
+
+/**
+ * Fetches news articles from Gemini based on filters.
+ * @param {object} env - The Cloudflare worker environment/secrets.
+ * @param {object} filters - The search filters.
+ * @returns {Promise<object[]>} A promise that resolves to an array of news articles.
+ */
+async function fetchNews(env, filters) {
+  const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+  const prompt = \`
+    IMPORTANT: All output text (titles, summaries, etc.) MUST be in Persian.
+    Please find the top 5 recent news articles based on these criteria for a Persian-speaking user.
+    - Search Query: "\${filters.query || 'مهمترین اخبار روز'}"
+    - Category: "\${filters.category || 'any'}"
+    - Region: "\${filters.region || 'any'}"
+    - Source: "\${filters.source || 'any reputable source'}"
+    For each article, you MUST provide a relevant image URL.
+  \`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              title: { type: 'STRING' },
+              summary: { type: 'STRING' },
+              source: { type: 'STRING' },
+              publicationTime: { type: 'STRING' },
+              credibility: { type: 'STRING' },
+              link: { type: 'STRING' },
+              category: { type: 'STRING' },
+              imageUrl: { type: 'STRING' },
+            },
+          },
+        },
+      },
+    });
+    return JSON.parse(response.text.trim());
+  } catch (error) {
+    console.error("Error fetching news from Gemini:", error);
+    return null;
+  }
+}
+
+/**
+ * Performs a fact-check using Gemini.
+ * @param {object} env - The Cloudflare worker environment/secrets.
+ * @param {string} claim - The text claim to check.
+ * @param {object} imageFile - The image file to check.
+ * @returns {Promise<object>} A promise that resolves to the fact-check result.
+ */
+async function factCheck(env, claim, imageFile) {
+    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    const textPrompt = \`
+        As a world-class investigative journalist, conduct a deep analysis of the following content. Your entire output MUST be in Persian and structured as JSON.
+        **Your Mission:**
+        1.  **Trace the Origin:** Find the EARLIEST verifiable instance of this claim/media.
+        2.  **Analyze the Source:** Evaluate the credibility of the original source.
+        3.  **Verify the Content:** Fact-check the claim using independent, high-credibility sources.
+        4.  **Summarize Findings:** Provide a clear, concise verdict and summary.
+        **Content for Analysis:**
+        - Text Context: "\${claim || 'No text provided, analyze the image.'}"
+    \`;
+
+    const contentParts = [{ text: textPrompt }];
+    if (imageFile) {
+        contentParts.push({
+            inlineData: {
+                data: imageFile.data,
+                mimeType: imageFile.mimeType,
+            }
+        });
+    }
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: contentParts },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: 'OBJECT',
+                    properties: {
+                        overallCredibility: { type: 'STRING', enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'] },
+                        summary: { type: 'STRING' },
+                        originalSource: {
+                            type: 'OBJECT',
+                            properties: {
+                                name: { type: 'STRING' },
+                                link: { type: 'STRING' },
+                                publicationDate: { type: 'STRING' },
+                            },
+                        },
+                    },
+                }
+            }
+        });
+        return JSON.parse(response.text.trim());
+    } catch (error) {
+        console.error("Error during fact-check from Gemini:", error);
+        return null;
+    }
+}
+
+
+/**
+ * Fetches structured data (stats, science, religion) from Gemini.
+ * @param {object} env - The Cloudflare worker environment/secrets.
+ * @param {string} topic - The topic to search for.
+ * @param {string} type - The type of search ('stats', 'science', 'religion').
+ * @returns {Promise<object>} A promise that resolves to the structured result.
+ */
+async function fetchStructuredData(env, topic, type) {
+    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    let prompt;
+    let schema;
+
+    if (type === 'stats') {
+        prompt = \`Find the most reliable statistical data for the query "\${topic}". Format it as JSON. The entire output must be in Persian.\`;
+        schema = {
+            type: 'OBJECT',
+            properties: {
+                title: { type: 'STRING' },
+                summary: { type: 'STRING' },
+                sourceDetails: {
+                    type: 'OBJECT',
+                    properties: {
+                        name: { type: 'STRING' },
+                        link: { type: 'STRING' },
+                        publicationDate: { type: 'STRING' },
+                    },
+                },
+            },
+        };
+    } else { // Science and Religion share a similar structure
+        prompt = \`Find a key scientific paper or religious text related to "\${topic}". Prioritize academic or primary sources. Format it as JSON. The entire output must be in Persian.\`;
+         schema = {
+            type: 'OBJECT',
+            properties: {
+                title: { type: 'STRING' },
+                summary: { type: 'STRING' },
+                sourceDetails: {
+                    type: 'OBJECT',
+                    properties: {
+                        name: { type: 'STRING' },
+                        link: { type: 'STRING' },
+                        author: { type: 'STRING' },
+                    },
+                },
+            },
+        };
+    }
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: { responseMimeType: "application/json", responseSchema: schema }
+        });
+        return JSON.parse(response.text.trim());
+    } catch (error) {
+        console.error(\`Error fetching structured data (\${type}) from Gemini:\`, error);
+        return null;
+    }
+}
+
+
+// --- DISCORD RESPONSE FORMATTING FUNCTIONS ---
+
+/**
+ * Creates an error embed for Discord.
+ * @param {string} message - The error message to display.
+ * @returns {object} The Discord embed object.
+ */
+function createErrorEmbed(message) {
+  return {
+    type: 4, // Use 4 for channel message with source
+    data: {
+      embeds: [{
+        title: 'خطا',
+        description: message,
+        color: 0xFF0000, // Red
+      }],
+    },
+  };
+}
+
+/**
+ * Creates a help embed listing all commands.
+ * @returns {object} The Discord embed object.
+ */
+function createHelpEmbed() {
+    return {
+        type: 4,
+        data: {
+            embeds: [{
+                title: "راهنمای ربات هوشمند اخبار",
+                description: "از دستورات زیر برای استفاده از امکانات ربات استفاده کنید:",
+                color: 0x00A0E8,
+                fields: [
+                    { name: "/search [query] [category] [region] [source]", value: "جستجوی پیشرفته اخبار. همه پارامترها اختیاری هستند.", inline: false },
+                    { name: "/factcheck [claim] [image]", value: "بررسی اعتبار یک ادعا (متنی) یا یک تصویر (فایل).", inline: false },
+                    { name: "/stats [topic]", value: "جستجوی آمار و داده‌های معتبر در مورد یک موضوع.", inline: false },
+                    { name: "/science [topic]", value: "یافتن مقالات و تحقیقات علمی مرتبط با یک موضوع.", inline: false },
+                    { name: "/religion [topic]", value: "جستجو در منابع معتبر دینی در مورد یک موضوع.", inline: false },
+                    { name: "/help", value: "نمایش این پیام راهنما.", inline: false },
+                ]
+            }]
+        }
+    };
+}
+
+
+// --- MAIN WORKER LOGIC ---
+
+export default {
+  async fetch(request, env, ctx) {
+    const signature = request.headers.get('x-signature-ed25519');
+    const timestamp = request.headers.get('x-signature-timestamp');
+    const body = await request.text();
+    const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
+    
+    if (!isValidRequest) {
+      return new Response('Invalid request signature', { status: 401 });
+    }
+
+    const interaction = JSON.parse(body);
+
+    if (interaction.type === InteractionType.PING) {
+      return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+      const commandName = interaction.data.name;
+
+        // Defer response to avoid timeout
+        ctx.waitUntil((async () => {
+            let responseEmbed;
+
+            try {
+                switch (commandName) {
+                    case 'search': {
+                        const filters = {
+                            query: getOption(interaction, 'query'),
+                            category: getOption(interaction, 'category'),
+                            region: getOption(interaction, 'region'),
+                            source: getOption(interaction, 'source'),
+                        };
+                        const news = await fetchNews(env, filters);
+                        if (news && news.length > 0) {
+                             responseEmbed = {
+                                embeds: news.slice(0, 5).map(article => ({
+                                    title: article.title,
+                                    description: article.summary,
+                                    url: article.link,
+                                    color: 0x06b6d4,
+                                    thumbnail: { url: article.imageUrl },
+                                    fields: [
+                                        { name: 'منبع', value: article.source, inline: true },
+                                        { name: 'اعتبار', value: article.credibility, inline: true },
+                                        { name: 'دسته‌بندی', value: article.category, inline: true },
+                                    ],
+                                    footer: { text: article.publicationTime }
+                                }))
+                            };
+                        } else {
+                           responseEmbed = { embeds: [{ title: 'نتیجه‌ای یافت نشد', description: 'جستجوی شما نتیجه‌ای در بر نداشت. لطفاً دوباره تلاش کنید.', color: 0xFFCC00 }]};
+                        }
+                        break;
+                    }
+                     case 'factcheck': {
+                        const claim = getOption(interaction, 'claim');
+                        const imageAttachment = getAttachment(interaction, 'image');
+                        let imageFile = null;
+                        if (imageAttachment) {
+                           imageFile = await urlToGenerativePart(imageAttachment.url);
+                        }
+                        if (!claim && !imageFile) {
+                           responseEmbed = { embeds: [{ title: 'ورودی نامعتبر', description: 'لطفاً یک ادعای متنی یا یک فایل تصویر برای بررسی ارسال کنید.', color: 0xFFCC00 }]};
+                           break;
+                        }
+
+                        const result = await factCheck(env, claim, imageFile);
+                        if (result) {
+                            const colorMap = { 'بسیار معتبر': 0x00FF00, 'معتبر': 0xFFFF00, 'نیازمند بررسی': 0xFF0000 };
+                             responseEmbed = { embeds: [{
+                                title: \`نتیجه فکت چک: \${result.overallCredibility}\`,
+                                description: result.summary,
+                                color: colorMap[result.overallCredibility] || 0x808080,
+                                fields: [
+                                    { name: 'منبع اولیه', value: \`[\${result.originalSource.name}](\${result.originalSource.link})\`, inline: true },
+                                    { name: 'تاریخ انتشار', value: result.originalSource.publicationDate, inline: true },
+                                ]
+                            }]};
+                        } else {
+                             responseEmbed = { embeds: [{ title: 'خطا در بررسی', description: 'متاسفانه در حال حاضر امکان بررسی این مورد وجود ندارد.', color: 0xFF0000 }]};
+                        }
+                        break;
+                    }
+                    case 'stats':
+                    case 'science':
+                    case 'religion': {
+                        const topic = getOption(interaction, 'topic');
+                        const result = await fetchStructuredData(env, topic, commandName);
+                         if (result) {
+                            const fields = [];
+                            if (result.sourceDetails.name) fields.push({ name: 'منبع', value: \`[\${result.sourceDetails.name}](\${result.sourceDetails.link})\`, inline: true });
+                            if (result.sourceDetails.publicationDate) fields.push({ name: 'تاریخ انتشار', value: result.sourceDetails.publicationDate, inline: true });
+                            if (result.sourceDetails.author) fields.push({ name: 'نویسنده', value: result.sourceDetails.author, inline: true });
+                            
+                            responseEmbed = { embeds: [{
+                                title: result.title,
+                                description: result.summary,
+                                color: 0x8b5cf6, // Purple
+                                fields: fields,
+                            }]};
+                        } else {
+                           responseEmbed = { embeds: [{ title: 'نتیجه‌ای یافت نشد', description: 'جستجوی شما نتیجه‌ای در بر نداشت.', color: 0xFFCC00 }]};
+                        }
+                        break;
+                    }
+                    case 'help': {
+                        // This command is handled synchronously below, but we can have a case for it here too.
+                        break;
+                    }
+                    default:
+                        responseEmbed = { embeds: [{ title: 'دستور نامعتبر', description: 'این دستور شناسایی نشد.', color: 0xFF0000 }] };
+                        break;
+                }
+            } catch (e) {
+                console.error(e);
+                responseEmbed = { embeds: [{ title: 'خطای داخلی', description: 'یک خطای پیش‌بینی نشده در ربات رخ داد.', color: 0xFF0000 }] };
+            }
+
+             // Edit the original deferred message with the result
+            const followupUrl = \`https://discord.com/api/v10/webhooks/\${env.DISCORD_APP_ID}/\${interaction.token}/messages/@original\`;
+            await fetch(followupUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(responseEmbed),
+            });
+        })());
+
+        // For commands that can respond instantly like /help
+        if (interaction.data.name === 'help') {
+             return new Response(JSON.stringify(createHelpEmbed()), { headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // Send a deferred response to show "Bot is thinking..."
+        return new Response(JSON.stringify({ type: 5 }), { headers: { 'Content-Type': 'application/json' } });
+
+    }
+
+    return new Response('Unhandled interaction type', { status: 400 });
+  },
+};
+`,
+
+    discordBotRegisterCommandsJs: `// This is a script to register your bot's slash commands with Discord.
+// You only need to run this ONCE from your local machine, not on the server.
+
+// How to run:
+// 1. Make sure you have Node.js installed.
+// 2. Create a file named ".env" in the same directory as this script.
+// 3. Add your Discord App ID and Bot Token to the .env file like this:
+//    DISCORD_APP_ID=YOUR_APPLICATION_ID
+//    DISCORD_BOT_TOKEN=YOUR_BOT_TOKEN
+// 4. Run 'npm install' to install dependencies.
+// 5. Run 'node register-commands.js' in your terminal.
+
+require('dotenv').config();
+const fetch = require('node-fetch');
+
+const { DISCORD_APP_ID, DISCORD_BOT_TOKEN } = process.env;
+
+if (!DISCORD_APP_ID || !DISCORD_BOT_TOKEN) {
+  throw new Error("DISCORD_APP_ID and DISCORD_BOT_TOKEN must be set in your .env file.");
+}
+
+const commands = [
+  {
+    name: 'help',
+    description: 'نمایش لیست تمام دستورات و راهنمای ربات',
+  },
+  {
+    name: 'search',
+    description: 'جستجوی پیشرفته اخبار',
+    options: [
+      {
+        name: 'query',
+        description: 'موضوع یا کلیدواژه جستجو',
+        type: 3, // STRING
+        required: true,
+      },
+      {
+        name: 'category',
+        description: 'دسته‌بندی خبر (مثال: سیاسی)',
+        type: 3,
+        required: false,
+      },
+      {
+        name: 'region',
+        description: 'منطقه جغرافیایی (مثال: خاورمیانه)',
+        type: 3,
+        required: false,
+      },
+      {
+        name: 'source',
+        description: 'نوع منبع (مثال: خارجی)',
+        type: 3,
+        required: false,
+      },
+    ],
+  },
+  {
+    name: 'factcheck',
+    description: 'بررسی اعتبار یک ادعا یا یک تصویر',
+    options: [
+      {
+        name: 'claim',
+        description: 'ادعای متنی که می‌خواهید بررسی شود',
+        type: 3, // STRING
+        required: false,
+      },
+      {
+        name: 'image',
+        description: 'تصویری که می‌خواهید بررسی و ردیابی شود',
+        type: 11, // ATTACHMENT
+        required: false,
+      },
+    ],
+  },
+  {
+    name: 'stats',
+    description: 'جستجوی آمار و داده‌های معتبر در مورد یک موضوع',
+    options: [
+      {
+        name: 'topic',
+        description: 'موضوع مورد نظر برای یافتن آمار',
+        type: 3, // STRING
+        required: true,
+      },
+    ],
+  },
+  {
+    name: 'science',
+    description: 'یافتن مقالات و تحقیقات علمی مرتبط با یک موضوع',
+    options: [
+      {
+        name: 'topic',
+        description: 'موضوع علمی مورد نظر',
+        type: 3, // STRING
+        required: true,
+      },
+    ],
+  },
+   {
+    name: 'religion',
+    description: 'جستجو در منابع معتبر دینی در مورد یک موضوع',
+    options: [
+      {
+        name: 'topic',
+        description: 'موضوع دینی مورد نظر',
+        type: 3, // STRING
+        required: true,
+      },
+    ],
+  },
+];
+
+const url = \`https://discord.com/api/v10/applications/\${DISCORD_APP_ID}/commands\`;
+
+async function registerCommands() {
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': \`Bot \${DISCORD_BOT_TOKEN}\`,
+      },
+      body: JSON.stringify(commands),
+    });
+
+    if (response.ok) {
+      console.log('Successfully registered commands!');
+      const data = await response.json();
+      console.log(JSON.stringify(data, null, 2));
+    } else {
+      console.error('Error registering commands:');
+      const error = await response.json();
+      console.error(JSON.stringify(error, null, 2));
+    }
+  } catch (error) {
+    console.error('Request failed:', error);
+  }
+}
+
+registerCommands();
+`,
+    discordBotPackageJson: `{
+  "name": "discord-bot-command-installer",
+  "version": "1.0.0",
+  "description": "A script to register slash commands for the Smart News Discord bot.",
+  "main": "register-commands.js",
+  "scripts": {
+    "register": "node register-commands.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "node-fetch": "^2.6.7"
+  }
+}
+`,
+
+    discordBotWranglerToml: `# Cloudflare Worker configuration file for the Discord Bot
+name = "smart-news-discord-bot" # You can change this to your preferred worker name
+main = "discord/worker.js"   # Path to your main worker script
+compatibility_date = "2024-05-20"
+
+# [vars]
+# You should set these as encrypted secrets in the Cloudflare dashboard, not here.
+# See the guide for instructions.
+# DISCORD_PUBLIC_KEY = "your_public_key_here"
+# DISCORD_BOT_TOKEN = "your_bot_token_here"
+# GEMINI_API_KEY = "your_gemini_api_key_here"
+`,
 };

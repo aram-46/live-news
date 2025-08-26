@@ -1,10 +1,29 @@
 
 
-
 import { GoogleGenAI, Type } from "@google/genai";
-import type { NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, AIInstructions, Source, SourceCategory, Sources, TickerSettings, LiveNewsSpecificSettings } from '../types';
+import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper function to get the API key from localStorage and initialize the client.
+// It prioritizes a non-empty key from settings, falling back to the environment variable.
+function getAiClient(): GoogleGenAI {
+    try {
+        const settingsString = localStorage.getItem('app-settings');
+        if (settingsString) {
+            const settings = JSON.parse(settingsString) as AppSettings;
+            const apiKey = settings.aiModelSettings?.gemini?.apiKey;
+            // Only use the key from local storage if it's a valid, non-empty string.
+            if (apiKey && apiKey.trim()) {
+                return new GoogleGenAI({ apiKey });
+            }
+        }
+    } catch (e) {
+        console.error("Could not parse settings from localStorage", e);
+    }
+    
+    // Fallback if local storage key is missing, empty, or invalid.
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+}
+
 
 const newsArticleSchema = {
   type: Type.OBJECT,
@@ -22,6 +41,7 @@ const newsArticleSchema = {
 };
 
 export async function fetchNews(filters: Filters, instructions: string, articlesPerColumn: number, showImages: boolean): Promise<NewsArticle[]> {
+  const ai = getAiClient();
   try {
     const prompt = `
       ${instructions}
@@ -57,6 +77,7 @@ export async function fetchNews(filters: Filters, instructions: string, articles
 }
 
 export async function fetchTickerHeadlines(settings: TickerSettings, instructions: string): Promise<TickerArticle[]> {
+    const ai = getAiClient();
     try {
         const categories = settings.categories.length > 0 ? settings.categories.join(', ') : 'ایران و جهان';
         const prompt = `${instructions}. Categories: ${categories}. Number of headlines: 5.`;
@@ -89,30 +110,33 @@ export async function fetchTickerHeadlines(settings: TickerSettings, instruction
 
 
 export async function factCheckNews(text: string, file: { data: string; mimeType: string } | null, instructions: string): Promise<FactCheckResult> {
+    const ai = getAiClient();
     try {
         const textPrompt = `
             ${instructions}
-            As a world-class investigative journalist and expert fact-checker, conduct a deep analysis of the following content. If media is provided, analyze it as the primary subject with the text as context. If only text is provided, analyze the text. Your entire output MUST be in Persian and structured according to the JSON schema.
+            As a world-class investigative journalist specializing in digital misinformation and social media rumor tracing, conduct a deep analysis of the following content. Your entire output MUST be in Persian and structured according to the JSON schema.
 
-            **Analysis Steps:**
-            1.  **Overall Credibility:** Determine the overall credibility of the claim ('بسیار معتبر', 'معتبر', 'نیازمند بررسی').
-            2.  **Summary:** Provide a concise summary of your findings.
-            3.  **Original Source:** Identify the earliest verifiable source that published this claim. Provide:
-                - The source's name.
-                - The source's credibility level.
-                - The exact publication date and time (e.g., '۱۴۰۳/۰۵/۲۶ - ۱۸:۴۵').
-                - The author or publisher's name.
-                - The type of evidence they used (e.g., 'عکس', 'فیلم', 'سند تاریخی', 'صدا', 'آثار باستانی', 'کتاب', 'مجله', 'روزنامه', 'تاریخ شفاهی', 'بدون مدرک').
-                - An assessment of the evidence's credibility.
-                - An assessment of the author's credibility on this topic.
-                - A direct link to the original publication.
-            4.  **Public Reception:** Estimate the claim's acceptance rate as a percentage number (e.g., 75).
-            5.  **Arguments:**
-                - Identify up to 2 key proponents (supporters) and their main arguments.
-                - Identify up to 2 key opponents (dissenters) and their main arguments/refutations.
-            6.  **Further Reading:**
-                - Provide up to 3 related suggestions as simple strings for further reading to help the user understand the context better.
-                - Find up to 3 external reputable sources that discuss the claim, providing a title and URL for each.
+            **Your Mission:**
+            1.  **Trace the Origin:** Your top priority is to find the EARLIEST verifiable instance of this claim/media online. Dig through social media, forums, and news archives.
+            2.  **Analyze the Source:** Evaluate the credibility of the original source. Do they have a history of spreading misinformation? Are they a reliable source on this topic?
+            3.  **Verify the Content:** Fact-check the claim itself using at least two independent, high-credibility sources.
+            4.  **Summarize Findings:** Provide a clear, concise verdict and summary.
+
+            **JSON Output Structure:**
+            1.  **Overall Credibility:** Determine the final credibility ('بسیار معتبر', 'معتبر', 'نیازمند بررسی').
+            2.  **Summary:** A concise summary of your findings, including the verdict on the claim's authenticity.
+            3.  **Original Source:**
+                -   'name': The name of the website, social media account, or person that first published it.
+                -   'link': A direct link to the very first publication you could find.
+                -   'publicationDate': The exact date and time of the original post.
+                -   'author': The author/account name.
+                -   'authorCredibility': An assessment of the original author/source's general reliability and history.
+                -   'evidenceType': The type of evidence used (e.g., 'عکس', 'فیلم', 'ادعای متنی').
+                -   'evidenceCredibility': An assessment of the evidence's credibility.
+                -   'credibility': An assessment of the source's credibility *for this specific topic*.
+            4.  **Public Reception:** Estimate the claim's acceptance rate (0-100).
+            5.  **Arguments:** Identify key proponents and opponents and their main arguments.
+            6.  **Further Reading:** Provide related suggestions and links to reputable sources discussing the claim.
 
             **Content for Analysis:**
             - Text Context: "${text}"
@@ -213,6 +237,7 @@ export interface FindSourcesOptions {
 }
 
 export async function findSourcesWithAI(category: SourceCategory, existingSources: Source[], options: FindSourcesOptions): Promise<Omit<Source, 'id'>[]> {
+    const ai = getAiClient();
     try {
         const prompt = `
             Find ${options.count} new, reputable sources for the category "${category}".
@@ -256,6 +281,7 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
 }
 
 export async function fetchLiveNews(tab: string, allSources: Sources, instructions: string, showImages: boolean, liveNewsSettings: LiveNewsSpecificSettings): Promise<NewsArticle[]> {
+    const ai = getAiClient();
     try {
         const selectedSourceIds = new Set(Object.values(liveNewsSettings.selectedSources).flat());
         const sourceNames = selectedSourceIds.size > 0
@@ -301,6 +327,7 @@ export async function fetchLiveNews(tab: string, allSources: Sources, instructio
 }
 
 export async function generateAIInstruction(taskDescription: string): Promise<string> {
+    const ai = getAiClient();
     try {
         const prompt = `You are a helpful assistant specialized in creating AI system prompts. The user wants a system instruction for an AI that performs the following task: "${taskDescription}". Generate a concise, clear, and effective system instruction in PERSIAN that guides the AI to perform this task optimally. The output should be ONLY the generated instruction text, without any preamble or explanation.`;
         const response = await ai.models.generateContent({
@@ -315,6 +342,7 @@ export async function generateAIInstruction(taskDescription: string): Promise<st
 }
 
 export async function generateEditableListItems(listName: string, existingItems: string[]): Promise<string[]> {
+    const ai = getAiClient();
     try {
         const prompt = `Generate a JSON array of 5 new, relevant, and common items for a settings list named "${listName}" in Persian. Do not include any of the following already existing items: ${JSON.stringify(existingItems)}. The output must be only the JSON array of strings.`;
         const response = await ai.models.generateContent({
@@ -330,11 +358,33 @@ export async function generateEditableListItems(listName: string, existingItems:
     }
 }
 
-export async function testGeminiConnection(): Promise<boolean> {
+export async function testGeminiConnection(apiKey?: string): Promise<boolean> {
     try {
-        // A check for process.env.API_KEY is not needed here because esbuild replaces it.
-        // If it's undefined, the GoogleGenAI constructor will receive an undefined key and the API call will fail gracefully.
-        const response = await ai.models.generateContent({
+        let keyToTest = apiKey;
+
+        // If no key is passed, try to get it from localStorage as a fallback.
+        if (!keyToTest) {
+             try {
+                const settingsString = localStorage.getItem('app-settings');
+                if (settingsString) {
+                    const settings = JSON.parse(settingsString) as AppSettings;
+                    keyToTest = settings.aiModelSettings?.gemini?.apiKey;
+                }
+            } catch (e) {
+                console.error("Could not parse settings from localStorage for test", e);
+            }
+        }
+        
+        // Final fallback to the environment variable.
+        const finalApiKey = keyToTest || process.env.API_KEY;
+
+        if (!finalApiKey) {
+            console.error("Gemini connection test failed: No API Key provided.");
+            return false;
+        }
+
+        const client = new GoogleGenAI({ apiKey: finalApiKey });
+        const response = await client.models.generateContent({
             model: "gemini-2.5-flash",
             contents: "test",
             config: { thinkingConfig: { thinkingBudget: 0 } }
@@ -347,6 +397,7 @@ export async function testGeminiConnection(): Promise<boolean> {
 }
 
 export async function testAIInstruction(systemInstruction: string): Promise<boolean> {
+    const ai = getAiClient();
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -370,4 +421,181 @@ export async function checkForUpdates(sources: Sources): Promise<boolean> {
     // and comparing timestamps or content hashes with previously stored data.
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
     return Math.random() > 0.7; // 30% chance of finding an "update"
+}
+
+// --- New Structured Search Functions ---
+
+const structuredSourceSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        link: { type: Type.STRING },
+        publicationDate: { type: Type.STRING },
+        author: { type: Type.STRING },
+        credibility: { type: Type.STRING, enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'] },
+    },
+    required: ["name", "link", "publicationDate", "author", "credibility"]
+};
+
+const structuredAnalysisSchema = {
+    type: Type.OBJECT,
+    properties: {
+        proponents: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: { name: { type: Type.STRING }, argument: { type: Type.STRING } },
+                required: ["name", "argument"]
+            }
+        },
+        opponents: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: { name: { type: Type.STRING }, argument: { type: Type.STRING } },
+                required: ["name", "argument"]
+            }
+        },
+        acceptancePercentage: { type: Type.NUMBER },
+        currentValidity: { type: Type.STRING, description: "Describe if the findings are still valid today." },
+        alternativeResults: { type: Type.STRING, description: "If not valid, mention alternative findings or views." }
+    },
+    required: ["proponents", "opponents", "acceptancePercentage", "currentValidity"]
+};
+
+const statisticsResultSchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING },
+        summary: { type: Type.STRING },
+        keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+        chart: {
+            type: Type.OBJECT,
+            properties: {
+                type: { type: Type.STRING, enum: ['bar', 'pie', 'line', 'table'] },
+                title: { type: Type.STRING },
+                labels: { type: Type.ARRAY, items: { type: Type.STRING } },
+                datasets: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            label: { type: Type.STRING },
+                            data: { type: Type.ARRAY, items: { type: Type.NUMBER } },
+                            color: { type: Type.STRING, description: "Optional: A hex color code for this dataset's line or bars (e.g., '#8b5cf6')." }
+                        },
+                        required: ["label", "data"]
+                    }
+                }
+            },
+            required: ["type", "title", "labels", "datasets"]
+        },
+        sourceDetails: {
+            ...structuredSourceSchema,
+            properties: {
+                ...structuredSourceSchema.properties,
+                methodology: { type: Type.STRING },
+                sampleSize: { type: Type.STRING }
+            },
+            required: [...structuredSourceSchema.required, "methodology", "sampleSize"]
+        },
+        analysis: structuredAnalysisSchema,
+        relatedSuggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+        references: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: { title: { type: Type.STRING }, url: { type: Type.STRING } },
+                required: ["title", "url"]
+            }
+        }
+    },
+    required: ["title", "summary", "keywords", "chart", "sourceDetails", "analysis", "relatedSuggestions", "references"]
+};
+
+export async function fetchStatistics(query: string, instructions: string): Promise<StatisticsResult> {
+    const ai = getAiClient();
+    const prompt = `${instructions}
+    **Task:** Find the most reliable statistical data for the user's query and format it as a JSON object. The entire output must be in Persian.
+    **Query:** "${query}"
+    
+    **Instructions for JSON fields:**
+    - \`title\`: A clear, descriptive title for the statistic.
+    - \`summary\`: A brief, easy-to-understand summary of the main finding.
+    - \`keywords\`: Generate 3-5 relevant keywords.
+    - \`chart\`: Create data for a visual chart. Choose the best type ('bar', 'pie', 'line', 'table'). Use 'line' for data that changes over time (e.g., yearly statistics). Use 'table' for detailed comparisons across multiple categories. Provide a title, labels for each data point/column, and the dataset(s) itself.
+    - \`sourceDetails\`: Find the original, primary source of the data. Include its name, link, author, publication date, credibility, the methodology used, and the sample size.
+    - \`analysis\`: Provide a balanced view with proponents and opponents, the public acceptance rate, and the current validity of the data.
+    - \`relatedSuggestions\`: Offer 3 suggestions for further reading.
+    - \`references\`: Provide up to 3 links to other articles or studies that reference this data.
+    `;
+    
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: statisticsResultSchema
+        }
+    });
+    const jsonString = response.text.trim();
+    return JSON.parse(jsonString);
+}
+
+const scientificArticleResultSchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING },
+        summary: { type: Type.STRING },
+        keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+        sourceDetails: {
+            ...structuredSourceSchema,
+            properties: {
+                ...structuredSourceSchema.properties,
+                researchType: { type: Type.STRING },
+                targetAudience: { type: Type.STRING }
+            },
+            required: [...structuredSourceSchema.required, "researchType", "targetAudience"]
+        },
+        analysis: structuredAnalysisSchema,
+        relatedSuggestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+        references: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: { title: { type: Type.STRING }, url: { type: Type.STRING } },
+                required: ["title", "url"]
+            }
+        }
+    },
+    required: ["title", "summary", "keywords", "sourceDetails", "analysis", "relatedSuggestions", "references"]
+};
+
+
+export async function fetchScientificArticle(query: string, instructions: string): Promise<ScientificArticleResult> {
+    const ai = getAiClient();
+    const prompt = `${instructions}
+    **Task:** Find a key scientific paper or academic article for the user's query and format it as a JSON object. Prioritize sources from academic journals, universities, and research institutions. The entire output must be in Persian.
+    **Query:** "${query}"
+    
+    **Instructions for JSON fields:**
+    - \`title\`: The official title of the paper/article.
+    - \`summary\`: A summary of the abstract and key findings.
+    - \`keywords\`: Extract the main keywords.
+    - \`sourceDetails\`: The primary source. Include name (e.g., 'Journal of Science'), link (to the article page or DOI), author(s), publication date, credibility, the type of research (e.g., 'Peer-reviewed study'), and the target audience.
+    - \`analysis\`: Provide a balanced view with proponents and opponents, its acceptance in the scientific community, and its current validity.
+    - \`relatedSuggestions\`: Offer 3 suggestions for related fields of study.
+    - \`references\`: Provide up to 3 links to other papers that cite or are cited by this work.
+    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: scientificArticleResultSchema
+        }
+    });
+    const jsonString = response.text.trim();
+    return JSON.parse(jsonString);
 }

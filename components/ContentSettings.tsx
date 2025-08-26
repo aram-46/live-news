@@ -1,6 +1,7 @@
 
+
 import React, { useState } from 'react';
-import { AppSettings, DisplaySettings, TickerSettings } from '../types';
+import { AppSettings, DisplaySettings } from '../types';
 import EditableList from './settings/EditableList';
 import LiveNewsSettings from './settings/LiveNewsSettings';
 
@@ -9,7 +10,7 @@ interface ContentSettingsProps {
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type ContentTab = 'live' | 'ticker' | 'display' | 'filters';
+type ContentTab = 'live' | 'display' | 'filters';
 
 const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsChange }) => {
     const [activeTab, setActiveTab] = useState<ContentTab>('live');
@@ -20,10 +21,6 @@ const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsC
     
     const handleDisplayChange = (change: Partial<DisplaySettings>) => {
         handlePartialChange({ display: { ...settings.display, ...change } });
-    };
-
-    const handleTickerChange = (change: Partial<TickerSettings>) => {
-        handlePartialChange({ ticker: { ...settings.ticker, ...change } });
     };
 
     const renderTabButton = (tabId: ContentTab, label: string) => (
@@ -43,7 +40,6 @@ const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsC
         <div className="space-y-6">
             <div className="flex border-b border-cyan-400/20 mb-6 overflow-x-auto">
                 {renderTabButton('live', 'اخبار زنده')}
-                {renderTabButton('ticker', 'نوار اخبار متحرک')}
                 {renderTabButton('display', 'نمایش و جستجو')}
                 {renderTabButton('filters', 'گزینه‌های فیلتر')}
             </div>
@@ -55,30 +51,6 @@ const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsC
                 />
             )}
             
-            {activeTab === 'ticker' && (
-                <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
-                    <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات نوار اخبار متحرک</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                         <div>
-                            <label htmlFor="speed" className="block text-sm font-medium text-cyan-300 mb-2">سرعت حرکت (ثانیه): {settings.ticker.speed}</label>
-                            <input id="speed" type="range" min="10" max="100" step="5" value={settings.ticker.speed} onChange={(e) => handleTickerChange({ speed: Number(e.target.value) })} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-cyan-300 mb-2">جهت حرکت</label>
-                            <div className="flex gap-2 rounded-lg bg-gray-700/50 p-1"><button onClick={() => handleTickerChange({direction: 'right'})} className={`w-full py-1 rounded ${settings.ticker.direction === 'right' ? 'bg-cyan-500 text-black' : 'hover:bg-gray-600'}`}>راست</button><button onClick={() => handleTickerChange({direction: 'left'})} className={`w-full py-1 rounded ${settings.ticker.direction === 'left' ? 'bg-cyan-500 text-black' : 'hover:bg-gray-600'}`}>چپ</button></div>
-                        </div>
-                         <div>
-                            <label htmlFor="textColor" className="block text-sm font-medium text-cyan-300 mb-2">رنگ متن</label>
-                            <input id="textColor" type="color" value={settings.ticker.textColor} onChange={e => handleTickerChange({textColor: e.target.value})} className="w-full h-10 p-1 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer"/>
-                         </div>
-                         <div>
-                            <label htmlFor="hoverColor" className="block text-sm font-medium text-cyan-300 mb-2">رنگ متن هاور</label>
-                            <input id="hoverColor" type="color" value={settings.ticker.hoverColor} onChange={e => handleTickerChange({hoverColor: e.target.value})} className="w-full h-10 p-1 bg-gray-700 border border-gray-600 rounded-lg cursor-pointer"/>
-                         </div>
-                    </div>
-                </div>
-            )}
-
             {activeTab === 'display' && (
                 <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
                     <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات عمومی نمایش و جستجو</h2>
@@ -106,6 +78,9 @@ const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsC
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <EditableList title="دسته‌بندی‌های جستجوی خبر" items={settings.searchCategories} onItemsChange={(newItems) => handlePartialChange({ searchCategories: newItems })} placeholder="افزودن دسته‌بندی جدید..."/>
                         <EditableList title="مناطق جغرافیایی" items={settings.searchRegions} onItemsChange={(newItems) => handlePartialChange({ searchRegions: newItems })} placeholder="افزودن منطقه جدید..."/>
+                        <div className="md:col-span-2">
+                             <EditableList title="حوزه‌های جستجوی ساختاریافته (آمار، علمی و...)" items={settings.structuredSearchDomains} onItemsChange={(newItems) => handlePartialChange({ structuredSearchDomains: newItems })} placeholder="افزودن حوزه جدید..."/>
+                        </div>
                         <div className="md:col-span-2">
                             <EditableList title="دسته‌بندی‌های نوار اخبار متحرک" items={settings.allTickerCategories} onItemsChange={(newItems) => handlePartialChange({ allTickerCategories: newItems })} placeholder="افزودن دسته‌بندی برای نوار اخبار..."/>
                         </div>

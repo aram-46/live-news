@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import ThemeSelector from './ThemeSelector';
@@ -17,13 +15,17 @@ import GitHubSettings from './settings/GitHubSettings';
 import AboutTab from './settings/AboutTab';
 import FontSettingsEditor from './settings/FontSettingsEditor';
 import PasswordSettings from './settings/PasswordSettings';
+import ThemeSettings from './settings/ThemeSettings';
+import { ALL_THEMES } from '../../data/defaults';
+import DiscordBotSettings from './settings/DiscordBotSettings';
+
 
 interface SettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'backend' | 'cloudflare' | 'github' | 'about' | 'security';
+type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'github' | 'about' | 'security';
 
 const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('content');
@@ -52,7 +54,8 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('theme', 'تم / استایل')}
         {renderTabButton('sources', 'منابع')}
         {renderTabButton('ai', 'هوش مصنوعی')}
-        {renderTabButton('integrations', 'اتصالات')}
+        {renderTabButton('integrations', 'اتصالات وب‌سایت')}
+        {renderTabButton('discord-bot', 'ربات دیسکورد')}
         {renderTabButton('security', 'امنیت')}
         {renderTabButton('backend', 'بک‌اند و دیتابیس')}
         {renderTabButton('cloudflare', 'کلودفلر')}
@@ -64,10 +67,11 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {activeTab === 'theme' && (
           <>
             <ThemeSelector
-              themes={[{ id: 'base', name: 'پیش‌فرض (اقیانوس)', className: 'theme-base' }, { id: 'neon-dreams', name: 'رویای نئونی', className: 'theme-neon-dreams' }, { id: 'solar-flare', name: 'شراره خورشیدی', className: 'theme-solar-flare' }]}
+              themes={ALL_THEMES}
               selectedTheme={settings.theme}
               onThemeChange={(theme) => handlePartialChange({ theme })}
             />
+            <ThemeSettings settings={settings} onSettingsChange={onSettingsChange} />
             <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
                 <FontSettingsEditor
                     fontSettings={settings.liveNewsSpecifics.font}
@@ -108,6 +112,10 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
             />
         )}
         
+        {activeTab === 'discord-bot' && (
+            <DiscordBotSettings />
+        )}
+
         {activeTab === 'sources' && (
             <SourcesManager
                 sources={settings.sources}

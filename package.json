@@ -7,7 +7,7 @@
     "build": "npx esbuild index.tsx --bundle --outfile=index.js --format=esm --jsx=automatic --minify --define:process.env.API_KEY='\"%API_KEY%\"'"
   },
   "dependencies": {
-    "@google/genai": "^0.11.0",
+    "@google/genai": "^1.15.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-draggable": "^4.4.6",

@@ -1,14 +1,11 @@
 
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
 import Settings from './components/Settings';
-import SearchAndFactCheck from './components/SearchAndFactCheck';
+import AdvancedSearch from './components/AdvancedSearch';
 import LiveNews from './components/LiveNews';
 import FactCheck from './components/FactCheck';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -94,9 +91,10 @@ const App: React.FC = () => {
             onOpenUrl={setDialogUrl}
           />}
         {activeView === 'search' && 
-          <SearchAndFactCheck 
+          <AdvancedSearch 
             settings={settings} 
             onOpenUrl={setDialogUrl}
+            onSettingsChange={handleSettingsChange}
           />}
         {activeView === 'factcheck' && 
           <FactCheck 
