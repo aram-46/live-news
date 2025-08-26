@@ -1,13 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { PaperClipIcon, CloseIcon, ClipboardIcon, ShareIcon, CheckCircleIcon } from './icons';
-import { MediaFile } from '../types';
-
-// This check is a safeguard; the API key is expected to be set by the build process.
-if (!process.env.API_KEY) {
-  console.warn("API_KEY environment variable not set during build. The app may not function correctly.");
-}
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { MediaFile, AppSettings } from '../types';
 
 const expertSystemInstruction = `You are a friendly and highly knowledgeable expert assistant for the "Smart News Search" application. Your primary goal is to provide comprehensive, clear, and step-by-step help to users. Your responses must be in PERSIAN.
 
@@ -54,7 +48,11 @@ type ChatMessage = {
 
 type ChatbotTab = 'general' | 'expert';
 
-const Chatbot: React.FC = () => {
+interface ChatbotProps {
+  settings: AppSettings;
+}
+
+const Chatbot: React.FC<ChatbotProps> = ({ settings }) => {
   const [activeTab, setActiveTab] = useState<ChatbotTab>('general');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatSession, setChatSession] = useState<Chat | null>(null);
@@ -67,18 +65,25 @@ const Chatbot: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Initialize or re-initialize chat session when tab changes
+    // Initialize or re-initialize chat session when tab or API key changes.
+    const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+
+    if (!apiKey) {
+      console.error("Chatbot: Gemini API key is not configured.");
+      setMessages([{ role: 'model', text: 'خطا: کلید API برای مدل Gemini تنظیم نشده است. لطفاً به بخش تنظیمات بروید.' }]);
+      return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const systemInstruction = activeTab === 'expert' ? expertSystemInstruction : undefined;
     const newChat = ai.chats.create({
       model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: systemInstruction,
-      },
+      config: { systemInstruction },
     });
     setChatSession(newChat);
-    setMessages([]); // Clear messages when switching context
-    setMediaFile(null); // Clear file on tab switch
-  }, [activeTab]);
+    setMessages([]);
+    setMediaFile(null);
+  }, [activeTab, settings.aiModelSettings.gemini.apiKey]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -115,7 +120,7 @@ const Chatbot: React.FC = () => {
         const contentParts: any[] = [];
         
         // Add file part if it exists (should be first for better context)
-        if (mediaFile && activeTab === 'expert') {
+        if (mediaFile) {
             contentParts.push({
                 inlineData: {
                     data: mediaFile.data,
@@ -229,7 +234,7 @@ const Chatbot: React.FC = () => {
       <div className="flex-grow p-4 space-y-4 overflow-y-auto flex flex-col">
         {messages.length === 0 && (
             <div className="text-center text-gray-500 m-auto">
-                {activeTab === 'general' ? 'می‌توانید هر سوالی دارید از من بپرسید.' : 'سلام! من دستیار متخصص شما برای این برنامه هستم. چگونه می‌توانم کمکتان کنم؟ می‌توانید فایل یا تصویر هم برای تحلیل آپلود کنید.'}
+                {activeTab === 'general' ? 'می‌توانید هر سوالی دارید از من بپرسید یا فایلی را برای تحلیل آپلود کنید.' : 'سلام! من دستیار متخصص شما برای این برنامه هستم. چگونه می‌توانم کمکتان کنم؟ می‌توانید فایل یا تصویر هم برای تحلیل آپلود کنید.'}
             </div>
         )}
         {messages.map(renderMessage)}
@@ -245,7 +250,7 @@ const Chatbot: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
         
-      {mediaFile && activeTab === 'expert' && (
+      {mediaFile && (
         <div className="flex-shrink-0 p-2 px-4 border-t border-cyan-400/20">
             <div className="flex items-center justify-between bg-gray-700/50 p-2 rounded-lg">
                 <span className="text-xs text-gray-300 truncate">فایل ضمیمه شده: {mediaFile.name}</span>
@@ -257,17 +262,15 @@ const Chatbot: React.FC = () => {
       <div className="flex-shrink-0 p-4 border-t border-cyan-400/20">
         <form onSubmit={handleSendMessage} className="flex gap-2">
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-            {activeTab === 'expert' && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                className="bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-bold p-2.5 rounded-lg transition"
-                title="ضمیمه کردن فایل"
-              >
-                  <PaperClipIcon className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              className="bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white font-bold p-2.5 rounded-lg transition"
+              title="ضمیمه کردن فایل"
+            >
+                <PaperClipIcon className="w-5 h-5" />
+            </button>
           <input
             type="text"
             value={userInput}

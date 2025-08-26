@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
@@ -101,7 +102,7 @@ const App: React.FC = () => {
             settings={settings}
             onOpenUrl={setDialogUrl}
           />}
-        {activeView === 'chatbot' && <Chatbot />}
+        {activeView === 'chatbot' && <Chatbot settings={settings} />}
         {activeView === 'settings' && (
           isSettingsLocked ? (
             <PasswordPrompt
