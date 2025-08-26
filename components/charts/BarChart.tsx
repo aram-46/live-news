@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from 'react';
 import { ChartData } from '../../types';
 
@@ -18,6 +15,8 @@ interface TooltipData {
 
 const BarChart: React.FC<BarChartProps> = ({ data }) => {
     const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+    const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
+
     const { labels, datasets } = data;
     if (!datasets || datasets.length === 0) return null;
 
@@ -72,8 +71,9 @@ const BarChart: React.FC<BarChartProps> = ({ data }) => {
                                         height={barHeight}
                                         fill={color}
                                         rx="2"
-                                        className="transition-opacity duration-200 hover:opacity-80"
-                                        onMouseEnter={() => setTooltipData({ series: ds.label, label, value: value.toLocaleString(), x: x + barWidth / 2, y })}
+                                        opacity={hoveredSeries && hoveredSeries !== ds.label ? 0.3 : 1}
+                                        className="transition-opacity duration-200"
+                                        onMouseEnter={(e) => setTooltipData({ series: ds.label, label, value: value.toLocaleString(), x: e.currentTarget.x.baseVal.value + barWidth / 2, y: e.currentTarget.y.baseVal.value })}
                                         onMouseLeave={() => setTooltipData(null)}
                                     >
                                         <animate attributeName="height" from="0" to={barHeight} dur="0.8s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" />
@@ -89,10 +89,10 @@ const BarChart: React.FC<BarChartProps> = ({ data }) => {
                 {/* Tooltip */}
                 {tooltipData && (
                     <g transform={`translate(${tooltipData.x}, ${tooltipData.y})`} style={{ pointerEvents: 'none' }}>
-                        <path d="M-50 -35 L50 -35 L50 -10 L10 -10 L0 0 L-10 -10 L-50 -10 Z" fill="rgba(10, 10, 10, 0.85)" />
+                        <path d="M-50 -35 L50 -35 L50 -10 L10 -10 L0 0 L-10 -10 L-50 -10 Z" fill="rgba(10, 10, 10, 0.85)" stroke="rgba(255,255,255,0.2)" />
                         <text textAnchor="middle" fill="#fff" fontSize="10">
-                            <tspan x="0" y="-24">{`${tooltipData.series}: ${tooltipData.label}`}</tspan>
-                            <tspan x="0" y="-12" fontWeight="bold" fontSize="12">{tooltipData.value}</tspan>
+                            <tspan x="0" y="-24" fill="var(--text-secondary)">{`${tooltipData.label}`}</tspan>
+                            <tspan x="0" y="-12" fontWeight="bold" fontSize="12">{`${tooltipData.series}: ${tooltipData.value}`}</tspan>
                         </text>
                     </g>
                 )}
@@ -101,7 +101,12 @@ const BarChart: React.FC<BarChartProps> = ({ data }) => {
              {datasets.length > 1 && (
                 <div className="flex justify-center flex-wrap gap-4 mt-2 text-xs">
                     {datasets.map((ds, i) => (
-                         <div key={i} className="flex items-center gap-2">
+                         <div 
+                            key={i} 
+                            className="flex items-center gap-2 cursor-pointer"
+                            onMouseEnter={() => setHoveredSeries(ds.label)}
+                            onMouseLeave={() => setHoveredSeries(null)}
+                         >
                              <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ds.color || defaultColors[i % defaultColors.length] }}></span>
                              <span className="text-gray-300">{ds.label}</span>
                          </div>

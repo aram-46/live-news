@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from 'react';
 import { ChartData } from '../../types';
 
@@ -18,6 +15,8 @@ interface TooltipData {
 
 const LineChart: React.FC<LineChartProps> = ({ data }) => {
     const [tooltipData, setTooltipData] = useState<TooltipData | null>(null);
+    const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
+
     const { labels, datasets } = data;
     if (!datasets || datasets.length === 0) return null;
 
@@ -50,7 +49,7 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
         
         const strokeColor = ds.color || defaultColors[dsIndex % defaultColors.length];
 
-        return { pathData, strokeColor };
+        return { pathData, strokeColor, label: ds.label };
     });
 
     return (
@@ -75,7 +74,16 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
 
                 {/* Data Lines */}
                 {paths.map((p, index) => (
-                    <path key={index} d={p.pathData} fill="none" stroke={p.strokeColor} strokeWidth="2" className="path-animation">
+                    <path 
+                        key={index} 
+                        d={p.pathData} 
+                        fill="none" 
+                        stroke={p.strokeColor} 
+                        strokeWidth="2" 
+                        className="path-animation"
+                        strokeOpacity={hoveredSeries && hoveredSeries !== p.label ? 0.2 : 1}
+                        style={{transition: 'stroke-opacity 0.2s ease-in-out'}}
+                    >
                         <style>{`
                             @keyframes draw {
                                 to { stroke-dashoffset: 0; }
@@ -101,13 +109,21 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
                             fill={pointColor} 
                             stroke="var(--bg-gradient-via)" 
                             strokeWidth="2"
-                            className="opacity-0 point-animation transition-transform duration-200 hover:scale-150 cursor-pointer"
+                            opacity={hoveredSeries && hoveredSeries !== ds.label ? 0.2 : 1}
+                            className="point-animation transition-all duration-200 hover:scale-150 cursor-pointer"
                             onMouseEnter={() => setTooltipData({ series: ds.label, label: labels[i], value: point.toLocaleString(), x: getX(i), y: getY(point) })}
                             onMouseLeave={() => setTooltipData(null)}
                         >
                               <style>{`
-                                @keyframes fade-in { to { opacity: 1; } }
-                                .point-animation { animation: fade-in 0.5s ease-out forwards; animation-delay: 1.5s; }
+                                @keyframes fade-in { 
+                                    from { opacity: 0; }
+                                    to { opacity: ${hoveredSeries && hoveredSeries !== ds.label ? 0.2 : 1}; } 
+                                }
+                                .point-animation { 
+                                    opacity: 0;
+                                    animation: fade-in 0.5s ease-out forwards; 
+                                    animation-delay: 1.5s; 
+                                }
                             `}</style>
                          </circle>
                     ));
@@ -116,10 +132,10 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
                 {/* Tooltip */}
                 {tooltipData && (
                     <g transform={`translate(${tooltipData.x}, ${tooltipData.y})`} style={{ pointerEvents: 'none' }}>
-                        <path d="M-50 -35 L50 -35 L50 -10 L10 -10 L0 0 L-10 -10 L-50 -10 Z" fill="rgba(10, 10, 10, 0.85)" />
+                        <path d="M-50 -35 L50 -35 L50 -10 L10 -10 L0 0 L-10 -10 L-50 -10 Z" fill="rgba(10, 10, 10, 0.85)" stroke="rgba(255,255,255,0.2)" />
                         <text textAnchor="middle" fill="#fff" fontSize="10">
-                            <tspan x="0" y="-24">{`${tooltipData.series}: ${tooltipData.label}`}</tspan>
-                            <tspan x="0" y="-12" fontWeight="bold" fontSize="12">{tooltipData.value}</tspan>
+                            <tspan x="0" y="-24" fill="var(--text-secondary)">{`${tooltipData.label}`}</tspan>
+                            <tspan x="0" y="-12" fontWeight="bold" fontSize="12">{`${tooltipData.series}: ${tooltipData.value}`}</tspan>
                         </text>
                     </g>
                 )}
@@ -128,7 +144,12 @@ const LineChart: React.FC<LineChartProps> = ({ data }) => {
             {datasets.length > 1 && (
                 <div className="flex justify-center flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
                     {datasets.map((ds, i) => (
-                         <div key={i} className="flex items-center gap-2">
+                         <div 
+                            key={i} 
+                            className="flex items-center gap-2 cursor-pointer"
+                            onMouseEnter={() => setHoveredSeries(ds.label)}
+                            onMouseLeave={() => setHoveredSeries(null)}
+                         >
                              <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: ds.color || defaultColors[i % defaultColors.length] }}></span>
                              <span className="text-gray-300">{ds.label}</span>
                          </div>

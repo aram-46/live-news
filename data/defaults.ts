@@ -1,5 +1,4 @@
 
-
 import { AppSettings, Theme, generateUUID } from '../types';
 
 export const ALL_THEMES: Theme[] = [

@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, Chat } from "@google/genai";
 import { PaperClipIcon, CloseIcon, ClipboardIcon, ShareIcon, CheckCircleIcon } from './icons';
 import { MediaFile } from '../types';
 
+// This check is a safeguard; the API key is expected to be set by the build process.
 if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
+  console.warn("API_KEY environment variable not set during build. The app may not function correctly.");
 }
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -23,7 +24,7 @@ You know everything about this application, including:
 4.  **Deployment on Free Platforms & Shared Hosting:**
     *   You know that static site hosting is the key.
     *   You can recommend free services like Netlify, Vercel, Cloudflare Pages, or GitHub Pages.
-    *   For shared hosting without SSH/CLI access, the user can simply upload the application files (\`index.html\`, \`index.tsx\`, \`App.tsx\`, etc.) to a folder on their server via FTP or a file manager. As long as the server can serve static HTML files, it will work.
+    *   For shared hosting without SSH/CLI access, the user can simply upload the application files (\`index.html\`, \`build/index.js\`, etc.) to a folder on their server via FTP or a file manager. As long as the server can serve static HTML files, it will work.
     *   You understand the Gemini API key is a crucial part. On static hosting, it's exposed client-side. You should mention that for security in a production environment, API calls should be proxied through a backend (like the provided Cloudflare Worker or Node.js server examples), but for personal use or testing, using it on the client-side is acceptable. The \`process.env.API_KEY\` is a placeholder for where the key is injected, and in a static hosting environment, this would typically be replaced with the actual key during a build step or managed through the hosting platform's environment variable settings.
 5.  **Backend & Serverless Integration:**
     *   You can explain the purpose of the provided \`server.js\` (for Node.js hosting), \`worker.js\` (for Cloudflare Workers), and GitHub Actions files.
@@ -139,7 +140,9 @@ const Chatbot: React.FC = () => {
             modelResponse += chunk.text;
             setMessages(prev => {
                 const newMessages = [...prev];
-                newMessages[newMessages.length - 1].text = modelResponse;
+                if (newMessages.length > 0) {
+                   newMessages[newMessages.length - 1].text = modelResponse;
+                }
                 return newMessages;
             });
         }
@@ -154,7 +157,7 @@ const Chatbot: React.FC = () => {
   const handleCopy = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
     setCopyStatus({ [index]: true });
-    setTimeout(() => setCopyStatus({ [index]: false }), 2000);
+    setTimeout(() => setCopyStatus(prev => ({ ...prev, [index]: false })), 2000);
   };
 
   const handleDownload = (userMessage: string, modelMessage: string) => {
@@ -185,8 +188,8 @@ const Chatbot: React.FC = () => {
 
     return (
         <div key={index} className={`max-w-xl w-fit p-3 rounded-xl relative group ${bubbleClasses}`}>
-            <p className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formattedText }} />
-             {!isUser && msg.text !== '...' && (
+            <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formattedText }} />
+             {!isUser && msg.text && msg.text !== '...' && (
                 <div className="absolute -top-2 -left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         onClick={() => handleCopy(msg.text, index)}
@@ -242,7 +245,7 @@ const Chatbot: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
         
-      {mediaFile && (
+      {mediaFile && activeTab === 'expert' && (
         <div className="flex-shrink-0 p-2 px-4 border-t border-cyan-400/20">
             <div className="flex items-center justify-between bg-gray-700/50 p-2 rounded-lg">
                 <span className="text-xs text-gray-300 truncate">فایل ضمیمه شده: {mediaFile.name}</span>
