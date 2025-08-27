@@ -145,6 +145,9 @@ compatibility_date = "2024-05-15"
     workerJs: `/**
  * Cloudflare Worker for a Telegram Bot
  *
+ * This worker can handle both standard Telegram webhooks and custom test messages
+ * from the application's settings panel for verification.
+ *
  * How to use:
  * 1. Create a new Worker in your Cloudflare dashboard.
  * 2. Copy and paste this code into the Worker's editor.
@@ -152,8 +155,7 @@ compatibility_date = "2024-05-15"
  *    - \`TELEGRAM_BOT_TOKEN\`: Your token from BotFather.
  *    - \`GEMINI_API_KEY\`: Your Google Gemini API key.
  * 4. Deploy the Worker.
- * 5. Set the Telegram webhook to point to your Worker's URL. You can do this by visiting the following URL in your browser:
- *    https://api.telegram.org/bot<YOUR_TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<YOUR_WORKER_NAME>.<YOUR_SUBDOMAIN>.workers.dev/
+ * 5. Use the Webhook Setup Tool in the app's Cloudflare settings tab to set the webhook.
  */
 
 addEventListener('fetch', event => {
@@ -161,19 +163,44 @@ addEventListener('fetch', event => {
 });
 
 async function handleRequest(request) {
+  // Add CORS headers for the test message functionality
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   if (request.method === 'POST') {
     try {
-      const update = await request.json();
-      await handleUpdate(update);
-      return new Response('OK', { status: 200 });
+      const payload = await request.json();
+
+      // Differentiate between a Telegram update and a custom test message
+      if (payload.update_id) { // Standard Telegram webhook
+        await handleUpdate(payload);
+      } else if (payload.test_message) { // Custom test message from app
+        await handleTestMessage(payload.test_message);
+      } else {
+        return new Response('Invalid payload', { status: 400, headers: corsHeaders });
+      }
+
+      return new Response('OK', { status: 200, headers: corsHeaders });
+
     } catch (e) {
-      console.error('Error processing update:', e);
-      return new Response('Error', { status: 500 });
+      console.error('Error processing request:', e);
+      return new Response('Error', { status: 500, headers: corsHeaders });
     }
   }
-  return new Response('This worker only accepts POST requests for Telegram webhooks.', { status: 405 });
+  return new Response('This worker only accepts POST requests.', { status: 405, headers: corsHeaders });
 }
 
+/**
+ * Handles incoming updates from the Telegram webhook.
+ * @param {object} update - The Telegram update object.
+ */
 async function handleUpdate(update) {
   if (update.message) {
     const message = update.message;
@@ -196,6 +223,21 @@ async function handleUpdate(update) {
   }
 }
 
+/**
+ * Handles a test message request from the application's UI.
+ * @param {object} testPayload - The payload containing chat_id and text.
+ */
+async function handleTestMessage(testPayload) {
+    const { chat_id, text } = testPayload;
+    if (chat_id && text) {
+        await sendMessage(chat_id, text);
+    } else {
+        // This will cause the worker to return a 500 error, indicating a problem.
+        throw new Error('Invalid test message payload received.');
+    }
+}
+
+
 async function sendMessage(chatId, text, parseMode = '') {
   const url = \`https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage\`;
   const payload = {
@@ -206,16 +248,18 @@ async function sendMessage(chatId, text, parseMode = '') {
     payload.parse_mode = parseMode;
   }
   
-  await fetch(url, {
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Failed to send message to Telegram:", errorData);
+  }
 }
 
 async function fetchNewsFromGemini() {
-  // This is a simplified call to the Gemini API.
-  // In a real scenario, you'd use the full schema and prompt structure from the main app.
   const prompt = "Find the single most important recent world news article for a Persian-speaking user. Provide title, summary, source, and link.";
   
   const body = {
@@ -232,16 +276,12 @@ async function fetchNewsFromGemini() {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
     const data = await response.json();
-    // The response structure might be complex. This is a simplified extraction.
     const jsonString = data.candidates[0].content.parts[0].text;
-    // The model might return a single object or an array. Let's handle both.
     const result = JSON.parse(jsonString);
     return Array.isArray(result) ? result : [result];
     
