@@ -1,4 +1,4 @@
-import React, 'react';
+import React from 'react';
 import { backendFiles } from '../../data/fileContent';
 import { CloudIcon, DatabaseIcon, CheckCircleIcon, CloseIcon, TelegramIcon } from '../icons';
 
@@ -125,25 +125,59 @@ const CloudflareSettings: React.FC = () => {
                      <p className="text-sm text-gray-300">این فایل‌ها و راهنما به شما کمک می‌کنند تا یک ورکر و دیتابیس D1 شخصی در اکانت کلودفلر خود بسازید. این کار فقط یک بار نیاز به انجام دارد.</p>
                      <div className="text-sm">
                         <button onClick={() => setIsGuideOpen(!isGuideOpen)} className="font-semibold text-cyan-300 hover:underline">
-                            {isGuideOpen ? 'بستن راهنما' : 'نمایش راهنمای کامل راه‌اندازی'}
+                            {isGuideOpen ? 'بستن راهنمای کامل' : 'نمایش راهنمای کامل راه‌اندازی (بدون نیاز به خط فرمان)'}
                         </button>
                         {isGuideOpen && (
                             <div className="mt-4 space-y-4 bg-gray-900/50 p-4 rounded-lg">
-                                <ol className="list-decimal list-inside space-y-2 text-gray-300">
-                                    <li>ابتدا فایل‌های مورد نیاز را دانلود کنید:
+                                <h5 className="font-semibold text-amber-300">راهنمای جدید راه‌اندازی (مبتنی بر داشبورد کلودفلر)</h5>
+                                <p className="text-sm text-gray-400">این راهنما به شما نشان می‌دهد چگونه ورکر و دیتابیس خود را **مستقیماً از طریق داشبورد کلودفلر** راه‌اندازی کنید و نیازی به ابزار Wrangler ندارید.</p>
+                                <ol className="list-decimal list-inside space-y-4 text-gray-300">
+                                    <li>
+                                        <strong>دانلود فایل‌های ضروری:</strong>
                                         <div className="flex flex-wrap gap-2 my-2">
                                              <DownloadButton content={backendFiles.cloudflareDbWorkerJs} filename="db-worker.js" />
-                                             <DownloadButton content={backendFiles.cloudflareDbWranglerToml} filename="wrangler.toml" />
                                              <DownloadButton content={backendFiles.cloudflareDbSchemaSql} filename="schema.sql" />
                                         </div>
                                     </li>
-                                    <li>ابزار <code className="text-amber-300">Wrangler</code> را با دستور `npm install -g wrangler` نصب و با `wrangler login` به حساب خود متصل شوید.</li>
-                                    <li>یک دیتابیس D1 جدید بسازید. نام دیتابیس را به یاد بسپارید (مثلا `smart-news-db`):<br/><code className="text-amber-300 text-xs">wrangler d1 create smart-news-db</code></li>
-                                    <li>فایل `wrangler.toml` را باز کرده و در بخش `database_id`، شناسه دیتابیسی که در مرحله قبل ساخته شد را وارد کنید.</li>
-                                    <li>جداول دیتابیس را با اجرای فایل SQL ایجاد کنید:<br/><code className="text-amber-300 text-xs">wrangler d1 execute smart-news-db --file=./schema.sql</code></li>
-                                    <li>یک توکن امن برای ورکر خود بسازید و آن را در ورکر به عنوان Secret ذخیره کنید:<br/><code className="text-amber-300 text-xs">wrangler secret put WORKER_TOKEN</code><br/>(از شما خواسته می‌شود مقدار توکن را وارد کنید. یک رمز قوی انتخاب کنید.)</li>
-                                    <li>ورکر را با دستور `wrangler deploy` مستقر کنید.</li>
-                                    <li>پس از استقرار موفق، به مرحله ۲ بروید.</li>
+                                    <li>
+                                        <strong>ساخت دیتابیس D1:</strong>
+                                        <ul className="list-disc list-inside ml-4 text-sm mt-2 space-y-1">
+                                            <li>وارد داشبورد Cloudflare شوید و از منوی سمت چپ به <code>Workers & Pages</code> بروید.</li>
+                                            <li>روی تب <code>D1</code> کلیک کرده و <code>Create database</code> را بزنید.</li>
+                                            <li>یک نام برای دیتابیس خود انتخاب کنید (مثلاً <code>smart-news-db</code>) و آن را بسازید.</li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <strong>ایجاد جداول دیتابیس:</strong>
+                                        <ul className="list-disc list-inside ml-4 text-sm mt-2 space-y-1">
+                                            <li>در صفحه دیتابیسی که ساختید، به تب <code>Console</code> بروید.</li>
+                                            <li>محتویات فایل <code>schema.sql</code> که دانلود کردید را کپی کرده و در کنسول پیست کنید، سپس روی <code>Execute</code> کلیک کنید.</li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <strong>ساخت ورکر (Worker):</strong>
+                                        <ul className="list-disc list-inside ml-4 text-sm mt-2 space-y-1">
+                                            <li>دوباره به <code>Workers & Pages</code> برگردید و روی <code>Create application</code> کلیک کنید.</li>
+                                            <li>در تب <code>Workers</code>، روی <code>Create worker</code> کلیک کنید.</li>
+                                            <li>یک نام برای ورکر خود انتخاب کنید (مثلاً <code>smart-news-api</code>) و <code>Deploy</code> را بزنید.</li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <strong>پیکربندی ورکر:</strong>
+                                        <ul className="list-disc list-inside ml-4 text-sm mt-2 space-y-1">
+                                            <li>پس از ساخته شدن ورکر، روی <code>Configure worker</code> کلیک کنید.</li>
+                                            <li><strong>الف) بارگذاری کد:</strong> روی <code>Quick edit</code> کلیک کنید. تمام کد موجود را پاک کرده و محتویات فایل <code>db-worker.js</code> را پیست کنید. سپس <code>Save and deploy</code> را بزنید.</li>
+                                            <li><strong>ب) اتصال دیتابیس:</strong> به تب <code>Settings</code> و سپس زیرمنوی <code>Variables</code> بروید. در بخش <code>D1 Database Bindings</code>، روی <code>Add binding</code> کلیک کنید. نام متغیر (Variable name) را <code>DB</code> قرار دهید و دیتابیس <code>smart-news-db</code> را انتخاب کنید. تغییرات را ذخیره کنید.</li>
+                                            <li><strong>ج) ساخت توکن امنیتی:</strong> در همان صفحه <code>Variables</code>، کمی پایین‌تر به بخش <code>Environment Variables</code> بروید. روی <code>Add variable</code> کلیک کنید. نام متغیر را <code>WORKER_TOKEN</code> قرار دهید. در بخش <code>Value</code>، یک رمز عبور قوی و تصادفی وارد کنید. <strong>حتماً تیک <code>Encrypt</code> را بزنید.</strong> این توکن را برای مرحله بعد کپی کنید.</li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <strong>اتصال نهایی:</strong>
+                                        <ul className="list-disc list-inside ml-4 text-sm mt-2 space-y-1">
+                                            <li>به این صفحه برگردید. آدرس ورکر خود را (که در بالای صفحه ورکر در کلودفلر نمایش داده می‌شود) در فیلد "آدرس Worker" وارد کنید.</li>
+                                            <li>توکنی که ساختید را در فیلد "توکن امنیتی" وارد کنید و روی "ذخیره و تست اتصال" کلیک کنید.</li>
+                                        </ul>
+                                    </li>
                                 </ol>
                             </div>
                         )}
