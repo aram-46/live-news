@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppSettings, StatisticsResult, ScientificArticleResult, Credibility, StanceHolder, ChartData } from '../types';
-import { fetchStatistics, fetchScientificArticle, generateEditableListItems } from '../services/geminiService';
+import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateEditableListItems } from '../services/geminiService';
 import { SearchIcon, PlusIcon, TrashIcon, MagicIcon, LinkIcon, CheckCircleIcon, UserIcon, CalendarIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, ChartBarIcon, ChartLineIcon, ChartPieIcon, TableCellsIcon } from './icons';
 import BarChart from './charts/BarChart';
 import PieChart from './charts/PieChart';
@@ -105,8 +105,10 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
             let apiResult;
             if (searchType === 'stats') {
                 apiResult = await fetchStatistics(fullQuery, instructions);
-            } else if (searchType === 'science' || searchType === 'religion') {
+            } else if (searchType === 'science') {
                 apiResult = await fetchScientificArticle(fullQuery, instructions);
+            } else if (searchType === 'religion') {
+                apiResult = await fetchReligiousText(fullQuery, instructions);
             }
             setResult(apiResult);
         } catch (err) {

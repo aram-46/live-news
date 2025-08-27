@@ -599,3 +599,31 @@ export async function fetchScientificArticle(query: string, instructions: string
     const jsonString = response.text.trim();
     return JSON.parse(jsonString);
 }
+
+export async function fetchReligiousText(query: string, instructions: string): Promise<ScientificArticleResult> {
+    const ai = getAiClient();
+    const prompt = `${instructions}
+    **Task:** Find a key religious text, interpretation, or scholarly article for the user's query and format it as a JSON object. Prioritize primary religious texts (like verses, chapters) or well-regarded commentaries and academic studies on religion. The entire output must be in Persian.
+    **Query:** "${query}"
+    
+    **Instructions for JSON fields:**
+    - \`title\`: The title of the text, verse, or article (e.g., 'تفسیر آیه 5 سوره مائده').
+    - \`summary\`: A summary of the content, meaning, or key findings.
+    - \`keywords\`: Extract the main keywords.
+    - \`sourceDetails\`: The primary source. Include name (e.g., 'قرآن کریم', 'صحیح بخاری', 'Journal of Religious Studies'), link (to an online version if available), author(s) (e.g., 'علامه طباطبایی', 'پیامبر اسلام (ص)' if applicable), publication date (if it's an article), credibility (e.g., 'متواتر', 'معتبر', 'مورد اختلاف'), the type of research (e.g., 'آیه قرآن', 'حدیث', 'مقاله تفسیری'), and the target audience.
+    - \`analysis\`: Provide a balanced view with different interpretations or views if they exist (proponents/opponents can represent different schools of thought), its acceptance in the relevant religious community, and its current validity or interpretation.
+    - \`relatedSuggestions\`: Offer 3 suggestions for related topics or verses.
+    - \`references\`: Provide up to 3 links to other texts or commentaries that reference this work.
+    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: scientificArticleResultSchema
+        }
+    });
+    const jsonString = response.text.trim();
+    return JSON.parse(jsonString);
+}
