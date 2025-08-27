@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import ThemeSelector from './ThemeSelector';
@@ -16,7 +15,7 @@ import AboutTab from './settings/AboutTab';
 import FontSettingsEditor from './settings/FontSettingsEditor';
 import PasswordSettings from './settings/PasswordSettings';
 import ThemeSettings from './settings/ThemeSettings';
-import { ALL_THEMES } from '../../data/defaults';
+import { ALL_THEMES } from '../data/defaults';
 import DiscordBotSettings from './settings/DiscordBotSettings';
 
 
