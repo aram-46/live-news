@@ -113,7 +113,9 @@ export const INITIAL_SETTINGS: AppSettings = {
       supabase: {
           projectUrl: '',
           anonKey: ''
-      }
+      },
+      cloudflareWorkerUrl: '',
+      cloudflareWorkerToken: '',
   },
   database: {
     name: '',

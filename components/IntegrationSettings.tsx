@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { IntegrationSettings, WebsiteSettings } from '../types';
 import { TelegramIcon, DiscordIcon, CheckCircleIcon, CloseIcon, WebsiteIcon, TwitterIcon, AppwriteIcon, SupabaseIcon, PlusIcon, TrashIcon } from './icons';
@@ -59,14 +60,21 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
     const [status, setStatus] = useState<Record<string, TestStatus>>({});
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     
-    const handleChange = (platform: keyof IntegrationSettings, field: string, value: any, subfield?: string) => {
+    // FIX: Correctly handle updates for nested setting objects and fix spread type errors.
+    // The subfield logic was flawed and unused. This version correctly updates 2-level deep settings.
+    const handleChange = (platform: keyof IntegrationSettings, field: string, value: any) => {
         setStatus(prev => ({...prev, [platform]: 'idle'}));
-        onSettingsChange({
-            ...settings,
-            [platform]: subfield 
-                ? { ...settings[platform], [subfield]: { ...settings[platform][subfield], [field]: value } }
-                : { ...settings[platform], [field]: value }
-        });
+        const platformValue = settings[platform];
+
+        if (typeof platformValue === 'object' && platformValue !== null) {
+            onSettingsChange({
+                ...settings,
+                [platform]: {
+                    ...(platformValue as object),
+                    [field]: value
+                }
+            });
+        }
     };
 
     const runTest = async (platform: string, testFn: () => Promise<boolean>) => {

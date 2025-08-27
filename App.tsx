@@ -1,15 +1,16 @@
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
+import { fetchSettings, saveSettings } from './services/integrationService';
 import Settings from './components/Settings';
 import AdvancedSearch from './components/AdvancedSearch';
 import LiveNews from './components/LiveNews';
 import FactCheck from './components/FactCheck';
-import { useLocalStorage } from './hooks/useLocalStorage';
 import { INITIAL_SETTINGS } from './data/defaults';
 import DraggableDialog from './components/DraggableDialog';
 import Chatbot from './components/Chatbot';
@@ -17,33 +18,86 @@ import PasswordPrompt from './components/PasswordPrompt';
 
 type View = 'live' | 'search' | 'factcheck' | 'settings' | 'chatbot';
 
+const FullScreenLoader: React.FC<{ message: string }> = ({ message }) => (
+    <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
+        <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-cyan-400/20 rounded-lg flex items-center justify-center border border-cyan-400/30">
+                <NewsIcon className="w-6 h-6 text-cyan-400" />
+            </div>
+            <h1 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-400">
+              جستجوی هوشمند اخبار
+            </h1>
+        </div>
+        <div className="mt-8 flex items-center gap-3 text-cyan-300">
+            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <span>{message}</span>
+        </div>
+    </div>
+);
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('live');
-  const [settings, setSettings] = useLocalStorage<AppSettings>('app-settings', INITIAL_SETTINGS);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
   const [tickerHeadlines, setTickerHeadlines] = useState<any[]>([]);
   const [dialogUrl, setDialogUrl] = useState<string | null>(null);
-  const [isSettingsLocked, setIsSettingsLocked] = useState(!!settings.password);
+  const [isSettingsLocked, setIsSettingsLocked] = useState(false);
 
-  const handleSettingsChange = (newSettings: AppSettings) => {
-    // If password is being set or changed, re-lock the settings for the next visit.
-    if (settings.password !== newSettings.password) {
+  useEffect(() => {
+    const loadSettings = async () => {
+        try {
+            const fetchedSettings = await fetchSettings();
+            setSettings(fetchedSettings);
+            if (fetchedSettings.password) {
+                setIsSettingsLocked(true);
+            }
+        } catch (error: any) {
+            console.error("Error loading settings:", error);
+            setSettingsError(error.message);
+            // Fallback to initial settings if backend fails
+            setSettings(INITIAL_SETTINGS);
+        }
+    };
+    loadSettings();
+  }, []);
+
+
+  const handleSettingsChange = useCallback(async (newSettings: AppSettings) => {
+    const oldPassword = settings?.password;
+    // Optimistic UI update
+    setSettings(newSettings);
+    
+    if (oldPassword !== newSettings.password) {
       setIsSettingsLocked(!!newSettings.password);
     }
-    setSettings(newSettings);
-  };
+    
+    try {
+        await saveSettings(newSettings);
+    } catch (error) {
+        console.error("Failed to save settings:", error);
+        alert("خطا در ذخیره تنظیمات در سرور. تغییرات شما ممکن است موقتی باشد.");
+        // Optional: Revert to old settings
+        // setSettings(settings); 
+    }
+  }, [settings]);
 
   const loadTicker = useCallback(async () => {
+      if (!settings) return;
       try {
+        // FIX: Pass ticker settings and AI instructions to fetchTickerHeadlines.
         const headlines = await fetchTickerHeadlines(settings.ticker, settings.aiInstructions['news-ticker']);
         setTickerHeadlines(headlines);
       } catch (error) {
         console.error("Error loading ticker headlines:", error);
       }
-    }, [JSON.stringify(settings.ticker), settings.aiInstructions['news-ticker']]);
+    }, [settings]);
 
   useEffect(() => {
-    loadTicker();
-  }, [loadTicker]);
+    if (settings) {
+        loadTicker();
+    }
+  }, [loadTicker, settings]);
   
   const renderNavButton = (view: View, icon: React.ReactNode, label: string) => (
       <button
@@ -60,6 +114,10 @@ const App: React.FC = () => {
       </button>
   );
 
+  if (!settings) {
+    return <FullScreenLoader message={settingsError || 'در حال بارگذاری تنظیمات از سرور...'} />;
+  }
+
   return (
     <>
     <style>{settings.customCss || ''}</style>
@@ -74,7 +132,7 @@ const App: React.FC = () => {
               جستجوی هوشمند اخبار
             </h1>
           </div>
-          <nav className="flex items-center gap-2 p-1 bg-gray-800/40 rounded-xl border border-gray-700/50">
+          <nav className="flex items-center gap-2">
             {renderNavButton('live', <NewsIcon className="w-5 h-5" />, 'اخبار زنده')}
             {renderNavButton('search', <SearchIcon className="w-5 h-5" />, 'جستجو')}
             {renderNavButton('factcheck', <CheckCircleIcon className="w-5 h-5" />, 'فکت چک')}
@@ -82,47 +140,23 @@ const App: React.FC = () => {
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
           </nav>
         </div>
-        {tickerHeadlines.length > 0 && <NewsTicker headlines={tickerHeadlines} settings={settings.ticker} />}
       </header>
-
-      <main className="container mx-auto p-4 md:p-6 lg:p-8">
-        {activeView === 'live' && 
-          <LiveNews 
-            settings={settings}
-            onOpenUrl={setDialogUrl}
-          />}
-        {activeView === 'search' && 
-          <AdvancedSearch 
-            settings={settings} 
-            onOpenUrl={setDialogUrl}
-            onSettingsChange={handleSettingsChange}
-          />}
-        {activeView === 'factcheck' && 
-          <FactCheck 
-            settings={settings}
-            onOpenUrl={setDialogUrl}
-          />}
-        {activeView === 'chatbot' && <Chatbot settings={settings} />}
-        {activeView === 'settings' && (
-          isSettingsLocked ? (
-            <PasswordPrompt
-              password={settings.password || ''}
-              onUnlock={() => setIsSettingsLocked(false)}
-            />
-          ) : (
-            <Settings 
-              settings={settings}
-              onSettingsChange={handleSettingsChange}
-            />
-          )
-        )}
-      </main>
       
-      {dialogUrl && <DraggableDialog url={dialogUrl} onClose={() => setDialogUrl(null)} />}
+      {tickerHeadlines.length > 0 && <NewsTicker headlines={tickerHeadlines} settings={settings.ticker} />}
 
-      <footer className="text-center p-6 text-gray-500 text-sm border-t border-cyan-400/10 mt-8">
-        <p>&copy; 2024 - ابزار هوشمند جستجوی اخبار. قدرت گرفته از هوش مصنوعی</p>
-      </footer>
+      <main className="container mx-auto p-4 sm:p-6">
+        {activeView === 'live' && <LiveNews settings={settings} onOpenUrl={setDialogUrl} />}
+        {activeView === 'search' && <AdvancedSearch settings={settings} onOpenUrl={setDialogUrl} onSettingsChange={handleSettingsChange} />}
+        {activeView === 'factcheck' && <FactCheck settings={settings} onOpenUrl={setDialogUrl} />}
+        {activeView === 'settings' && (
+            isSettingsLocked ? 
+            <PasswordPrompt password={settings.password!} onUnlock={() => setIsSettingsLocked(false)} /> :
+            <Settings settings={settings} onSettingsChange={handleSettingsChange} />
+        )}
+        {activeView === 'chatbot' && <Chatbot settings={settings} />}
+      </main>
+
+      {dialogUrl && <DraggableDialog url={dialogUrl} onClose={() => setDialogUrl(null)} />}
     </div>
     </>
   );

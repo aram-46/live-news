@@ -1,6 +1,5 @@
-
-
-import { NewsArticle, IntegrationSettings } from '../types';
+import { AppSettings, IntegrationSettings, NewsArticle } from '../types';
+import { INITIAL_SETTINGS } from '../data/defaults';
 
 interface TelegramSettings {
     botToken: string;
@@ -222,6 +221,94 @@ export async function testGroqConnection(apiKey: string): Promise<boolean> {
         return true;
     } else {
         console.error("Groq connection test failed: Invalid API key format (placeholder).");
+        return false;
+    }
+}
+
+async function getRemoteSettings(integrations: IntegrationSettings): Promise<AppSettings | null> {
+    const { cloudflareWorkerUrl, cloudflareWorkerToken } = integrations;
+    if (cloudflareWorkerUrl && cloudflareWorkerToken) {
+        try {
+            const response = await fetch(`${cloudflareWorkerUrl}/settings`, {
+                headers: { 'Authorization': `Bearer ${cloudflareWorkerToken}` }
+            });
+            if (response.ok) {
+                const remoteSettings = await response.json();
+                return remoteSettings as AppSettings;
+            }
+        } catch (e) {
+            console.error("Failed to fetch from worker", e);
+        }
+    }
+    return null;
+}
+
+export async function fetchSettings(): Promise<AppSettings> {
+    let tempSettings = INITIAL_SETTINGS;
+    // Try loading from localStorage first for immediate UI response
+    try {
+        const settingsString = localStorage.getItem('app-settings');
+        if (settingsString) {
+            tempSettings = { ...INITIAL_SETTINGS, ...JSON.parse(settingsString) };
+        }
+    } catch (e) {
+        console.error("Failed to parse settings from localStorage", e);
+    }
+    
+    // Then try fetching from remote and override if successful
+    const remoteSettings = await getRemoteSettings(tempSettings.integrations);
+    if (remoteSettings) {
+        const mergedSettings = { ...INITIAL_SETTINGS, ...remoteSettings };
+        localStorage.setItem('app-settings', JSON.stringify(mergedSettings));
+        return mergedSettings;
+    }
+    
+    return tempSettings;
+}
+
+export async function saveSettings(settings: AppSettings): Promise<void> {
+    // Always save to localStorage immediately for offline reliability
+    localStorage.setItem('app-settings', JSON.stringify(settings));
+
+    // Then, attempt to save to the remote worker if configured
+    const { cloudflareWorkerUrl, cloudflareWorkerToken } = settings.integrations;
+    if (cloudflareWorkerUrl && cloudflareWorkerToken) {
+        try {
+            const response = await fetch(`${cloudflareWorkerUrl}/settings`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${cloudflareWorkerToken}`
+                },
+                body: JSON.stringify(settings)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Worker returned status ${response.status}`);
+            }
+            console.log("Settings saved to Cloudflare Worker successfully.");
+        } catch (e) {
+            console.error("Failed to save settings to worker. They are saved locally.", e);
+            // Optionally, you can throw the error to be handled by the UI.
+            // For a better UX, we can just log it and let the local save be the source of truth for now.
+             throw new Error("Failed to save settings to Cloudflare.");
+        }
+    }
+}
+
+export async function testCloudflareDbConnection(url: string, token: string): Promise<boolean> {
+    if (!url || !token) return false;
+    try {
+        const testUrl = new URL('/settings', url).toString();
+        const response = await fetch(testUrl, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        // A success is OK (200) for existing settings, or Not Found (404) for a new DB.
+        // Unauthorized (401/403) or other errors are failures.
+        return response.ok || response.status === 404;
+    } catch (error) {
+        console.error("Cloudflare DB connection test failed:", error);
         return false;
     }
 }

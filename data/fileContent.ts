@@ -1147,4 +1147,107 @@ compatibility_date = "2024-05-20"
 # DISCORD_BOT_TOKEN = "your_bot_token_here"
 # GEMINI_API_KEY = "your_gemini_api_key_here"
 `,
+    
+    // --- NEW CLOUDFLARE DB WORKER FILES ---
+    cloudflareDbWorkerJs: `// Cloudflare Worker for saving and retrieving application settings from a D1 database.
+// This acts as a secure API endpoint for the frontend application.
+
+export default {
+  async fetch(request, env, ctx) {
+    // Add CORS headers to allow requests from any origin
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+
+    // Handle CORS preflight requests
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    // Authenticate the request
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || authHeader !== \`Bearer \${env.WORKER_TOKEN}\`) {
+      return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+    }
+    
+    const url = new URL(request.url);
+
+    if (url.pathname === '/settings') {
+      if (request.method === 'GET') {
+        try {
+          const { results } = await env.DB.prepare(
+            "SELECT value FROM settings WHERE key = 'app-settings'"
+          ).all();
+
+          if (results && results.length > 0) {
+            return new Response(results[0].value, {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          } else {
+            return new Response(JSON.stringify({ message: 'No settings found' }), {
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        } catch (e) {
+          return new Response(e.message, { status: 500, headers: corsHeaders });
+        }
+      }
+
+      if (request.method === 'POST') {
+        try {
+          const settings = await request.json();
+          await env.DB.prepare(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('app-settings', ?)"
+          )
+          .bind(JSON.stringify(settings))
+          .run();
+
+          return new Response('Settings saved successfully', { status: 200, headers: corsHeaders });
+        } catch (e) {
+            return new Response(e.message, { status: 500, headers: corsHeaders });
+        }
+      }
+    }
+    
+    return new Response('Not found', { status: 404, headers: corsHeaders });
+  },
+};
+`,
+    cloudflareDbSchemaSql: `-- SQL schema for the Cloudflare D1 settings database.
+-- This creates a simple key-value table to store the main settings object.
+
+-- Drop the table if it already exists to start fresh (optional)
+DROP TABLE IF EXISTS settings;
+
+-- Create the settings table
+CREATE TABLE settings (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+);
+
+-- Optional: Add an index for faster lookups on the primary key
+CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key ON settings (key);
+
+-- Add a comment to describe the table's purpose
+-- In some SQL dialects, this might be different. This is a generic comment.
+-- Description: This table stores the entire application settings object as a JSON string
+-- under a single key, 'app-settings'.
+`,
+    cloudflareDbWranglerToml: `# Cloudflare Worker configuration file for the settings/database API.
+# This file is used by the Wrangler CLI to deploy your worker.
+
+name = "smart-news-settings-api" # You can change this to your preferred worker name
+main = "path/to/your/db-worker.js"   # IMPORTANT: Update this path to where you saved the worker script
+compatibility_date = "2024-05-20"
+
+# D1 Database Binding
+# This links your D1 database to the worker script, making it available on \`env.DB\`.
+[[d1_databases]]
+binding = "DB"                # The name of the binding in your worker code (env.DB)
+database_name = "smart-news-db" # The name of your D1 database in the Cloudflare dashboard
+database_id = ""              # The ID of your D1 database. Fill this in after creating the DB.
+`
 };

@@ -1,6 +1,3 @@
-
-
-
 import React from 'react';
 
 export const SearchIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
@@ -276,4 +273,16 @@ export const TableCellsIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) =
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125V5.625c0-.621.504-1.125 1.125-1.125h17.25c.621 0 1.125.504 1.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m9.75 0h-9.75m9.75 0-3.375-3.375M3.375 19.5 6.75 16.125m10.5 3.375-3.375-3.375m0 0L12 12.75m3.375 3.375L12 12.75m-8.625 6.75L12 12.75" />
     </svg>
+);
+
+export const DatabaseIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5v-2.25A4.5 4.5 0 0 0 15 6.75H9A4.5 4.5 0 0 0 4.5 11.25v2.25M19.5 13.5v2.25A4.5 4.5 0 0 1 15 20.25H9a4.5 4.5 0 0 1-4.5-4.5v-2.25m15-6.75a4.5 4.5 0 0 0-4.5-4.5H9a4.5 4.5 0 0 0-4.5 4.5m15 6.75H4.5" />
+    </svg>
+);
+
+export const CloudIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.332-7.257 3 3 0 0 0-5.02-3.228 4.5 4.5 0 0 0-9.03 1.976v.385" />
+  </svg>
 );

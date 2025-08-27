@@ -246,6 +246,9 @@ export interface IntegrationSettings {
     twitter: TwitterSettings;
     appwrite: AppwriteSettings;
     supabase: SupabaseSettings;
+    // New settings for Cloudflare D1 backend
+    cloudflareWorkerUrl: string;
+    cloudflareWorkerToken: string;
 }
 
 export interface DatabaseSettings {
@@ -308,4 +311,13 @@ export interface AppSettings {
     structuredSearchDomains: string[];
     structuredSearchRegions: string[];
     structuredSearchSources: string[];
+}
+
+
+// --- CHAT ---
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: number;
 }
