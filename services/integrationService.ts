@@ -1,5 +1,8 @@
-import { AppSettings, IntegrationSettings, NewsArticle } from '../types';
+import { AppSettings, IntegrationSettings, NewsArticle, AppwriteSettings } from '../types';
 import { INITIAL_SETTINGS } from '../data/defaults';
+import { Client, Databases, ID, Query } from 'appwrite';
+
+const SETTINGS_DOCUMENT_ID = "main-settings";
 
 interface TelegramSettings {
     botToken: string;
@@ -9,6 +12,98 @@ interface TelegramSettings {
 interface DiscordSettings {
     webhookUrl: string;
 }
+
+// --- Appwrite Helper ---
+function getAppwriteClient(settings: AppwriteSettings): { client: Client, databases: Databases } | null {
+    if (settings.endpoint && settings.projectId) {
+        const client = new Client();
+        client
+            .setEndpoint(settings.endpoint)
+            .setProject(settings.projectId);
+        const databases = new Databases(client);
+        return { client, databases };
+    }
+    return null;
+}
+
+// --- Appwrite Settings Functions ---
+async function getSettingsFromAppwrite(settings: AppwriteSettings): Promise<AppSettings | null> {
+    const appwrite = getAppwriteClient(settings);
+    if (!appwrite || !settings.databaseId || !settings.settingsCollectionId) {
+        return null;
+    }
+
+    try {
+        const document = await appwrite.databases.getDocument(
+            settings.databaseId,
+            settings.settingsCollectionId,
+            SETTINGS_DOCUMENT_ID
+        );
+        // Assuming the settings are stored in a field named 'content' as a stringified JSON
+        if (document && typeof document.content === 'string') {
+            return JSON.parse(document.content);
+        }
+    } catch (error: any) {
+        // Appwrite throws an error with code 404 if the document is not found.
+        // This is expected on the first run.
+        if (error.code !== 404) {
+             console.error("Failed to fetch settings from Appwrite:", error);
+        }
+    }
+    return null;
+}
+
+async function saveSettingsToAppwrite(appSettings: AppSettings): Promise<boolean> {
+    const { appwrite: appwriteSettings } = appSettings.integrations;
+    const appwrite = getAppwriteClient(appwriteSettings);
+     if (!appwrite || !appwriteSettings.databaseId || !appwriteSettings.settingsCollectionId) {
+        return false;
+    }
+    
+    const settingsString = JSON.stringify(appSettings);
+    
+    try {
+        // First, try to get the document to see if it exists
+        await appwrite.databases.getDocument(
+            appwriteSettings.databaseId,
+            appwriteSettings.settingsCollectionId,
+            SETTINGS_DOCUMENT_ID
+        );
+        // If it exists, update it
+        await appwrite.databases.updateDocument(
+            appwriteSettings.databaseId,
+            appwriteSettings.settingsCollectionId,
+            SETTINGS_DOCUMENT_ID,
+            { content: settingsString }
+        );
+        console.log("Settings updated in Appwrite successfully.");
+        return true;
+
+    } catch (error: any) {
+        if (error.code === 404) {
+            // If it doesn't exist, create it
+            try {
+                await appwrite.databases.createDocument(
+                    appwriteSettings.databaseId,
+                    appwriteSettings.settingsCollectionId,
+                    SETTINGS_DOCUMENT_ID,
+                    { content: settingsString }
+                );
+                 console.log("Settings created in Appwrite successfully.");
+                return true;
+            } catch (createError) {
+                 console.error("Failed to create settings document in Appwrite:", createError);
+                 return false;
+            }
+        } else {
+             console.error("Failed to save settings to Appwrite:", error);
+             return false;
+        }
+    }
+}
+
+
+// --- Communication Functions ---
 
 export async function sendToTelegram(settings: TelegramSettings, article: NewsArticle): Promise<boolean> {
     if (!settings.botToken || !settings.chatId) {
@@ -103,6 +198,8 @@ export async function sendToDiscord(settings: DiscordSettings, article: NewsArti
     }
 }
 
+// --- Connection Test Functions ---
+
 export async function testTelegramConnection(settings: TelegramSettings): Promise<boolean> {
     if (!settings.botToken) return false;
     const API_URL = `https://api.telegram.org/bot${settings.botToken}/getMe`;
@@ -155,16 +252,46 @@ export async function testTwitterConnection(settings: IntegrationSettings['twitt
     return true; // Placeholder
 }
 
-export async function testAppwriteConnection(settings: IntegrationSettings['appwrite']): Promise<boolean> {
-    if (!settings.endpoint || !settings.projectId || !settings.apiKey) return false;
-    console.log("Testing Appwrite connection (placeholder)...");
-    try {
-        new URL(settings.endpoint);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return true;
-    } catch {
-        return false;
+export async function testAppwriteConnection(settings: AppwriteSettings): Promise<boolean> {
+    const appwrite = getAppwriteClient(settings);
+    if (!appwrite) return false;
+
+    const { databases } = appwrite;
+    const { databaseId, settingsCollectionId, newsArticlesCollectionId, chatHistoryCollectionId } = settings;
+
+    if (!databaseId) return false;
+
+    // Helper to test a collection. Returns true if it exists (even if empty).
+    const checkCollection = async (collectionId: string): Promise<boolean> => {
+        if (!collectionId) return true; // If ID is not provided, we don't test it and don't fail.
+        try {
+            // listDocuments is a good way to check read access and existence. Limit to 1 for efficiency.
+            await databases.listDocuments(databaseId, collectionId, [Query.limit(1)]);
+            return true;
+        } catch (error: any) {
+            // 404 means collection exists but is empty, which is a valid state for the connection test.
+            if (error.code === 404) {
+                 console.log(`Appwrite connection check: Collection '${collectionId}' exists but is empty. (Success)`);
+                 return true;
+            }
+            console.error(`Appwrite connection test failed for collection '${collectionId}':`, error);
+            return false;
+        }
+    };
+    
+    // Check all collections in parallel.
+    const results = await Promise.all([
+        checkCollection(settingsCollectionId),
+        checkCollection(newsArticlesCollectionId),
+        checkCollection(chatHistoryCollectionId),
+    ]);
+
+    // If all checks passed, the connection is considered successful.
+    const allSuccessful = results.every(Boolean);
+    if(allSuccessful) {
+        console.log("Appwrite connection and all specified collections verified successfully.");
     }
+    return allSuccessful;
 }
 
 export async function testSupabaseConnection(settings: IntegrationSettings['supabase']): Promise<boolean> {
@@ -225,7 +352,7 @@ export async function testGroqConnection(apiKey: string): Promise<boolean> {
     }
 }
 
-async function getRemoteSettings(integrations: IntegrationSettings): Promise<AppSettings | null> {
+async function getRemoteSettingsFromCloudflare(integrations: IntegrationSettings): Promise<AppSettings | null> {
     const { cloudflareWorkerUrl, cloudflareWorkerToken } = integrations;
     if (cloudflareWorkerUrl && cloudflareWorkerToken) {
         try {
@@ -243,9 +370,11 @@ async function getRemoteSettings(integrations: IntegrationSettings): Promise<App
     return null;
 }
 
+// --- Main Settings Fetch/Save Logic ---
+
 export async function fetchSettings(): Promise<AppSettings> {
     let tempSettings = INITIAL_SETTINGS;
-    // Try loading from localStorage first for immediate UI response
+    // 1. Try loading from localStorage first for immediate UI response
     try {
         const settingsString = localStorage.getItem('app-settings');
         if (settingsString) {
@@ -255,14 +384,25 @@ export async function fetchSettings(): Promise<AppSettings> {
         console.error("Failed to parse settings from localStorage", e);
     }
     
-    // Then try fetching from remote and override if successful
-    const remoteSettings = await getRemoteSettings(tempSettings.integrations);
-    if (remoteSettings) {
-        const mergedSettings = { ...INITIAL_SETTINGS, ...remoteSettings };
+    // 2. Try fetching from Appwrite and override if successful
+    const appwriteSettings = await getSettingsFromAppwrite(tempSettings.integrations.appwrite);
+    if (appwriteSettings) {
+        console.log("Loaded settings from Appwrite.");
+        const mergedSettings = { ...INITIAL_SETTINGS, ...appwriteSettings };
+        localStorage.setItem('app-settings', JSON.stringify(mergedSettings));
+        return mergedSettings;
+    }
+
+    // 3. If Appwrite fails, try Cloudflare Worker
+    const cloudflareSettings = await getRemoteSettingsFromCloudflare(tempSettings.integrations);
+    if (cloudflareSettings) {
+        console.log("Loaded settings from Cloudflare.");
+        const mergedSettings = { ...INITIAL_SETTINGS, ...cloudflareSettings };
         localStorage.setItem('app-settings', JSON.stringify(mergedSettings));
         return mergedSettings;
     }
     
+    // 4. If all remotes fail, return the localStorage/initial settings
     return tempSettings;
 }
 
@@ -270,7 +410,13 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
     // Always save to localStorage immediately for offline reliability
     localStorage.setItem('app-settings', JSON.stringify(settings));
 
-    // Then, attempt to save to the remote worker if configured
+    // 1. Attempt to save to Appwrite first
+    const appwriteSuccess = await saveSettingsToAppwrite(settings);
+    if (appwriteSuccess) {
+        return; // Successfully saved to primary remote, we're done.
+    }
+
+    // 2. If Appwrite is not configured or fails, attempt to save to the Cloudflare worker
     const { cloudflareWorkerUrl, cloudflareWorkerToken } = settings.integrations;
     if (cloudflareWorkerUrl && cloudflareWorkerToken) {
         try {
@@ -289,9 +435,7 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
             console.log("Settings saved to Cloudflare Worker successfully.");
         } catch (e) {
             console.error("Failed to save settings to worker. They are saved locally.", e);
-            // Optionally, you can throw the error to be handled by the UI.
-            // For a better UX, we can just log it and let the local save be the source of truth for now.
-             throw new Error("Failed to save settings to Cloudflare.");
+            throw new Error("Failed to save settings to Cloudflare.");
         }
     }
 }

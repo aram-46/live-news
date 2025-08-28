@@ -1289,5 +1289,242 @@ compatibility_date = "2024-05-20"
 binding = "DB"                # The name of the binding in your worker code (env.DB)
 database_name = "smart-news-db" # The name of your D1 database in the Cloudflare dashboard
 database_id = ""              # The ID of your D1 database. Fill this in after creating the DB.
-`
+`,
+    // --- NEW APPWRITE INTEGRATION FILES ---
+
+    appwriteGuideMd: `# راهنمای کامل راه‌اندازی بک‌اند با Appwrite (بدون نیاز به CLI)
+این راهنما شما را برای استقرار یک بک‌اند کامل شامل دیتابیس برای ذخیره تنظیمات، اخبار و تاریخچه چت، به صورت کاملاً دستی از طریق داشبورد وب‌سایت Appwrite راهنمایی می‌کند.
+---
+### بخش اول: ساخت پروژه و دیتابیس
+1.  **ساخت پروژه:** وارد [Appwrite Cloud](https://cloud.appwrite.io/) شوید و یک پروژه جدید (Create Project) بسازید.
+2.  **ذخیره اطلاعات پروژه:** از منوی سمت چپ به **Settings** بروید. مقادیر زیر را کپی کرده و در فیلدهای مربوطه در همین صفحه وارد کنید:
+    *   \`Project ID\`
+    *   \`API Endpoint\`
+3.  **ساخت دیتابیس:** از منوی سمت چپ به بخش **Databases** بروید. یک دیتابیس جدید (Create Database) بسازید و نام آن را \`Main Database\` بگذارید. **Database ID** را کپی کرده و در فیلد مربوطه در این صفحه وارد کنید.
+---
+### بخش دوم: ساخت کالکشن‌ها (Collections)
+وارد دیتابیسی که ساختید شوید و سه کالکشن زیر را با دقت ایجاد کنید.
+#### 1. کالکشن تنظیمات (Settings)
+*   **Create Collection:** نام کالکشن را \`Settings\` بگذارید. **Collection ID** را کپی کرده و در فیلد \`Settings Collection ID\` وارد کنید.
+*   **Attributes Tab:** یک Attribute جدید بسازید:
+    *   **Type:** String
+    *   **Attribute ID:** \`content\`
+    *   **Size:** \`1000000\`
+    *   **Required:** Yes
+*   **Settings Tab:** در بخش Permissions، یک رول جدید از نوع \`any\` اضافه کنید و تمام دسترسی‌های **Create, Read, Update, Delete** را به آن بدهید. (این برای تست است، در محیط واقعی باید دسترسی‌ها را محدود کنید).
+
+#### 2. کالکشن آرشیو اخبار (News Articles)
+*   **Create Collection:** نام کالکشن را \`News Articles\` بگذارید. **Collection ID** را کپی کرده و در فیلد \`News Articles Collection ID\` وارد کنید.
+*   **Attributes Tab:** Attribute های زیر را بسازید:
+    *   \`title\` (String, 255, Required)
+    *   \`link\` (String, 512, Required)
+    *   \`summary\` (String, 10000, Not Required)
+    *   \`sourceName\` (String, 100, Not Required)
+    *   \`category\` (String, 50, Not Required)
+    *   \`publicationTime\` (String, 50, Not Required)
+*   **Indexes Tab:** یک ایندکس جدید بسازید:
+    *   **Index ID:** \`link_unique\`
+    *   **Type:** \`unique\`
+    *   **Attributes:** \`link\`
+*   **Settings Tab:** مانند کالکشن قبل، به رول \`any\` تمام دسترسی‌ها را بدهید.
+
+#### 3. کالکشن تاریخچه چت (Chat History)
+*   **Create Collection:** نام کالکشن را \`Chat History\` بگذارید. **Collection ID** را کپی کرده و در فیلد \`Chat History Collection ID\` وارد کنید.
+*   **Attributes Tab:** Attribute های زیر را بسازید:
+    *   \`sessionId\` (String, 36, Required)
+    *   \`role\` (String, 10, Required)
+    *   \`text\` (String, 10000, Required)
+    *   \`timestamp\` (Datetime, Required)
+*   **Settings Tab:** به رول \`any\` تمام دسترسی‌ها را بدهید.
+---
+### بخش سوم: ساخت کلید API
+1.  از منوی اصلی پروژه (گوشه پایین سمت چپ) به بخش **API Keys** بروید.
+2.  یک کلید API جدید (Create API Key) بسازید.
+3.  یک نام برای آن انتخاب کنید و در بخش **Scopes**، تیک **\`databases\`** را بزنید.
+4.  پس از ساخت، **API Key Secret** را کپی کرده و در فیلد \`API Key\` در این صفحه وارد کنید.
+---
+### بخش چهارم: اتصال نهایی
+پس از وارد کردن تمام اطلاعات (Project ID, Endpoint, Database ID, Collection ID ها و API Key) در فرم این صفحه، روی دکمه **"ذخیره و تست اتصال"** کلیک کنید تا از صحت اطلاعات وارد شده اطمینان حاصل کنید.`,
+
+    appwriteJson: `{
+  "projectId": "YOUR_PROJECT_ID",
+  "projectName": "Smart News Search",
+  "databases": [
+    {
+      "$id": "main-db",
+      "name": "Main Database",
+      "collections": [
+        {
+          "$id": "settings-collection",
+          "name": "Settings",
+          "documentSecurity": false,
+          "permissions": ["role:all"],
+          "attributes": [
+            { "key": "content", "type": "string", "status": "available", "required": true, "size": 1000000 }
+          ],
+          "indexes": []
+        },
+        {
+          "$id": "news-articles-collection",
+          "name": "News Articles",
+          "documentSecurity": false,
+          "permissions": ["role:all"],
+          "attributes": [
+            { "key": "title", "type": "string", "status": "available", "required": true, "size": 255 },
+            { "key": "link", "type": "string", "status": "available", "required": true, "size": 512 },
+            { "key": "summary", "type": "string", "status": "available", "required": false, "size": 10000 },
+            { "key": "sourceName", "type": "string", "status": "available", "required": false, "size": 100 },
+            { "key": "category", "type": "string", "status": "available", "required": false, "size": 50 },
+            { "key": "publicationTime", "type": "string", "status": "available", "required": false, "size": 50 }
+          ],
+          "indexes": [
+            { "key": "link_unique", "type": "unique", "status": "available", "attributes": ["link"], "orders": ["ASC"] }
+          ]
+        },
+        {
+          "$id": "chat-history-collection",
+          "name": "Chat History",
+          "documentSecurity": false,
+          "permissions": ["role:all"],
+          "attributes": [
+            { "key": "sessionId", "type": "string", "status": "available", "required": true, "size": 36 },
+            { "key": "role", "type": "string", "status": "available", "required": true, "size": 10 },
+            { "key": "text", "type": "string", "status": "available", "required": true, "size": 10000 },
+            { "key": "timestamp", "type": "datetime", "status": "available", "required": true }
+          ],
+          "indexes": [
+            { "key": "session_index", "type": "key", "status": "available", "attributes": ["sessionId"], "orders": ["ASC"] }
+          ]
+        }
+      ]
+    }
+  ],
+  "functions": []
+}`,
+
+// FIX: This section contained a malformed object literal that was causing numerous syntax errors.
+// The entire invalid block has been removed to resolve the parsing issues.
+// The content was a corrupted duplicate of the `appwriteJson` string property above.
+
+    appwriteTelegramFuncJs: `const TelegramBot = require('node-telegram-bot-api');
+
+// This is a simplified version for an Appwrite function.
+// In a real scenario, you would import Gemini logic from another file.
+async function getNewsFromGemini() {
+    // Placeholder - In a real function, you would call the Gemini API here.
+    return {
+        title: "خبر نمونه از Appwrite",
+        source: "تابع سرورلس",
+        summary: "این یک خبر نمونه است که توسط تابع Appwrite برای شما ارسال شده است.",
+        link: "https://appwrite.io"
+    };
+}
+
+module.exports = async (req, res) => {
+    const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
+
+    try {
+        const update = JSON.parse(req.body);
+        
+        if (update.message) {
+            const message = update.message;
+            const chatId = message.chat.id;
+            const text = message.text;
+
+            if (text === '/start') {
+                await bot.sendMessage(chatId, 'سلام! ربات هوشمند اخبار (نسخه Appwrite) آماده است. برای دریافت آخرین اخبار /news را ارسال کنید.');
+            } else if (text === '/news') {
+                await bot.sendMessage(chatId, 'در حال جستجوی آخرین اخبار...');
+                const article = await getNewsFromGemini();
+                const formattedMessage = \`*$\{article.title}*\\n\\n*منبع:* $\{article.source}\\n\\n$\{article.summary}\\n\\n[مشاهده خبر]($\{article.link})\`;
+                await bot.sendMessage(chatId, formattedMessage, { parse_mode: 'Markdown' });
+            }
+        }
+        
+        res.json({ success: true, message: "Update processed." });
+
+    } catch (error) {
+        console.error('Error processing Telegram update:', error);
+        res.json({ success: false, error: error.message }, 500);
+    }
+};
+`,
+    
+    appwriteDiscordFuncJs: `const { InteractionResponseType, InteractionType, verifyKey } = require('discord-interactions');
+
+// This function is an adaptation of the Cloudflare Worker for Discord.
+// It is designed to run in an Appwrite Node.js environment.
+
+// NOTE: You would need to implement the Gemini helper functions (fetchNews, etc.) here as well.
+// For brevity, we will assume they exist and return placeholder data.
+
+async function handleInteraction(interaction, env) {
+    if (interaction.type === InteractionType.PING) {
+        return { type: InteractionResponseType.PONG };
+    }
+
+    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+        const commandName = interaction.data.name;
+        if (commandName === 'help') {
+             return {
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: { content: "این ربات هوشمند اخبار است. از دستور /search برای جستجو استفاده کنید." },
+            };
+        }
+        if (commandName === 'search') {
+            // Placeholder for Gemini API call
+            return {
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    embeds: [{
+                        title: "نتیجه جستجو (نمونه Appwrite)",
+                        description: "جستجوی شما برای 'موضوع نمونه' نتیجه زیر را در بر داشت.",
+                        color: 0x06b6d4,
+                    }]
+                },
+            };
+        }
+    }
+    return {
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: { content: "دستور ناشناخته." },
+    };
+}
+
+module.exports = async (req, res) => {
+    const signature = req.headers['x-signature-ed25519'];
+    const timestamp = req.headers['x-signature-timestamp'];
+    const body = req.bodyRaw; // Appwrite provides the raw body here
+
+    const isValidRequest = verifyKey(
+        body,
+        signature,
+        timestamp,
+        process.env.DISCORD_PUBLIC_KEY
+    );
+
+    if (!isValidRequest) {
+        return res.json({ error: 'Invalid request signature' }, 401);
+    }
+    
+    const interaction = JSON.parse(body);
+    const responsePayload = await handleInteraction(interaction, process.env);
+    
+    return res.json(responsePayload);
+};
+`,
+
+    appwritePackageJson: `{
+  "name": "appwrite-functions",
+  "version": "1.0.0",
+  "description": "Dependencies for Smart News Appwrite functions.",
+  "main": "index.js",
+  "dependencies": {
+    "@google/genai": "^0.1.0",
+    "node-telegram-bot-api": "^0.61.0",
+    "discord-interactions": "^3.4.0",
+    "node-fetch": "^2.6.7"
+  }
+}
+`,
 };

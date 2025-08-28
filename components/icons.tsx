@@ -105,8 +105,8 @@ export const TwitterIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 );
 
 export const AppwriteIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 0 0 2.25-2.25V6a2.25 2.25 0 0 0-2.25-2.25H6A2.25 2.25 0 0 0 3.75 6v2.25A2.25 2.25 0 0 0 6 10.5Zm0 9.75h2.25A2.25 2.25 0 0 0 10.5 18v-2.25a2.25 2.25 0 0 0-2.25-2.25H6a2.25 2.25 0 0 0-2.25 2.25v2.25A2.25 2.25 0 0 0 6 20.25Zm9.75-9.75H18a2.25 2.25 0 0 0 2.25-2.25V6A2.25 2.25 0 0 0 18 3.75h-2.25A2.25 2.25 0 0 0 13.5 6v2.25a2.25 2.25 0 0 0 2.25 2.25Z" />
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+        <path d="M22.28,6.47a2.23,2.23,0,0,0-1.68-1.74L14,2.21a2.23,2.23,0,0,0-2.45,1L3,15.68a2.23,2.23,0,0,0,1,3.48l1.43.83h0l.3-.17,0,0,0,0,6.58-3.8h0l.3-.17,0,0,5.16-2.98,0,0,0,0,1-.58a2.23,2.23,0,0,0,1.15-2V7.87A2.23,2.23,0,0,0,22.28,6.47ZM20.19,7.6,13.7,11.34l-6.58-3.8L12.8,3.92l5.65,2.44A.24.24,0,0,1,20.19,7.6Z"/>
     </svg>
 );
 

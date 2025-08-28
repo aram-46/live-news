@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import ThemeSelector from './ThemeSelector';
@@ -10,6 +11,7 @@ import AIModelSettings from './AIModelSettings';
 import ContentSettings from './ContentSettings';
 import BackendSettings from './settings/BackendSettings';
 import CloudflareSettings from './settings/CloudflareSettings';
+import AppwriteSettings from './settings/AppwriteSettings';
 import GitHubSettings from './settings/GitHubSettings';
 import AboutTab from './settings/AboutTab';
 import FontSettingsEditor from './settings/FontSettingsEditor';
@@ -24,7 +26,7 @@ interface SettingsProps {
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'github' | 'about' | 'security';
+type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'appwrite' | 'github' | 'about' | 'security';
 
 const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('content');
@@ -58,6 +60,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('security', 'امنیت')}
         {renderTabButton('backend', 'بک‌اند و دیتابیس')}
         {renderTabButton('cloudflare', 'کلودفلر')}
+        {renderTabButton('appwrite', 'اپ‌رایت')}
         {renderTabButton('github', 'گیت‌هاب')}
         {renderTabButton('about', 'درباره برنامه')}
       </div>
@@ -131,6 +134,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
 
         {activeTab === 'backend' && <BackendSettings />}
         {activeTab === 'cloudflare' && <CloudflareSettings />}
+        {activeTab === 'appwrite' && <AppwriteSettings settings={settings.integrations.appwrite} onSettingsChange={(appwrite) => handlePartialChange({ integrations: { ...settings.integrations, appwrite }})} />}
         {activeTab === 'github' && <GitHubSettings />}
         {activeTab === 'about' && <AboutTab />}
       </div>

@@ -1,4 +1,5 @@
 
+
 import { AppSettings, Theme, generateUUID } from '../types';
 
 export const ALL_THEMES: Theme[] = [
@@ -108,7 +109,11 @@ export const INITIAL_SETTINGS: AppSettings = {
       appwrite: {
           endpoint: '',
           projectId: '',
-          apiKey: ''
+          apiKey: '',
+          databaseId: '',
+          settingsCollectionId: '',
+          newsArticlesCollectionId: '',
+          chatHistoryCollectionId: '',
       },
       supabase: {
           projectUrl: '',
