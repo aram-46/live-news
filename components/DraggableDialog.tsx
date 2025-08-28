@@ -56,7 +56,6 @@ const DraggableDialog: React.FC<DraggableDialogProps> = ({ url, onClose }) => {
         position={position}
         onStop={(e, data) => setPosition({ x: data.x, y: data.y })}
         disabled={isMaximized}
-        bounds="parent"
         nodeRef={nodeRef}
     >
       <div 

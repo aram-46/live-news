@@ -136,7 +136,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ settings }) => {
         
         setMediaFile(null); // Clear file from UI after adding to parts
         
-        // FIX: Pass content parts as the 'message' property of an object, not as spread arguments.
         const responseStream = await chatSession.sendMessageStream({ message: contentParts });
         
         let modelResponse = '';
