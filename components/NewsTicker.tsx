@@ -25,9 +25,15 @@ const NewsTicker: React.FC<NewsTickerProps> = ({ headlines, settings }) => {
       className="text-sm px-6 py-1 rounded-md transition-colors duration-300 flex items-center group"
       style={{ color: 'var(--ticker-text)' }}
     >
-      <style>{`.group:hover span { color: var(--ticker-hover) !important; }`}</style>
+      <style>{`.group:hover span { color: var(--ticker-hover) !important; text-shadow: 0 0 5px var(--ticker-hover);}`}</style>
       <LinkIcon className="w-4 h-4 ml-2 opacity-70" />
-      <span style={{color: 'var(--ticker-text)'}}>{headline.title}</span>
+      <span style={{
+        backgroundImage: 'linear-gradient(to right, #c084fc, #f472b6)',
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        color: 'transparent',
+        fontWeight: '600'
+      }}>{headline.title}</span>
       <span className="text-cyan-600 mx-4">|</span>
     </a>
   ));

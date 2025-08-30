@@ -1,11 +1,13 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
-import { Filters, NewsArticle, AppSettings } from '../types';
+import { Filters, NewsArticle, AppSettings, SearchTab } from '../types';
 import { fetchNews } from '../services/geminiService';
 import FilterPanel from './FilterPanel';
 import NewsResults from './NewsResults';
 import { RefreshIcon } from './icons';
 import StructuredSearch from './StructuredSearch';
+import WebSearch from './WebSearch';
 
 interface AdvancedSearchProps {
     settings: AppSettings;
@@ -13,14 +15,13 @@ interface AdvancedSearchProps {
     onSettingsChange: (settings: AppSettings) => void;
 }
 
-type SearchTab = 'news' | 'stats' | 'science' | 'religion';
 
 const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState<SearchTab>('news');
 
   // State for News Search
   const [news, setNews] = useState<NewsArticle[]>([]);
-  const [isLoadingNews, setIsLoadingNews] = useState<boolean>(true);
+  const [isLoadingNews, setIsLoadingNews] = useState<boolean>(false);
   const [newsError, setNewsError] = useState<string | null>(null);
   const [currentFilters, setCurrentFilters] = useState<Filters>({ query: 'مهمترین اخبار ایران و جهان', categories: ['all'], regions: ['all'], sources: ['all'] });
   const [hiddenArticleLinks, setHiddenArticleLinks] = useState<string[]>([]);
@@ -47,17 +48,17 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
   };
 
   useEffect(() => {
-     if(activeTab === 'news') {
+     if(activeTab === 'news' && news.length === 0) {
         handleNewsSearch(currentFilters);
      }
-  }, [activeTab]); // Only run once for news tab when it's first selected
+  }, [activeTab, news.length, currentFilters, handleNewsSearch]);
 
   const visibleNews = news.filter(article => !hiddenArticleLinks.includes(article.link));
   
   const renderTabButton = (tabId: SearchTab, label: string) => (
     <button
       onClick={() => setActiveTab(tabId)}
-      className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 ${
+      className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 whitespace-nowrap ${
         activeTab === tabId
           ? 'border-cyan-400 text-cyan-300'
           : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
@@ -67,75 +68,94 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
     </button>
   );
 
+  const renderCurrentTab = () => {
+    switch (activeTab) {
+        case 'news':
+            return (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-1">
+                        <FilterPanel 
+                            onSearch={handleNewsSearch} 
+                            isLoading={isLoadingNews}
+                            categories={settings.searchOptions.news.categories}
+                            regions={settings.searchOptions.news.regions}
+                            sources={settings.searchOptions.news.sources}
+                            settings={settings}
+                            onSettingsChange={onSettingsChange}
+                            searchType="news"
+                        />
+                    </div>
+                    <div className="lg:col-span-2">
+                        <div className="flex justify-between items-center mb-4">
+                             {currentFilters.query && !isLoadingNews ? (
+                                <h2 className="text-lg font-semibold text-gray-300 animate-fade-in">
+                                    نتایج برای: <span className="text-cyan-300">"{currentFilters.query}"</span>
+                                </h2>
+                            ) : <div />}
+                            <button
+                                onClick={() => handleNewsSearch(currentFilters)}
+                                disabled={isLoadingNews}
+                                className="p-2 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-colors disabled:opacity-50"
+                                aria-label="رفرش اخبار"
+                            >
+                                <RefreshIcon className={`w-5 h-5 ${isLoadingNews ? 'animate-spin' : ''}`} />
+                            </button>
+                        </div>
+                        <NewsResults 
+                            news={visibleNews} 
+                            isLoading={isLoadingNews} 
+                            error={newsError} 
+                            settings={settings}
+                            onOpenUrl={onOpenUrl}
+                            onRemoveArticle={handleRemoveArticle}
+                        />
+                    </div>
+                </div>
+            );
+        case 'video':
+        case 'audio':
+        case 'book':
+        case 'music':
+        case 'dollar':
+             return (
+                <WebSearch
+                    searchType={activeTab}
+                    settings={settings}
+                    onOpenUrl={onOpenUrl}
+                    onSettingsChange={onSettingsChange}
+                />
+            );
+        case 'stats':
+        case 'science':
+        case 'religion':
+            return (
+                <StructuredSearch 
+                    searchType={activeTab}
+                    settings={settings}
+                    onOpenUrl={onOpenUrl}
+                    onSettingsChange={onSettingsChange}
+                />
+            );
+        default:
+            return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
-       <div className="flex border-b border-cyan-400/20">
+       <div className="flex border-b border-cyan-400/20 overflow-x-auto">
           {renderTabButton('news', 'اخبار')}
+          {renderTabButton('video', 'ویدئو')}
+          {renderTabButton('audio', 'صدا')}
+          {renderTabButton('book', 'کتاب و سایت')}
+          {renderTabButton('music', 'موزیک و آهنگ')}
+          {renderTabButton('dollar', 'قیمت دلار')}
           {renderTabButton('stats', 'آمار')}
           {renderTabButton('science', 'مقالات علمی')}
           {renderTabButton('religion', 'موضوعات دینی')}
         </div>
-
-        {activeTab === 'news' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1">
-                    <FilterPanel 
-                        onSearch={handleNewsSearch} 
-                        isLoading={isLoadingNews}
-                        categories={settings.searchCategories}
-                        regions={settings.searchRegions}
-                        sources={settings.searchSources}
-                        settings={settings}
-                        onSettingsChange={onSettingsChange}
-                    />
-                </div>
-                <div className="lg:col-span-2">
-                    <div className="flex justify-end mb-4">
-                        <button
-                            onClick={() => handleNewsSearch(currentFilters)}
-                            disabled={isLoadingNews}
-                            className="p-2 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-colors disabled:opacity-50"
-                            aria-label="رفرش اخبار"
-                        >
-                            <RefreshIcon className={`w-5 h-5 ${isLoadingNews ? 'animate-spin' : ''}`} />
-                        </button>
-                    </div>
-                    <NewsResults 
-                        news={visibleNews} 
-                        isLoading={isLoadingNews} 
-                        error={newsError} 
-                        settings={settings}
-                        onOpenUrl={onOpenUrl}
-                        onRemoveArticle={handleRemoveArticle}
-                    />
-                </div>
-            </div>
-        )}
-
-        {activeTab === 'stats' && (
-            <StructuredSearch 
-                searchType="stats"
-                settings={settings}
-                onOpenUrl={onOpenUrl}
-                onSettingsChange={onSettingsChange}
-            />
-        )}
-        {activeTab === 'science' && (
-             <StructuredSearch 
-                searchType="science"
-                settings={settings}
-                onOpenUrl={onOpenUrl}
-                onSettingsChange={onSettingsChange}
-            />
-        )}
-         {activeTab === 'religion' && (
-             <StructuredSearch 
-                searchType="religion"
-                settings={settings}
-                onOpenUrl={onOpenUrl}
-                onSettingsChange={onSettingsChange}
-            />
-        )}
+        
+        {renderCurrentTab()}
     </div>
   );
 };

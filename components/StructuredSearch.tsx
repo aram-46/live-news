@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useEffect } from 'react';
 import { AppSettings, StatisticsResult, ScientificArticleResult, Credibility, StanceHolder, ChartData } from '../types';
 import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateEditableListItems } from '../services/geminiService';
@@ -62,6 +61,7 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
     const [result, setResult] = useState<StatisticsResult | ScientificArticleResult | null>(null);
     const [isAiLoading, setIsAiLoading] = useState<string | null>(null);
     const [userSelectedChartType, setUserSelectedChartType] = useState<UserChartType | null>(null);
+    const [lastQuery, setLastQuery] = useState('');
 
     useEffect(() => {
         if (result && 'chart' in result && result.chart) {
@@ -85,6 +85,7 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
         setIsLoading(true);
         setError(null);
         setResult(null);
+        setLastQuery(query);
 
         try {
             let fullQuery = `موضوع اصلی: "${query}"`;
@@ -312,6 +313,11 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                 </button>
             </div>
             <div className="lg:col-span-2">
+                {lastQuery && (
+                   <h2 className="text-lg font-semibold text-gray-300 animate-fade-in mb-4">
+                       نتایج برای: <span className="text-cyan-300">"{lastQuery}"</span>
+                   </h2>
+               )}
                 {isLoading && <LoadingSkeleton />}
                 {error && <div className="flex items-center justify-center h-full p-6 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300"><p>{error}</p></div>}
                 {!isLoading && !error && !result && <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400"><p>برای شروع، موضوع مورد نظر خود را در پنل جستجو وارد کنید.</p></div>}

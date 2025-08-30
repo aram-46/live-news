@@ -1,7 +1,8 @@
 
 
+
 import React, { useState } from 'react';
-import { Filters, AppSettings } from '../types';
+import { Filters, AppSettings, SearchTab } from '../types';
 import { SearchIcon, FilterIcon, MagicIcon } from './icons';
 import { generateEditableListItems } from '../services/geminiService';
 
@@ -14,9 +15,10 @@ interface FilterPanelProps {
   sources: string[];
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
+  searchType: SearchTab;
 }
 
-const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categories, regions, sources, settings, onSettingsChange }) => {
+const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categories, regions, sources, settings, onSettingsChange, searchType }) => {
   const [query, setQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['all']);
   const [selectedRegions, setSelectedRegions] = useState<string[]>(['all']);
@@ -53,15 +55,17 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
     }
   };
 
-  const handleGenerateList = async (listType: 'searchCategories' | 'searchRegions' | 'searchSources') => {
-      setIsAiLoading(listType);
+  const handleGenerateList = async (listType: 'categories' | 'regions' | 'sources') => {
+      const stateKey = `${searchType}-${listType}`;
+      setIsAiLoading(stateKey);
       try {
-          const currentItems = settings[listType];
-          const listName = {
-              searchCategories: 'دسته‌بندی‌های خبری',
-              searchRegions: 'مناطق جغرافیایی مهم خبری',
-              searchSources: 'انواع منابع خبری (مانند داخلی، خارجی)'
-          }[listType];
+          const currentItems = settings.searchOptions[searchType][listType];
+          const listNameMap = {
+            categories: 'دسته‌بندی‌ها',
+            regions: 'مناطق جغرافیایی',
+            sources: 'منابع',
+          };
+          const listName = `${listNameMap[listType]} برای ${searchType}`;
 
           const newItems = await generateEditableListItems(listName, currentItems);
           
@@ -71,11 +75,21 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
                   updatedItems.push(item);
               }
           });
-          onSettingsChange({ ...settings, [listType]: updatedItems });
+          
+          onSettingsChange({
+            ...settings,
+            searchOptions: {
+                ...settings.searchOptions,
+                [searchType]: {
+                    ...settings.searchOptions[searchType],
+                    [listType]: updatedItems
+                }
+            }
+          });
 
       } catch (error) {
-          console.error(`Failed to generate items for ${listType}`, error);
-          alert(`خطا در تولید موارد برای ${listType}`);
+          console.error(`Failed to generate items for ${stateKey}`, error);
+          alert(`خطا در تولید موارد برای ${stateKey}`);
       } finally {
           setIsAiLoading(null);
       }
@@ -86,13 +100,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
     options: string[], 
     selected: string[], 
     handler: (value: string) => void,
-    listType: 'searchCategories' | 'searchRegions' | 'searchSources'
+    listType: 'categories' | 'regions' | 'sources'
   ) => (
     <div>
         <div className="flex items-center gap-2 mb-2">
             <label className="block text-sm font-medium text-cyan-300">{label}</label>
-            <button type="button" onClick={() => handleGenerateList(listType)} disabled={isAiLoading === listType} className="text-purple-400 hover:text-purple-300 disabled:opacity-50" title="افزودن موارد جدید با هوش مصنوعی">
-                {isAiLoading === listType 
+            <button type="button" onClick={() => handleGenerateList(listType)} disabled={isAiLoading === `${searchType}-${listType}`} className="text-purple-400 hover:text-purple-300 disabled:opacity-50" title="افزودن موارد جدید با هوش مصنوعی">
+                {isAiLoading === `${searchType}-${listType}` 
                     ? <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> 
                     : <MagicIcon className="w-4 h-4"/>
                 }
@@ -142,9 +156,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
           </div>
         </div>
         
-        {renderMultiSelect('دسته‌بندی خبر', categories, selectedCategories, (value) => handleMultiSelect(value, selectedCategories, setSelectedCategories), 'searchCategories')}
-        {renderMultiSelect('منطقه', regions, selectedRegions, (value) => handleMultiSelect(value, selectedRegions, setSelectedRegions), 'searchRegions')}
-        {renderMultiSelect('منبع خبر', sources, selectedSources, (value) => handleMultiSelect(value, selectedSources, setSelectedSources), 'searchSources')}
+        {renderMultiSelect('دسته‌بندی', categories, selectedCategories, (value) => handleMultiSelect(value, selectedCategories, setSelectedCategories), 'categories')}
+        {renderMultiSelect('منطقه', regions, selectedRegions, (value) => handleMultiSelect(value, selectedRegions, setSelectedRegions), 'regions')}
+        {renderMultiSelect('منبع', sources, selectedSources, (value) => handleMultiSelect(value, selectedSources, setSelectedSources), 'sources')}
 
         <button
           type="submit"
@@ -162,7 +176,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
           ) : (
             <>
                 <SearchIcon className="w-5 h-5"/>
-                جستجوی اخبار
+                جستجو
             </>
           )}
         </button>

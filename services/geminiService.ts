@@ -1,7 +1,5 @@
-
-
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult } from '../types';
+import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource } from '../types';
 
 // Helper function to get the API key from localStorage and initialize the client.
 // It prioritizes a non-empty key from settings, falling back to the environment variable.
@@ -109,10 +107,10 @@ export async function fetchTickerHeadlines(settings: TickerSettings, instruction
 }
 
 
-export async function factCheckNews(text: string, file: { data: string; mimeType: string } | null, instructions: string): Promise<FactCheckResult> {
+export async function factCheckNews(text: string, file: { data: string; mimeType: string } | null, url: string | undefined, instructions: string): Promise<FactCheckResult> {
     const ai = getAiClient();
     try {
-        const textPrompt = `
+        const prompt = `
             ${instructions}
             As a world-class investigative journalist specializing in digital misinformation and social media rumor tracing, conduct a deep analysis of the following content. Your entire output MUST be in Persian and structured according to the JSON schema.
 
@@ -122,101 +120,89 @@ export async function factCheckNews(text: string, file: { data: string; mimeType
             3.  **Verify the Content:** Fact-check the claim itself using at least two independent, high-credibility sources.
             4.  **Summarize Findings:** Provide a clear, concise verdict and summary.
 
-            **JSON Output Structure:**
-            1.  **Overall Credibility:** Determine the final credibility ('بسیار معتبر', 'معتبر', 'نیازمند بررسی').
-            2.  **Summary:** A concise summary of your findings, including the verdict on the claim's authenticity.
-            3.  **Original Source:**
-                -   'name': The name of the website, social media account, or person that first published it.
-                -   'link': A direct link to the very first publication you could find.
-                -   'publicationDate': The exact date and time of the original post.
-                -   'author': The author/account name.
-                -   'authorCredibility': An assessment of the original author/source's general reliability and history.
-                -   'evidenceType': The type of evidence used (e.g., 'عکس', 'فیلم', 'ادعای متنی').
-                -   'evidenceCredibility': An assessment of the evidence's credibility.
-                -   'credibility': An assessment of the source's credibility *for this specific topic*.
-            4.  **Public Reception:** Estimate the claim's acceptance rate (0-100).
-            5.  **Arguments:** Identify key proponents and opponents and their main arguments.
-            6.  **Further Reading:** Provide related suggestions and links to reputable sources discussing the claim.
-
             **Content for Analysis:**
-            - Text Context: "${text}"
+            - Link (if provided): ${url || 'Not provided.'}
+            - Text Context (user's description or claim): "${text}"
         `;
 
-        const contentParts: any[] = [{ text: textPrompt }];
+        const modelConfig = {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    overallCredibility: { type: Type.STRING, enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'], description: "The final credibility verdict in Persian." },
+                    summary: { type: Type.STRING, description: "A concise summary of the fact-check findings in Persian." },
+                    originalSource: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: { type: Type.STRING, description: "Name of the original source." },
+                            credibility: { type: Type.STRING, description: "Credibility of the original source." },
+                            publicationDate: { type: Type.STRING, description: "Publication date and time." },
+                            author: { type: Type.STRING, description: "Name of the author or publisher." },
+                            evidenceType: { type: Type.STRING, description: "Type of evidence used (e.g., 'عکس', 'سند')." },
+                            evidenceCredibility: { type: Type.STRING, description: "Credibility assessment of the evidence." },
+                            authorCredibility: { type: Type.STRING, description: "Credibility assessment of the author." },
+                            link: { type: Type.STRING, description: "Direct URL to the original source." },
+                        },
+                        required: ["name", "credibility", "publicationDate", "author", "evidenceType", "evidenceCredibility", "authorCredibility", "link"],
+                    },
+                    acceptancePercentage: { type: Type.NUMBER, description: "Estimated percentage of public acceptance (0-100)." },
+                    proponents: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                name: { type: Type.STRING, description: "Name of the proponent (person or group)." },
+                                argument: { type: Type.STRING, description: "The proponent's main argument." },
+                            },
+                            required: ["name", "argument"],
+                        }
+                    },
+                    opponents: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                name: { type: Type.STRING, description: "Name of the opponent (person or group)." },
+                                argument: { type: Type.STRING, description: "The opponent's main argument or refutation." },
+                            },
+                            required: ["name", "argument"],
+                        }
+                    },
+                    relatedSuggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Suggestions for further reading." },
+                    relatedSources: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                url: { type: Type.STRING },
+                                title: { type: Type.STRING }
+                            },
+                            required: ["url", "title"]
+                        }
+                    }
+                },
+                required: ["overallCredibility", "summary", "originalSource", "acceptancePercentage", "proponents", "opponents", "relatedSuggestions", "relatedSources"]
+            }
+        };
+
+        const contentParts: any[] = [{ text: prompt }];
 
         if (file) {
             contentParts.push({
                 inlineData: {
                     data: file.data,
                     mimeType: file.mimeType,
-                }
+                },
             });
         }
         
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: { parts: contentParts },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        overallCredibility: { type: Type.STRING, enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'], description: "The final credibility verdict in Persian." },
-                        summary: { type: Type.STRING, description: "A concise summary of the fact-check findings in Persian." },
-                        originalSource: {
-                            type: Type.OBJECT,
-                            properties: {
-                                name: { type: Type.STRING, description: "Name of the original source." },
-                                credibility: { type: Type.STRING, description: "Credibility of the original source." },
-                                publicationDate: { type: Type.STRING, description: "Publication date and time." },
-                                author: { type: Type.STRING, description: "Name of the author or publisher." },
-                                evidenceType: { type: Type.STRING, description: "Type of evidence used (e.g., 'عکس', 'سند')." },
-                                evidenceCredibility: { type: Type.STRING, description: "Credibility assessment of the evidence." },
-                                authorCredibility: { type: Type.STRING, description: "Credibility assessment of the author." },
-                                link: { type: Type.STRING, description: "Direct URL to the original source." },
-                            },
-                            required: ["name", "credibility", "publicationDate", "author", "evidenceType", "evidenceCredibility", "authorCredibility", "link"],
-                        },
-                        acceptancePercentage: { type: Type.NUMBER, description: "Estimated percentage of public acceptance (0-100)." },
-                        proponents: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    name: { type: Type.STRING, description: "Name of the proponent (person or group)." },
-                                    argument: { type: Type.STRING, description: "The proponent's main argument." },
-                                },
-                                required: ["name", "argument"],
-                            }
-                        },
-                        opponents: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    name: { type: Type.STRING, description: "Name of the opponent (person or group)." },
-                                    argument: { type: Type.STRING, description: "The opponent's main argument or refutation." },
-                                },
-                                required: ["name", "argument"],
-                            }
-                        },
-                        relatedSuggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Suggestions for further reading." },
-                        relatedSources: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    url: { type: Type.STRING },
-                                    title: { type: Type.STRING }
-                                },
-                                required: ["url", "title"]
-                            }
-                        }
-                    },
-                    required: ["overallCredibility", "summary", "originalSource", "acceptancePercentage", "proponents", "opponents", "relatedSuggestions", "relatedSources"]
-                }
-            }
+            config: modelConfig,
         });
+        
         const jsonString = response.text.trim();
         const parsedResult = JSON.parse(jsonString);
         return {
@@ -422,6 +408,60 @@ export async function checkForUpdates(sources: Sources): Promise<boolean> {
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
     return Math.random() > 0.7; // 30% chance of finding an "update"
 }
+
+// --- New Web Search Function ---
+export async function fetchWebResults(searchType: 'video' | 'audio' | 'book' | 'music' | 'dollar', filters: Filters, instructions: string): Promise<{ results: WebResult[], sources: GroundingSource[] }> {
+    const ai = getAiClient();
+    try {
+        const typeMap = {
+            video: 'ویدئو',
+            audio: 'صدا (پادکست، کتاب صوتی)',
+            book: 'کتاب و سایت',
+            music: 'موزیک و آهنگ',
+            dollar: 'قیمت دلار و ارز'
+        };
+
+        const prompt = `
+            ${instructions}
+            You are a specialized search engine for ${typeMap[searchType]}. The user is Persian-speaking.
+            Based on the user's query and filters, find the top 5 most relevant results from the web.
+            - Search Query: "${filters.query}"
+            - Categories: "${filters.categories.length === 0 || filters.categories.includes('all') ? 'any' : filters.categories.join(', ')}"
+            - Regions: "${filters.regions.length === 0 || filters.regions.includes('all') ? 'any' : filters.regions.join(', ')}"
+            - Sources: "${filters.sources.length === 0 || filters.sources.includes('all') ? 'any reputable source' : filters.sources.join(', ')}"
+            
+            IMPORTANT: Your entire output must be ONLY a valid JSON array string. Do not include any other text, explanations, or markdown formatting.
+            Each object in the array must have the following keys: "title" (string), "link" (string), "source" (string, e.g., "YouTube", "Goodreads"), "description" (string, a brief summary in Persian), and "imageUrl" (string, a direct link to a relevant thumbnail image).
+        `;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
+        });
+
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const sources: GroundingSource[] = groundingChunks
+            .map((chunk: any) => ({
+                uri: chunk.web?.uri,
+                title: chunk.web?.title,
+            }))
+            .filter((source: GroundingSource) => source.uri && source.title);
+        
+        // Clean up the text and parse the JSON
+        const cleanedText = response.text.replace(/```json\n?|```/g, '').trim();
+        const results: WebResult[] = JSON.parse(cleanedText);
+
+        return { results, sources };
+
+    } catch (error) {
+        console.error(`Error fetching web results for ${searchType}:`, error);
+        throw new Error(`Failed to fetch results for ${searchType}.`);
+    }
+}
+
 
 // --- New Structured Search Functions ---
 

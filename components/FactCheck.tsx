@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef } from 'react';
 import { FactCheckResult, Credibility, AppSettings, MediaFile } from '../types';
 import { CheckCircleIcon, LinkIcon, UploadIcon, ImageIcon, AudioIcon, VideoIcon, UserIcon, CalendarIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon } from './icons';
@@ -10,7 +11,7 @@ interface FactCheckProps {
   onOpenUrl: (url: string) => void;
 }
 
-type FactCheckType = 'text' | 'image' | 'audio' | 'video';
+type FactCheckType = 'text' | 'image' | 'audio' | 'video' | 'url';
 
 const getCredibilityClass = (credibility?: Credibility | string) => {
     if (!credibility) return { border: 'border-gray-600/50', text: 'text-gray-300', bg: 'bg-gray-800/50', dot: 'bg-gray-400' };
@@ -30,6 +31,7 @@ const getCredibilityClass = (credibility?: Credibility | string) => {
 
 const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
   const [text, setText] = useState('');
+  const [url, setUrl] = useState('');
   const [activeTab, setActiveTab] = useState<FactCheckType>('text');
   const [mediaFile, setMediaFile] = useState<MediaFile | null>(null);
 
@@ -63,7 +65,8 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
 
     try {
         const fileData = mediaFile ? { data: mediaFile.data, mimeType: mediaFile.type } : null;
-        const apiResult = await factCheckNews(text, fileData, settings.aiInstructions['fact-check']);
+        const checkUrl = activeTab === 'url' ? url : undefined;
+        const apiResult = await factCheckNews(text, fileData, checkUrl, settings.aiInstructions['fact-check']);
         setResult(apiResult);
     } catch (err) {
         console.error('Error during fact-check:', err);
@@ -71,7 +74,7 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
     } finally {
         setIsLoading(false);
     }
-  }, [text, mediaFile, settings.aiInstructions]);
+  }, [text, mediaFile, url, activeTab, settings.aiInstructions]);
   
   const resultCredibilityClasses = getCredibilityClass(result?.overallCredibility);
 
@@ -84,18 +87,25 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
           </div>
       );
   };
+  
+  const resetInputs = () => {
+      setMediaFile(null);
+      setUrl('');
+      setText('');
+  };
 
   const renderTabs = () => (
     <div className="flex border-b border-cyan-400/20 mb-4">
         {([
-            {id: 'text', label: 'متن', icon: <ImageIcon className="w-5 h-5"/>}, // Placeholder icon
-            {id: 'image', label: 'تصویر', icon: <ImageIcon className="w-5 h-5"/>},
-            {id: 'audio', label: 'صدا', icon: <AudioIcon className="w-5 h-5"/>},
-            {id: 'video', label: 'ویدئو', icon: <VideoIcon className="w-5 h-5"/>},
+            {id: 'text', label: 'متن'},
+            {id: 'image', label: 'تصویر'},
+            {id: 'audio', label: 'صدا'},
+            {id: 'video', label: 'ویدئو'},
+            {id: 'url', label: 'لینک'},
         ] as const).map(tab => (
             <button
                 key={tab.id}
-                onClick={() => { setActiveTab(tab.id); setMediaFile(null); }}
+                onClick={() => { setActiveTab(tab.id); resetInputs(); }}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 ${
                 activeTab === tab.id
                     ? 'border-cyan-400 text-cyan-300'
@@ -116,6 +126,14 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
         default: return '';
     }
   }
+  
+  const isSubmitDisabled = () => {
+      if (isLoading) return true;
+      if (activeTab === 'text') return !text.trim();
+      if (activeTab === 'url') return !url.trim();
+      if (['image', 'audio', 'video'].includes(activeTab)) return !mediaFile;
+      return true;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
@@ -123,12 +141,12 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
         <CheckCircleIcon className="w-6 h-6" />
         فکت چک و ردیابی شایعات
       </h2>
-      <p className="text-sm text-gray-400 mb-6">متن، تصویر، صدا یا ویدئوی مورد نظر خود را برای بررسی اعتبار و **ردیابی منبع اولیه** در شبکه‌های اجتماعی، آپلود کنید.</p>
+      <p className="text-sm text-gray-400 mb-6">متن، تصویر، صدا، ویدئو یا لینک مورد نظر خود را برای بررسی اعتبار و **ردیابی منبع اولیه** در شبکه‌های اجتماعی، وارد کنید.</p>
       
       {renderTabs()}
 
       <div className="space-y-4">
-          {activeTab !== 'text' && (
+          {['image', 'audio', 'video'].includes(activeTab) && (
             <div>
                  <input 
                     type="file" 
@@ -156,17 +174,27 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
                 )}
             </div>
           )}
+          
+          {activeTab === 'url' && (
+             <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="لینک (URL) مورد نظر را اینجا وارد کنید..."
+              className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 transition duration-300 p-2.5"
+            />
+          )}
 
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={activeTab === 'text' ? 'متن خبر را اینجا وارد کنید...' : 'در صورت نیاز، متنی برای توضیح زمینه محتوا وارد کنید...'}
-          rows={5}
+          placeholder={activeTab === 'text' ? 'متن خبر را اینجا وارد کنید...' : 'برای کمک به هوش مصنوعی، توضیح دهید چه چیزی باید در این محتوا بررسی شود...'}
+          rows={activeTab === 'text' ? 5 : 3}
           className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 transition duration-300 p-2.5"
         />
         <button
           onClick={handleFactCheck}
-          disabled={isLoading || (!text.trim() && !mediaFile)}
+          disabled={isSubmitDisabled()}
           className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-400/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500"
         >
           {isLoading ? (
@@ -195,7 +223,7 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
 
             {/* Original Source */}
             <div className="p-4 rounded-lg border border-gray-700 bg-gray-800/30">
-                <h4 className="font-semibold text-cyan-200 mb-3">بررسی منبع اولیه</h4>
+                <h4 className="font-semibold text-cyan-200 mb-3">ردیابی و بررسی منبع اولیه</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                     <div className="flex items-center gap-2"><UserIcon className="w-5 h-5 text-cyan-400"/><strong className="ml-1">منبع:</strong> <a href={result.originalSource.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{result.originalSource.name}</a></div>
                     <div className="flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-cyan-400"/><strong className="ml-1">تاریخ انتشار:</strong> {result.originalSource.publicationDate}</div>

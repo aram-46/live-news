@@ -1,6 +1,5 @@
 
 
-
 /**
  * Generates a universally unique identifier (UUID).
  * Uses the standard `crypto.randomUUID` if available in a secure context,
@@ -119,7 +118,7 @@ export interface StatisticsResult {
 }
 
 export interface ScientificArticleResult {
-    title: string;
+    title:string;
     summary: string;
     keywords: string[];
     sourceDetails: StructuredSource & {
@@ -137,6 +136,20 @@ export type MediaFile = {
     data: string; // Base64 data
     url: string; // Object URL for preview
 };
+
+// --- New Web Search Result Types ---
+export interface WebResult {
+    title: string;
+    link: string;
+    source: string;
+    description: string;
+    imageUrl?: string;
+}
+
+export interface GroundingSource {
+    uri: string;
+    title: string;
+}
 
 
 // --- SETTINGS ---
@@ -163,11 +176,14 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'fact-check': 'دستورالعمل فکت چک و ردیابی شایعه',
   'news-search': 'دستورالعمل جستجوی خبر',
+  'video-search': 'دستورالعمل جستجوی ویدئو',
+  'audio-search': 'دستورالعمل جستجوی صدا',
+  'book-search': 'دستورالعمل جستجوی کتاب و سایت',
   'news-display': 'دستورالعمل نمایش اخبار زنده',
   'news-ticker': 'دستورالعمل نوار اخبار متحرک',
   'statistics-search': 'دستورالعمل جستجوی آمار',
@@ -177,6 +193,8 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'discord-bot': 'رفتار ربات دیسکورد',
   'website-bot': 'رفتار ربات وب‌سایت',
   'twitter-bot': 'رفتار ربات توییتر',
+  'music-search': 'دستورالعمل جستجوی موزیک و آهنگ',
+  'dollar-search': 'دستورالعمل جستجوی قیمت دلار',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;
@@ -297,6 +315,14 @@ export interface LiveNewsSpecificSettings {
   autoSend: boolean;
 }
 
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar';
+
+export interface SearchOptions {
+    categories: string[];
+    regions: string[];
+    sources: string[];
+}
+
 export interface AppSettings {
     theme: Theme;
     sources: Sources;
@@ -308,9 +334,7 @@ export interface AppSettings {
     database: DatabaseSettings;
     aiModelSettings: AppAIModelSettings;
     customCss: string;
-    searchCategories: string[];
-    searchRegions: string[];
-    searchSources: string[];
+    searchOptions: Record<SearchTab, SearchOptions>;
     allTickerCategories: string[];
     password?: string;
     structuredSearchDomains: string[];
