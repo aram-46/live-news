@@ -1,8 +1,7 @@
 
 
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon } from './components/icons';
+import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, BrowserIcon, BrainIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
@@ -15,8 +14,10 @@ import { INITIAL_SETTINGS } from './data/defaults';
 import DraggableDialog from './components/DraggableDialog';
 import Chatbot from './components/Chatbot';
 import PasswordPrompt from './components/PasswordPrompt';
+import BrowserUse from './components/BrowserUse';
+import Analyzer from './components/Analyzer';
 
-type View = 'live' | 'search' | 'factcheck' | 'settings' | 'chatbot';
+type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings';
 
 const FullScreenLoader: React.FC<{ message: string }> = ({ message }) => (
     <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
@@ -136,7 +137,9 @@ const App: React.FC = () => {
             {renderNavButton('live', <NewsIcon className="w-5 h-5" />, 'اخبار زنده')}
             {renderNavButton('search', <SearchIcon className="w-5 h-5" />, 'جستجو')}
             {renderNavButton('factcheck', <CheckCircleIcon className="w-5 h-5" />, 'فکت چک')}
+            {renderNavButton('analyzer', <BrainIcon className="w-5 h-5" />, 'تحلیل‌گر')}
             {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
+            {renderNavButton('browseruse', <BrowserIcon className="w-5 h-5" />, 'استفاده از مرورگر')}
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
           </nav>
         </div>
@@ -148,6 +151,8 @@ const App: React.FC = () => {
         {activeView === 'live' && <LiveNews settings={settings} onOpenUrl={setDialogUrl} />}
         {activeView === 'search' && <AdvancedSearch settings={settings} onOpenUrl={setDialogUrl} onSettingsChange={handleSettingsChange} />}
         {activeView === 'factcheck' && <FactCheck settings={settings} onOpenUrl={setDialogUrl} />}
+        {activeView === 'analyzer' && <Analyzer settings={settings} onOpenUrl={setDialogUrl} />}
+        {activeView === 'browseruse' && <BrowserUse settings={settings} />}
         {activeView === 'settings' && (
             isSettingsLocked ? 
             <PasswordPrompt password={settings.password!} onUnlock={() => setIsSettingsLocked(false)} /> :

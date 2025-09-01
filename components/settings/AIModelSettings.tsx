@@ -1,11 +1,10 @@
 
 
-
 import React, { useState } from 'react';
-import { AppAIModelSettings, AIInstructionType, aiInstructionLabels, AIModelProvider } from '../types';
-import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from './icons';
-import { testGeminiConnection } from '../services/geminiService';
-import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../services/integrationService';
+import { AppAIModelSettings, AIInstructionType, aiInstructionLabels, AIModelProvider } from '../../types';
+import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from '../icons';
+import { testGeminiConnection } from '../../services/geminiService';
+import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../../services/integrationService';
 
 interface AIModelSettingsProps {
   settings: AppAIModelSettings;

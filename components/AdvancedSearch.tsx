@@ -1,6 +1,6 @@
 
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Filters, NewsArticle, AppSettings, SearchTab } from '../types';
 import { fetchNews } from '../services/geminiService';
 import FilterPanel from './FilterPanel';
@@ -8,6 +8,9 @@ import NewsResults from './NewsResults';
 import { RefreshIcon } from './icons';
 import StructuredSearch from './StructuredSearch';
 import WebSearch from './WebSearch';
+import Converter from './Converter';
+import ExportButton from './ExportButton';
+import Suggestions from './Suggestions';
 
 interface AdvancedSearchProps {
     settings: AppSettings;
@@ -21,10 +24,12 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
 
   // State for News Search
   const [news, setNews] = useState<NewsArticle[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoadingNews, setIsLoadingNews] = useState<boolean>(false);
   const [newsError, setNewsError] = useState<string | null>(null);
   const [currentFilters, setCurrentFilters] = useState<Filters>({ query: 'مهمترین اخبار ایران و جهان', categories: ['all'], regions: ['all'], sources: ['all'] });
   const [hiddenArticleLinks, setHiddenArticleLinks] = useState<string[]>([]);
+  const newsResultsRef = useRef<HTMLDivElement>(null);
   
   const handleNewsSearch = useCallback(async (filters: Filters) => {
     setCurrentFilters(filters);
@@ -32,9 +37,11 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
     setIsLoadingNews(true);
     setNewsError(null);
     setNews([]);
+    setSuggestions([]);
     try {
       const results = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages);
-      setNews(results);
+      setNews(results.articles);
+      setSuggestions(results.suggestions);
     } catch (error) {
       console.error('Error fetching news:', error);
       setNewsError('خطا در دریافت اخبار. لطفاً دوباره تلاش کنید.');
@@ -48,10 +55,10 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
   };
 
   useEffect(() => {
-     if(activeTab === 'news' && news.length === 0) {
+     if(activeTab === 'news' && news.length === 0 && !isLoadingNews) {
         handleNewsSearch(currentFilters);
      }
-  }, [activeTab, news.length, currentFilters, handleNewsSearch]);
+  }, [activeTab]);
 
   const visibleNews = news.filter(article => !hiddenArticleLinks.includes(article.link));
   
@@ -85,21 +92,30 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
                             searchType="news"
                         />
                     </div>
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-2" ref={newsResultsRef}>
                         <div className="flex justify-between items-center mb-4">
                              {currentFilters.query && !isLoadingNews ? (
                                 <h2 className="text-lg font-semibold text-gray-300 animate-fade-in">
                                     نتایج برای: <span className="text-cyan-300">"{currentFilters.query}"</span>
                                 </h2>
                             ) : <div />}
-                            <button
-                                onClick={() => handleNewsSearch(currentFilters)}
-                                disabled={isLoadingNews}
-                                className="p-2 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-colors disabled:opacity-50"
-                                aria-label="رفرش اخبار"
-                            >
-                                <RefreshIcon className={`w-5 h-5 ${isLoadingNews ? 'animate-spin' : ''}`} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <ExportButton 
+                                    elementRef={newsResultsRef}
+                                    data={visibleNews}
+                                    title={currentFilters.query}
+                                    type="news"
+                                    disabled={isLoadingNews || visibleNews.length === 0}
+                                />
+                                <button
+                                    onClick={() => handleNewsSearch(currentFilters)}
+                                    disabled={isLoadingNews}
+                                    className="p-2 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 transition-colors disabled:opacity-50"
+                                    aria-label="رفرش اخبار"
+                                >
+                                    <RefreshIcon className={`w-5 h-5 ${isLoadingNews ? 'animate-spin' : ''}`} />
+                                </button>
+                            </div>
                         </div>
                         <NewsResults 
                             news={visibleNews} 
@@ -108,6 +124,10 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
                             settings={settings}
                             onOpenUrl={onOpenUrl}
                             onRemoveArticle={handleRemoveArticle}
+                        />
+                        <Suggestions 
+                          suggestions={suggestions} 
+                          onSuggestionClick={(query) => handleNewsSearch({ ...currentFilters, query })}
                         />
                     </div>
                 </div>
@@ -136,6 +156,8 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
                     onSettingsChange={onSettingsChange}
                 />
             );
+        case 'converter':
+            return <Converter settings={settings} onOpenUrl={onOpenUrl} />;
         default:
             return null;
     }
@@ -153,6 +175,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
           {renderTabButton('stats', 'آمار')}
           {renderTabButton('science', 'مقالات علمی')}
           {renderTabButton('religion', 'موضوعات دینی')}
+          {renderTabButton('converter', 'تبدیل کننده')}
         </div>
         
         {renderCurrentTab()}

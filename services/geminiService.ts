@@ -1,24 +1,12 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource } from '../types';
 
-// Helper function to get the API key from localStorage and initialize the client.
-// It prioritizes a non-empty key from settings, falling back to the environment variable.
+
+
+import { GoogleGenAI, Type } from "@google/genai";
+import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult } from '../types';
+
+// Helper function to get the API key and initialize the client.
+// Per guidelines, the API key MUST be obtained exclusively from the environment variable.
 function getAiClient(): GoogleGenAI {
-    try {
-        const settingsString = localStorage.getItem('app-settings');
-        if (settingsString) {
-            const settings = JSON.parse(settingsString) as AppSettings;
-            const apiKey = settings.aiModelSettings?.gemini?.apiKey;
-            // Only use the key from local storage if it's a valid, non-empty string.
-            if (apiKey && apiKey.trim()) {
-                return new GoogleGenAI({ apiKey });
-            }
-        }
-    } catch (e) {
-        console.error("Could not parse settings from localStorage", e);
-    }
-    
-    // Fallback if local storage key is missing, empty, or invalid.
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 }
 
@@ -38,7 +26,25 @@ const newsArticleSchema = {
   required: ["title", "summary", "source", "publicationTime", "credibility", "link", "category"]
 };
 
-export async function fetchNews(filters: Filters, instructions: string, articlesPerColumn: number, showImages: boolean): Promise<NewsArticle[]> {
+// FIX: Define a schema that includes both articles and suggestions to match component usage.
+const newsResultSchema = {
+    type: Type.OBJECT,
+    properties: {
+        articles: {
+            type: Type.ARRAY,
+            items: newsArticleSchema,
+        },
+        suggestions: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "Three relevant and diverse search suggestions for the user based on their query, in Persian."
+        }
+    },
+    required: ["articles", "suggestions"]
+};
+
+
+export async function fetchNews(filters: Filters, instructions: string, articlesPerColumn: number, showImages: boolean): Promise<{ articles: NewsArticle[], suggestions: string[] }> {
   const ai = getAiClient();
   try {
     const prompt = `
@@ -49,7 +55,7 @@ export async function fetchNews(filters: Filters, instructions: string, articles
       - Categories: "${filters.categories.length === 0 || filters.categories.includes('all') ? 'any' : filters.categories.join(', ')}"
       - Regions: "${filters.regions.length === 0 || filters.regions.includes('all') ? 'any' : filters.regions.join(', ')}"
       - Sources: "${filters.sources.length === 0 || filters.sources.includes('all') ? 'any reputable source' : filters.sources.join(', ')}"
-      Provide a diverse set of results.
+      Provide a diverse set of results. Also, provide 3 related and diverse search suggestions in Persian.
       ${showImages ? 'For each article, you MUST provide a relevant image URL.' : 'Do not include image URLs.'}
     `;
 
@@ -58,15 +64,13 @@ export async function fetchNews(filters: Filters, instructions: string, articles
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: newsArticleSchema
-        },
+        // FIX: Use the new schema that returns articles and suggestions.
+        responseSchema: newsResultSchema
       },
     });
 
     const jsonString = response.text.trim();
-    return JSON.parse(jsonString) as NewsArticle[];
+    return JSON.parse(jsonString) as { articles: NewsArticle[], suggestions: string[] };
 
   } catch (error) {
     console.error("Error fetching news from Gemini:", error);
@@ -344,32 +348,15 @@ export async function generateEditableListItems(listName: string, existingItems:
     }
 }
 
-export async function testGeminiConnection(apiKey?: string): Promise<boolean> {
+export async function testGeminiConnection(): Promise<boolean> {
     try {
-        let keyToTest = apiKey;
-
-        // If no key is passed, try to get it from localStorage as a fallback.
-        if (!keyToTest) {
-             try {
-                const settingsString = localStorage.getItem('app-settings');
-                if (settingsString) {
-                    const settings = JSON.parse(settingsString) as AppSettings;
-                    keyToTest = settings.aiModelSettings?.gemini?.apiKey;
-                }
-            } catch (e) {
-                console.error("Could not parse settings from localStorage for test", e);
-            }
-        }
-        
-        // Final fallback to the environment variable.
-        const finalApiKey = keyToTest || process.env.API_KEY;
-
-        if (!finalApiKey) {
-            console.error("Gemini connection test failed: No API Key provided.");
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) {
+            console.error("Gemini connection test failed: No API Key provided via environment variable.");
             return false;
         }
 
-        const client = new GoogleGenAI({ apiKey: finalApiKey });
+        const client = new GoogleGenAI({ apiKey });
         const response = await client.models.generateContent({
             model: "gemini-2.5-flash",
             contents: "test",
@@ -410,7 +397,8 @@ export async function checkForUpdates(sources: Sources): Promise<boolean> {
 }
 
 // --- New Web Search Function ---
-export async function fetchWebResults(searchType: 'video' | 'audio' | 'book' | 'music' | 'dollar', filters: Filters, instructions: string): Promise<{ results: WebResult[], sources: GroundingSource[] }> {
+// FIX: Update function to return suggestions and parse them from the response.
+export async function fetchWebResults(searchType: 'video' | 'audio' | 'book' | 'music' | 'dollar', filters: Filters, instructions: string): Promise<{ results: WebResult[], sources: GroundingSource[], suggestions: string[] }> {
     const ai = getAiClient();
     try {
         const typeMap = {
@@ -430,8 +418,15 @@ export async function fetchWebResults(searchType: 'video' | 'audio' | 'book' | '
             - Regions: "${filters.regions.length === 0 || filters.regions.includes('all') ? 'any' : filters.regions.join(', ')}"
             - Sources: "${filters.sources.length === 0 || filters.sources.includes('all') ? 'any reputable source' : filters.sources.join(', ')}"
             
-            IMPORTANT: Your entire output must be ONLY a valid JSON array string. Do not include any other text, explanations, or markdown formatting.
-            Each object in the array must have the following keys: "title" (string), "link" (string), "source" (string, e.g., "YouTube", "Goodreads"), "description" (string, a brief summary in Persian), and "imageUrl" (string, a direct link to a relevant thumbnail image).
+            IMPORTANT: Format each result clearly. Start each result with "--- RESULT ---".
+            For each result, provide the following information on separate lines, each prefixed with the key and a colon (e.g., "title: The Title"):
+            - title: [The title]
+            - link: [The direct URL]
+            - source: [The source name, e.g., "YouTube"]
+            - description: [A brief summary in Persian]
+            - imageUrl: [A direct link to a relevant thumbnail image]
+
+            After all the results, add a line that says "--- SUGGESTIONS ---", followed by a comma-separated list of 3 relevant search suggestions in Persian. For example: "--- SUGGESTIONS ---\\nپیشنهاد اول, پیشنهاد دوم, پیشنهاد سوم"
         `;
 
         const response = await ai.models.generateContent({
@@ -450,11 +445,60 @@ export async function fetchWebResults(searchType: 'video' | 'audio' | 'book' | '
             }))
             .filter((source: GroundingSource) => source.uri && source.title);
         
-        // Clean up the text and parse the JSON
-        const cleanedText = response.text.replace(/```json\n?|```/g, '').trim();
-        const results: WebResult[] = JSON.parse(cleanedText);
+        // --- New parsing logic ---
+        const textResponse = response.text;
+        const results: WebResult[] = [];
+        let suggestions: string[] = [];
 
-        return { results, sources };
+        const mainParts = textResponse.split('--- SUGGESTIONS ---');
+        const resultsText = mainParts[0];
+        const suggestionsText = mainParts[1];
+
+        if (suggestionsText) {
+            suggestions = suggestionsText.trim().split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        const resultBlocks = resultsText.split('--- RESULT ---').slice(1);
+
+        for (const block of resultBlocks) {
+            const result: Partial<WebResult> = {};
+            const lines = block.trim().split('\n');
+            for (const line of lines) {
+                const separatorIndex = line.indexOf(':');
+                if (separatorIndex > 0) { // Ensure colon is not the first character
+                    const key = line.substring(0, separatorIndex).trim();
+                    const value = line.substring(separatorIndex + 1).trim();
+
+                    switch (key) {
+                        case 'title': result.title = value; break;
+                        case 'link': result.link = value; break;
+                        case 'source': result.source = value; break;
+                        case 'description': result.description = value; break;
+                        case 'imageUrl': result.imageUrl = value; break;
+                    }
+                }
+            }
+            if (result.title && result.link && result.source && result.description) {
+                results.push(result as WebResult);
+            }
+        }
+        
+        if (results.length === 0 && textResponse.length > 10) {
+            // Fallback for when the model doesn't follow the format but gives a text response
+            console.warn("Web search result parsing failed. Returning a single result based on the text.");
+            return {
+                results: [{
+                    title: `پاسخ برای "${filters.query}"`,
+                    link: '#',
+                    source: 'Gemini',
+                    description: resultsText.trim()
+                }],
+                sources,
+                suggestions: [],
+            };
+        }
+
+        return { results, sources, suggestions };
 
     } catch (error) {
         console.error(`Error fetching web results for ${searchType}:`, error);
@@ -666,4 +710,400 @@ export async function fetchReligiousText(query: string, instructions: string): P
     });
     const jsonString = response.text.trim();
     return JSON.parse(jsonString);
+}
+
+// --- NEW VIDEO CONVERTER FUNCTION ---
+
+export async function analyzeVideoFromUrl(
+    url: string, 
+    task: 'summary' | 'analysis' | 'fact-check' | 'timestamp', 
+    keywords: string, 
+    instructions: string
+): Promise<any> {
+    const ai = getAiClient();
+    let prompt = `${instructions}\n\n**Video URL for analysis:** ${url}\n\n`;
+    let schema: any;
+
+    switch (task) {
+        case 'summary':
+            prompt += "Task: Provide a concise summary of the video in a few lines.";
+            schema = { type: Type.OBJECT, properties: { summary: { type: Type.STRING } } };
+            break;
+        case 'analysis':
+            prompt += "Task: Provide a comprehensive but relatively short report analyzing the topics, content, and claims made in the video.";
+            schema = { type: Type.OBJECT, properties: { comprehensiveReport: { type: Type.STRING } } };
+            break;
+        case 'fact-check':
+            prompt += "Task: Conduct a deep fact-check of the video. Analyze claims based on logical, philosophical, and grammatical rules. Verify any presented documents or references for their reality, credibility, and relevance. Provide a final verdict, a list of analyzed claims with their evidence, and links to the sources of evidence.";
+            schema = {
+                type: Type.OBJECT,
+                properties: {
+                    overallVerdict: { type: Type.STRING },
+                    claims: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                claimText: { type: Type.STRING },
+                                analysis: { type: Type.STRING },
+                                evidence: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            evidenceText: { type: Type.STRING },
+                                            isReal: { type: Type.BOOLEAN },
+                                            isCredible: { type: Type.BOOLEAN },
+                                            isRelevant: { type: Type.BOOLEAN },
+                                            sourceLink: { type: Type.STRING },
+                                        },
+                                        required: ["evidenceText", "isReal", "isCredible", "isRelevant", "sourceLink"]
+                                    }
+                                }
+                            },
+                             required: ["claimText", "analysis", "evidence"]
+                        }
+                    }
+                },
+                 required: ["overallVerdict", "claims"]
+            };
+            break;
+        case 'timestamp':
+            prompt += `Task: Find all occurrences of the following keywords/phrases in the video: "${keywords}". For each occurrence, provide the exact sentence and the timestamp in HH:MM:SS format. If none are found, indicate that.`;
+            schema = {
+                type: Type.OBJECT,
+                properties: {
+                    found: { type: Type.BOOLEAN },
+                    timestamps: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                keyword: { type: Type.STRING },
+                                sentence: { type: Type.STRING },
+                                timestamp: { type: Type.STRING },
+                            },
+                             required: ["keyword", "sentence", "timestamp"]
+                        }
+                    }
+                },
+                required: ["found", "timestamps"]
+            };
+            break;
+    }
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: schema,
+            },
+        });
+        
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+
+    } catch (error) {
+        console.error("Error analyzing video with Gemini:", error);
+        throw new Error("Failed to analyze video.");
+    }
+}
+
+
+// --- NEW ANALYZER FUNCTIONS ---
+
+export async function askForClarification(prompt: string, files: any[]): Promise<ClarificationResponse> {
+    const ai = getAiClient();
+    const clarificationPrompt = `
+        Review the user's analysis request below. Is it clear, specific, and unambiguous enough for a deep, academic-level analysis?
+        If it is clear, respond with '{"clarificationNeeded": false, "question": ""}'.
+        If it is ambiguous, vague, or too broad, formulate a SINGLE, concise question in PERSIAN that will best clarify the user's intent. The question should help narrow down the scope or specify the core of the request.
+        Respond in this strict JSON format: '{"clarificationNeeded": true, "question": "Your question in Persian..."}'.
+
+        --- USER'S REQUEST ---
+        ${prompt}
+    `;
+
+    try {
+        const contentParts = [{ text: clarificationPrompt }, ...files];
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: contentParts },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        clarificationNeeded: { type: Type.BOOLEAN },
+                        question: { type: Type.STRING }
+                    },
+                    required: ["clarificationNeeded", "question"]
+                }
+            }
+        });
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("Error asking for clarification:", error);
+        return { clarificationNeeded: false, question: "" }; // Fail safe
+    }
+}
+
+const analysisResultSchema = {
+    type: Type.OBJECT,
+    properties: {
+        understanding: { type: Type.STRING, description: "A short summary of your understanding of the user's final request in Persian." },
+        analysis: { type: Type.STRING, description: "The main, detailed, and structured analysis in Persian, using markdown for formatting." },
+        proponents: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING },
+                    argument: { type: Type.STRING },
+                    scientificLevel: { type: Type.INTEGER, description: "A rating from 1 (low) to 5 (high) of the scientific/academic rigor of the argument." }
+                },
+                required: ["name", "argument", "scientificLevel"]
+            }
+        },
+        opponents: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING },
+                    argument: { type: Type.STRING },
+                    scientificLevel: { type: Type.INTEGER }
+                },
+                required: ["name", "argument", "scientificLevel"]
+            }
+        },
+        proponentPercentage: { type: Type.NUMBER, description: "Estimated percentage of proponents' view acceptance (0-100)." },
+        sources: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    url: { type: Type.STRING }
+                },
+                required: ["title", "url"]
+            }
+        },
+        techniques: { type: Type.ARRAY, items: { type: Type.STRING } },
+        suggestions: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    url: { type: Type.STRING }
+                },
+                required: ["title", "url"]
+            }
+        },
+        examples: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    title: { type: Type.STRING },
+                    content: { type: Type.STRING }
+                },
+                required: ["title", "content"]
+            }
+        }
+    },
+    required: ["understanding", "analysis", "proponents", "opponents", "proponentPercentage", "sources", "techniques", "suggestions", "examples"]
+};
+
+export async function performAnalysis(prompt: string, files: any[], instructions: string): Promise<AnalysisResult> {
+    const ai = getAiClient();
+    try {
+        const fullPrompt = `${instructions}\n\n**User Request:**\n${prompt}\n\nProduce a comprehensive analysis based on the user's request, using the provided files as context. Your response must be in Persian and conform strictly to the JSON schema.`;
+        const contentParts = [{ text: fullPrompt }, ...files];
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: contentParts },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: analysisResultSchema
+            },
+        });
+
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("Error performing analysis:", error);
+        throw new Error("Failed to perform analysis.");
+    }
+}
+
+
+export async function findFallacies(text: string, instructions: string, fallacyList: string[]): Promise<FallacyResult> {
+    const ai = getAiClient();
+    const prompt = `
+        ${instructions}
+        Analyze the following text for logical fallacies. Your entire output must be in Persian and structured as JSON.
+        Reference Fallacy List: ${fallacyList.join(', ')}.
+
+        For each fallacy you identify, provide:
+        1.  The type of fallacy.
+        2.  The exact quote from the text containing the fallacy.
+        3.  A brief explanation of why it is a fallacy in this context.
+        4.  A corrected, fallacy-free version of the statement.
+
+        If no fallacies are found, return an empty array for 'identifiedFallacies'.
+
+        Text for Analysis: "${text}"
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        identifiedFallacies: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    type: { type: Type.STRING },
+                                    quote: { type: Type.STRING },
+                                    explanation: { type: Type.STRING },
+                                    correctedStatement: { type: Type.STRING }
+                                },
+                                required: ["type", "quote", "explanation", "correctedStatement"]
+                            }
+                        }
+                    },
+                    required: ["identifiedFallacies"]
+                }
+            }
+        });
+
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("Error finding fallacies:", error);
+        throw new Error("Failed to find fallacies.");
+    }
+}
+
+// --- NEW WEB AGENT FUNCTIONS ---
+
+// FIX: Implement missing analyzeAgentRequest function
+export async function analyzeAgentRequest(topic: string, request: string, instructions: string): Promise<AgentClarificationRequest> {
+    const ai = getAiClient();
+    const prompt = `
+        ${instructions}
+        
+        **User's Goal:**
+        - Topic/URL: "${topic}"
+        - Task: "${request}"
+
+        **Your Task:**
+        1. Analyze the user's request. Is it perfectly clear, specific, and actionable for you to proceed with web browsing and task execution?
+        2. If YES (the request is clear): Respond with \`{"isClear": true, "questions": [], "refinedPrompt": "A single, refined prompt that you will use for execution..."}\`. The refined prompt should combine the topic and task into a clear, actionable instruction for yourself.
+        3. If NO (the request is vague, ambiguous, or missing key information): Respond with \`{"isClear": false, "questions": [...]}\`. Formulate 1-3 concise, multiple-choice or text-input questions in PERSIAN to clarify the user's intent. Do not refine the prompt yet.
+        
+        The entire output must be a single, valid JSON object matching the specified schema.
+    `;
+
+    const schema = {
+        type: Type.OBJECT,
+        properties: {
+            isClear: { type: Type.BOOLEAN },
+            questions: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        questionText: { type: Type.STRING },
+                        questionType: { type: Type.STRING, enum: ['multiple-choice', 'text-input'] },
+                        options: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    },
+                    required: ["questionText", "questionType"]
+                }
+            },
+            refinedPrompt: { type: Type.STRING }
+        },
+        required: ["isClear", "questions"]
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        });
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("Error analyzing agent request:", error);
+        throw new Error("Failed to analyze agent request.");
+    }
+}
+
+// FIX: Implement missing executeAgentTask function
+export async function executeAgentTask(finalPrompt: string, instructions: string): Promise<AgentExecutionResult> {
+    const ai = getAiClient();
+    const prompt = `
+        ${instructions}
+
+        **Final, Approved Task:**
+        ${finalPrompt}
+
+        **Execution Plan:**
+        1.  Use Google Search to browse the web and gather all necessary information to complete the task.
+        2.  Synthesize the information you find.
+        3.  Formulate a step-by-step breakdown of how you completed the task.
+        4.  Provide a concise summary of the final result.
+        5.  Your entire output MUST be a single JSON object string. Do NOT include markdown backticks (\`\`\`) around the JSON. The JSON should have the following structure:
+            \`{ "summary": "...", "steps": [{ "title": "...", "description": "..." }], "sources": [] }\`
+        6.  The 'sources' array will be populated automatically from grounding metadata, so you can leave it as an empty array \`[]\` in your JSON output.
+        
+        Begin execution and provide the final JSON output.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
+        });
+
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const sources: GroundingSource[] = groundingChunks
+            .map((chunk: any) => ({
+                uri: chunk.web?.uri,
+                title: chunk.web?.title,
+            }))
+            .filter((source: GroundingSource) => source.uri && source.title);
+
+        const jsonString = response.text.trim();
+        // Clean potential markdown wrappers
+        const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '');
+        const parsedResult = JSON.parse(cleanedJsonString) as Omit<AgentExecutionResult, 'sources'>;
+
+        return {
+            ...parsedResult,
+            sources: sources
+        };
+    } catch (error) {
+        console.error("Error executing agent task:", error);
+        throw new Error("Failed to execute agent task. The model may have returned an invalid JSON format.");
+    }
 }

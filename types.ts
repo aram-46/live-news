@@ -72,7 +72,7 @@ export interface FactCheckResult {
     acceptancePercentage: number;
     proponents: StanceHolder[];
     opponents: StanceHolder[];
-    relatedSuggestions: string[];
+    relatedSuggestions?: string[];
     relatedSources: FactCheckSource[];
 }
 
@@ -151,6 +151,38 @@ export interface GroundingSource {
     title: string;
 }
 
+// --- Video Converter Result Types ---
+export interface VideoAnalysisEvidence {
+    evidenceText: string;
+    isReal: boolean;
+    isCredible: boolean;
+
+    isRelevant: boolean;
+    sourceLink: string;
+}
+
+export interface VideoAnalysisClaim {
+    claimText: string;
+    analysis: string;
+    evidence: VideoAnalysisEvidence[];
+}
+
+export interface VideoFactCheckResult {
+    overallVerdict: string;
+    claims: VideoAnalysisClaim[];
+}
+
+export interface VideoTimestamp {
+    keyword: string;
+    sentence: string;
+    timestamp: string; // HH:MM:SS
+}
+
+export interface VideoTimestampResult {
+    found: boolean;
+    timestamps: VideoTimestamp[];
+}
+
 
 // --- SETTINGS ---
 
@@ -176,25 +208,36 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
-  'fact-check': 'دستورالعمل فکت چک و ردیابی شایعه',
-  'news-search': 'دستورالعمل جستجوی خبر',
-  'video-search': 'دستورالعمل جستجوی ویدئو',
-  'audio-search': 'دستورالعمل جستجوی صدا',
-  'book-search': 'دستورالعمل جستجوی کتاب و سایت',
-  'news-display': 'دستورالعمل نمایش اخبار زنده',
-  'news-ticker': 'دستورالعمل نوار اخبار متحرک',
-  'statistics-search': 'دستورالعمل جستجوی آمار',
-  'science-search': 'دستورالعمل جستجوی علمی',
-  'religion-search': 'دستورالعمل جستجوی دینی',
+  'fact-check': 'فکت چک و ردیابی شایعه',
+  'news-search': 'جستجوی خبر',
+  'video-search': 'جستجوی ویدئو',
+  'audio-search': 'جستجوی صدا',
+  'book-search': 'جستجوی کتاب و سایت',
+  'news-display': 'نمایش اخبار زنده',
+  'news-ticker': 'نوار اخبار متحرک',
+  'statistics-search': 'جستجوی آمار',
+  'science-search': 'جستجوی علمی',
+  'religion-search': 'جستجوی دینی',
   'telegram-bot': 'رفتار ربات تلگرام',
   'discord-bot': 'رفتار ربات دیسکورد',
   'website-bot': 'رفتار ربات وب‌سایت',
   'twitter-bot': 'رفتار ربات توییتر',
-  'music-search': 'دستورالعمل جستجوی موزیک و آهنگ',
-  'dollar-search': 'دستورالعمل جستجوی قیمت دلار',
+  'music-search': 'جستجوی موزیک و آهنگ',
+  'dollar-search': 'جستجوی قیمت دلار',
+  'video-converter': 'تحلیل و تبدیل ویدئو',
+  'analyzer-political': 'تحلیل سیاسی',
+  'analyzer-religious': 'تحلیل دینی',
+  'analyzer-logical': 'تحلیل منطقی',
+  'analyzer-philosophical': 'تحلیل فلسفی',
+  'analyzer-philosophy-of-science': 'تحلیل فلسفه علم',
+  'analyzer-historical': 'تحلیل تاریخی',
+  'analyzer-physics': 'تحلیل فیزیک',
+  'analyzer-theological': 'تحلیل کلامی',
+  'analyzer-fallacy-finder': 'مغلطه یاب',
+  'browser-agent': 'عامل هوشمند وب',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;
@@ -287,7 +330,9 @@ export interface AIProviderSettings {
 export interface AppAIModelSettings {
     gemini: AIProviderSettings;
     openai: AIProviderSettings;
-    openrouter: AIProviderSettings;
+    openrouter: AIProviderSettings & {
+      modelName?: string;
+    };
     groq: AIProviderSettings;
 }
 
@@ -315,13 +360,15 @@ export interface LiveNewsSpecificSettings {
   autoSend: boolean;
 }
 
-export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar';
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter';
 
 export interface SearchOptions {
     categories: string[];
     regions: string[];
     sources: string[];
 }
+
+export type AIModelProvider = 'gemini' | 'openai' | 'openrouter' | 'groq';
 
 export interface AppSettings {
     theme: Theme;
@@ -340,6 +387,7 @@ export interface AppSettings {
     structuredSearchDomains: string[];
     structuredSearchRegions: string[];
     structuredSearchSources: string[];
+    modelAssignments: Partial<Record<AIInstructionType, AIModelProvider>>;
 }
 
 
@@ -349,4 +397,78 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: number;
+}
+
+
+// --- ANALYZER ---
+
+export type AnalyzerTabId = 'political' | 'religious' | 'logical' | 'philosophical' | 'philosophy-of-science' | 'historical' | 'physics' | 'theological' | 'fallacy-finder';
+
+export const analyzerTabLabels: Record<AnalyzerTabId, string> = {
+  'political': 'تحلیل سیاسی',
+  'religious': 'تحلیل دینی',
+  'logical': 'تحلیل منطقی',
+  'philosophical': 'تحلیل فلسفی',
+  'philosophy-of-science': 'فلسفه علم',
+  'historical': 'تحلیل تاریخی',
+  'physics': 'تحلیل فیزیک',
+  'theological': 'تحلیل کلامی',
+  'fallacy-finder': 'مغلطه یاب',
+};
+
+export interface ClarificationResponse {
+    clarificationNeeded: boolean;
+    question: string;
+}
+
+export interface AnalysisStance {
+    name: string;
+    argument: string;
+    scientificLevel: number; // A rating from 1 to 5
+}
+
+export interface AnalysisExample {
+    title: string;
+    content: string;
+}
+
+export interface AnalysisResult {
+    understanding: string;
+    analysis: string;
+    proponents: AnalysisStance[];
+    opponents: AnalysisStance[];
+    proponentPercentage: number; // 0-100
+    sources: { title: string; url: string; }[];
+    techniques: string[];
+    suggestions: { title: string; url: string; }[];
+    examples: AnalysisExample[];
+}
+
+export interface Fallacy {
+    type: string;
+    quote: string;
+    explanation: string;
+    correctedStatement: string;
+}
+
+export interface FallacyResult {
+    identifiedFallacies: Fallacy[];
+}
+
+// --- WEB AGENT ---
+export interface AgentQuestion {
+    questionText: string;
+    questionType: 'multiple-choice' | 'text-input';
+    options?: string[]; // For multiple-choice
+}
+export interface AgentClarificationRequest {
+    isClear: boolean;
+    questions: AgentQuestion[];
+    refinedPrompt: string; // AI might refine it in one go
+}
+
+export interface AgentExecutionResult {
+    summary: string;
+    steps: { title: string; description: string; }[];
+    sources: GroundingSource[];
 }

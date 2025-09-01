@@ -1,7 +1,8 @@
 
+
 import React, { useState } from 'react';
 import { NewsArticle, Credibility, AppSettings, FontSettings } from '../types';
-import { LinkIcon, ShareIcon, TelegramIcon, DiscordIcon, CloseIcon } from './icons';
+import { LinkIcon, ShareIcon, TelegramIcon, DiscordIcon, CloseIcon, ClipboardIcon, CheckCircleIcon } from './icons';
 import { sendToTelegram, sendToDiscord } from '../services/integrationService';
 
 
@@ -31,6 +32,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRem
   const credibilityClasses = getCredibilityClass(article.credibility);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
+  const [isCopied, setIsCopied] = useState(false);
 
   const handleShare = async (platform: 'telegram' | 'discord') => {
       setShareStatus(`در حال ارسال به ${platform}...`);
@@ -50,6 +52,12 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRem
         setShareStatus('');
         setIsShareMenuOpen(false);
       }, 3000);
+  };
+  
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(article.link);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
   
   const summaryStyle: React.CSSProperties = fontSettings ? {
@@ -103,7 +111,10 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRem
               className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-200 transition-colors bg-cyan-900/50 hover:bg-cyan-800/50 px-3 py-1.5 rounded-md"
             >
               <LinkIcon className="w-4 h-4" />
-              <span>مشاهده خبر</span>
+              <span>مشاهده</span>
+            </button>
+            <button onClick={handleCopyLink} className="p-1.5 rounded-md bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white" aria-label="کپی لینک">
+                 {isCopied ? <CheckCircleIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
             </button>
              <div className="relative">
                 <button 

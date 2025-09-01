@@ -19,6 +19,7 @@ import PasswordSettings from './settings/PasswordSettings';
 import ThemeSettings from './settings/ThemeSettings';
 import { ALL_THEMES } from '../data/defaults';
 import DiscordBotSettings from './settings/DiscordBotSettings';
+import InstallationGuide from './settings/InstallationGuide';
 
 
 interface SettingsProps {
@@ -26,7 +27,7 @@ interface SettingsProps {
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'appwrite' | 'github' | 'about' | 'security';
+type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'appwrite' | 'github' | 'about' | 'security' | 'installation';
 
 const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('content');
@@ -55,6 +56,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('theme', 'تم / استایل')}
         {renderTabButton('sources', 'منابع')}
         {renderTabButton('ai', 'هوش مصنوعی')}
+        {renderTabButton('installation', 'نصب و راه‌اندازی')}
         {renderTabButton('integrations', 'اتصالات وب‌سایت')}
         {renderTabButton('discord-bot', 'ربات دیسکورد')}
         {renderTabButton('security', 'امنیت')}
@@ -95,17 +97,21 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         )}
 
         {activeTab === 'ai' && (
-             <>
+             <div className="space-y-8">
                 <AIInstructionsSettings
                     instructions={settings.aiInstructions}
                     onInstructionsChange={(aiInstructions) => handlePartialChange({ aiInstructions })}
                 />
                 <AIModelSettings
                     settings={settings.aiModelSettings}
+                    assignments={settings.modelAssignments}
                     onSettingsChange={(aiModelSettings) => handlePartialChange({ aiModelSettings })}
+                    onAssignmentsChange={(modelAssignments) => handlePartialChange({ modelAssignments })}
                 />
-            </>
+            </div>
         )}
+
+        {activeTab === 'installation' && <InstallationGuide />}
 
         {activeTab === 'integrations' && (
             <IntegrationSettings

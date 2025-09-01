@@ -1401,11 +1401,6 @@ database_id = ""              # The ID of your D1 database. Fill this in after c
   ],
   "functions": []
 }`,
-
-// FIX: This section contained a malformed object literal that was causing numerous syntax errors.
-// The entire invalid block has been removed to resolve the parsing issues.
-// The content was a corrupted duplicate of the `appwriteJson` string property above.
-
     appwriteTelegramFuncJs: `const TelegramBot = require('node-telegram-bot-api');
 
 // This is a simplified version for an Appwrite function.
@@ -1527,4 +1522,179 @@ module.exports = async (req, res) => {
   }
 }
 `,
+
+    // --- NEW CPANEL INSTALLATION FILES ---
+    cpanelGuideMd: `# راهنمای نصب و راه‌اندازی در سی‌پنل (cPanel)
+
+این راهنما شما را قدم به قدم برای استقرار کامل برنامه (شامل فرانت‌اند، بک‌اند و دیتابیس) روی یک هاست اشتراکی که از cPanel استفاده می‌کند، راهنمایی می‌کند.
+
+---
+
+### بخش اول: پیش‌نیازها
+
+قبل از شروع، اطمینان حاصل کنید که هاست شما موارد زیر را پشتیبانی می‌کند:
+
+1.  **دسترسی به File Manager:** برای آپلود فایل‌های برنامه.
+2.  **دیتابیس MySQL:** برای ساخت و مدیریت دیتابیس از طریق ابزارهایی مانند "MySQL Databases" و "phpMyAdmin".
+3.  **(اختیاری) پشتیبانی از Node.js:** اگر می‌خواهید بک‌اند و ربات‌های تلگرام/دیسکورد را روی هاست خود اجرا کنید، باید از طریق ابزار "Setup Node.js App" این قابلیت در هاست شما فعال باشد. اگر این قابلیت را ندارید، همچنان می‌توانید بخش فرانت‌اند برنامه را راه‌اندازی کنید.
+
+---
+
+### بخش دوم: راه‌اندازی دیتابیس
+
+1.  **ساخت دیتابیس:**
+    *   وارد cPanel شوید و به بخش "MySQL Databases" بروید.
+    *   یک دیتابیس جدید بسازید (مثلاً \`myuser_smartnews\`). نام آن را یادداشت کنید.
+    *   کمی پایین‌تر، یک کاربر جدید برای دیتابیس بسازید (مثلاً \`myuser_botuser\`) و یک رمز عبور قوی برای آن تعیین کنید. نام کاربری و رمز را یادداشت کنید.
+    *   در بخش "Add User To Database"، کاربری که ساختید را به دیتابیس خود اضافه کرده و در صفحه بعد، تیک **"ALL PRIVILEGES"** را بزنید تا تمام دسترسی‌های لازم به کاربر داده شود.
+
+2.  **وارد کردن جداول (Import Tables):**
+    *   فایل \`database_schema.sql\` را از همین صفحه دانلود کنید.
+    *   به صفحه اصلی cPanel برگردید و وارد "phpMyAdmin" شوید.
+    *   از منوی سمت چپ، دیتابیسی که در مرحله قبل ساختید را انتخاب کنید.
+    *   از تب‌های بالا، روی "Import" کلیک کنید.
+    *   روی "Choose File" کلیک کرده و فایل \`database_schema.sql\` را انتخاب کنید.
+    *   در پایین صفحه، روی دکمه "Go" یا "Import" کلیک کنید. جداول برنامه باید با موفقیت ساخته شوند.
+
+---
+
+### بخش سوم: استقرار فرانت‌اند (بخش اصلی برنامه)
+
+1.  **آپلود فایل‌ها:**
+    *   وارد "File Manager" در cPanel شوید.
+    *   به پوشه \`public_html\` یا هر دامنه‌ای که می‌خواهید برنامه روی آن نصب شود، بروید.
+    *   فایل‌های \`index.html\` و پوشه \`build\` (شامل \`index.js\`) را از کامپیوتر خود در این محل آپلود کنید.
+
+2.  **تنظیم کلید API جمینای:**
+    *   **مهم:** از آنجایی که این یک برنامه فرانت‌اند است، کلید API شما در کد جاوااسکریپت قابل مشاهده خواهد بود.
+    *   فایل \`build/index.js\` را در File Manager باز کرده و ویرایش (Edit) کنید.
+    *   به دنبال عبارت \`process.env.API_KEY\` بگردید و آن را با کلید API جمینای واقعی خود جایگزین کنید (آن را داخل گیومه "" قرار دهید).
+    *   تغییرات را ذخیره کنید.
+
+**تبریک!** بخش اصلی برنامه شما اکنون روی دامنه شما فعال است و باید کار کند.
+
+---
+
+### بخش چهارم: (اختیاری) راه‌اندازی بک‌اند و ربات‌ها
+
+اگر هاست شما از Node.js پشتیبانی می‌کند، مراحل زیر را دنبال کنید:
+
+1.  **دانلود و پیکربندی فایل‌ها:**
+    *   فایل‌های \`server.js\` و \`package.json\` را از تب "بک‌اند و دیتابیس" دانلود کنید.
+    *   فایل \`config.js.example\` را از همین صفحه دانلود کرده، نام آن را به \`config.js\` تغییر دهید.
+    *   فایل \`config.js\` را باز کرده و اطلاعات دیتابیس (که در بخش دوم یادداشت کردید) و کلیدهای API ربات‌ها را در آن وارد کنید.
+
+2.  **آپلود و نصب:**
+    *   در File Manager، یک پوشه جدید خارج از \`public_html\` بسازید (مثلاً \`smartnews_backend\`).
+    *   فایل‌های \`server.js\`, \`package.json\` و \`config.js\` را در این پوشه آپلود کنید.
+    *   به صفحه اصلی cPanel برگردید و وارد "Setup Node.js App" شوید.
+    *   یک اپلیکیشن جدید بسازید، مسیر آن را به پوشه‌ای که ساختید (\`smartnews_backend\`) تغییر دهید و نسخه Node.js را روی 18 یا بالاتر تنظیم کنید.
+    *   پس از ساخت اپلیکیشن، روی دکمه "NPM Install" کلیک کنید تا وابستگی‌ها نصب شوند.
+    *   در نهایت، روی "Start App" کلیک کنید. بک‌اند شما اکنون فعال است.
+
+---
+
+### توضیح در مورد نصب خودکار
+
+یک برنامه کاملاً فرانت‌اند (مانند این پروژه) به دلایل امنیتی نمی‌تواند به صورت خودکار به هاست شما متصل شده، دیتابیس بسازد یا فایل‌ها را مدیریت کند. این کارها نیازمند دسترسی‌های سمت سرور هستند.
+
+روش ارائه شده در این راهنما (پیکربندی دستی) **استانداردترین و امن‌ترین** روش برای استقرار چنین برنامه‌هایی در محیط cPanel است. فرمی که برای نصب خودکار درخواست کرده‌اید، نیازمند یک اسکریپت نصب جداگانه (معمولاً با PHP) است که خارج از محدوده این برنامه قرار دارد.`,
+
+    databaseSchemaSql: `-- Smart News Search - cPanel Database Schema for MySQL
+-- Version 1.0
+-- This schema is designed to store all application data for a self-hosted instance.
+
+--
+-- Table structure for table \`app_settings\`
+-- Stores the entire application settings JSON object for easy backup.
+--
+CREATE TABLE IF NOT EXISTS \`app_settings\` (
+  \`setting_key\` varchar(50) NOT NULL,
+  \`settings_json\` LONGTEXT NOT NULL,
+  \`last_updated\` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE \`app_settings\` ADD PRIMARY KEY (\`setting_key\`);
+INSERT INTO \`app_settings\` (\`setting_key\`, \`settings_json\`) VALUES ('main', '{}') ON DUPLICATE KEY UPDATE \`setting_key\`=\`setting_key\`;
+
+--
+-- Table structure for table \`credentials\`
+-- IMPORTANT: Storing keys in a database is less secure than environment variables.
+-- Use this only if your hosting environment does not support environment variables.
+--
+CREATE TABLE IF NOT EXISTS \`credentials\` (
+  \`credential_key\` varchar(50) NOT NULL,
+  \`value\` text NOT NULL,
+  \`last_updated\` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE \`credentials\` ADD PRIMARY KEY (\`credential_key\`);
+
+--
+-- Table structure for table \`chat_history\`
+-- Stores conversations from the Chatbot.
+--
+CREATE TABLE IF NOT EXISTS \`chat_history\` (
+  \`id\` int(11) NOT NULL AUTO_INCREMENT,
+  \`session_id\` varchar(100) NOT NULL,
+  \`role\` varchar(10) NOT NULL,
+  \`content\` text NOT NULL,
+  \`timestamp\` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (\`id\`),
+  KEY \`session_id\` (\`session_id\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Table structure for table \`search_history\`
+-- Logs user searches for analytics or history features.
+--
+CREATE TABLE IF NOT EXISTS \`search_history\` (
+  \`id\` int(11) NOT NULL AUTO_INCREMENT,
+  \`search_type\` varchar(50) NOT NULL,
+  \`query\` text NOT NULL,
+  \`filters_json\` text,
+  \`timestamp\` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (\`id\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Table structure for table \`archived_news\`
+-- Stores important news articles found by the user or bots.
+--
+CREATE TABLE IF NOT EXISTS \`archived_news\` (
+  \`id\` int(11) NOT NULL AUTO_INCREMENT,
+  \`link\` varchar(768) NOT NULL,
+  \`title\` text NOT NULL,
+  \`summary\` text,
+  \`source\` varchar(255) DEFAULT NULL,
+  \`article_json\` longtext,
+  \`saved_at\` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (\`id\`),
+  UNIQUE KEY \`link\` (\`link\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+`,
+    backendConfigJsExample: `// config.js.example - Rename this file to config.js and fill in your details.
+
+module.exports = {
+    // Database Configuration for cPanel
+    database: {
+        host: 'localhost',         // Usually 'localhost' on cPanel
+        user: 'YOUR_CPANELUSER_DBUSER',
+        password: 'YOUR_DB_PASSWORD',
+        database: 'YOUR_CPANELUSER_DBNAME'
+    },
+    // Application Admin Credentials (for a potential future admin panel)
+    admin: {
+        username: 'admin',
+        password: 'SET_A_STRONG_PASSWORD'
+    },
+    // API Keys and Tokens
+    // It's still more secure to use environment variables if your host supports them.
+    api_keys: {
+        gemini: 'YOUR_GEMINI_API_KEY',
+        telegram_bot_token: 'YOUR_TELEGRAM_BOT_TOKEN',
+        discord_webhook_url: 'YOUR_DISCORD_WEBHOOK_URL',
+    }
+};
+`
 };

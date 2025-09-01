@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, StatisticsResult, ScientificArticleResult, Credibility, StanceHolder, ChartData } from '../types';
 import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateEditableListItems } from '../services/geminiService';
 import { SearchIcon, PlusIcon, TrashIcon, MagicIcon, LinkIcon, CheckCircleIcon, UserIcon, CalendarIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, ChartBarIcon, ChartLineIcon, ChartPieIcon, TableCellsIcon } from './icons';
@@ -8,6 +8,8 @@ import BarChart from './charts/BarChart';
 import PieChart from './charts/PieChart';
 import LineChart from './charts/LineChart';
 import TableChart from './charts/TableChart';
+import ExportButton from './ExportButton';
+import Suggestions from './Suggestions';
 
 type SearchType = 'stats' | 'science' | 'religion';
 type UserChartType = 'bar' | 'pie' | 'line' | 'table';
@@ -62,6 +64,7 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
     const [isAiLoading, setIsAiLoading] = useState<string | null>(null);
     const [userSelectedChartType, setUserSelectedChartType] = useState<UserChartType | null>(null);
     const [lastQuery, setLastQuery] = useState('');
+    const structuredResultRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (result && 'chart' in result && result.chart) {
@@ -80,15 +83,16 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
         }
     }
 
-    const handleSearch = async () => {
-        if (!query.trim()) return;
+    const handleSearch = async (searchQuery: string) => {
+        if (!searchQuery.trim()) return;
+        setQuery(searchQuery);
         setIsLoading(true);
         setError(null);
         setResult(null);
-        setLastQuery(query);
+        setLastQuery(searchQuery);
 
         try {
-            let fullQuery = `موضوع اصلی: "${query}"`;
+            let fullQuery = `موضوع اصلی: "${searchQuery}"`;
             if (comparisonItems.length > 0) {
                 fullQuery += `. موارد برای مقایسه: "${comparisonItems.join(', ')}"`;
             }
@@ -280,9 +284,13 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
 
                 {/* Further Reading */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {result.relatedSuggestions?.length > 0 && <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LightBulbIcon className="w-5 h-5"/>پیشنهاد برای مطالعه</h5><ul className="space-y-2 list-disc list-inside">{result.relatedSuggestions.map((s, i) => <li key={i} className="text-sm text-gray-300">{s}</li>)}</ul></div>}
                     {result.references?.length > 0 && <div><h5 className="font-semibold text-cyan-200 mb-2">منابع مرتبط</h5><ul className="space-y-2">{result.references.map((s, i) => <li key={i}><button onClick={() => onOpenUrl(s.url)} className="flex items-center gap-2 text-sm text-blue-400 hover:underline p-2 bg-gray-800/30 rounded-md w-full text-right"><LinkIcon className="w-4 h-4 flex-shrink-0" /><span className="truncate">{s.title}</span></button></li>)}</ul></div>}
+                    <div/>
                 </div>
+                <Suggestions 
+                    suggestions={result.relatedSuggestions}
+                    onSuggestionClick={handleSearch}
+                />
              </div>
         )
     }
@@ -307,17 +315,26 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                  {renderMultiSelect('حوزه', settings.structuredSearchDomains, selectedDomains, setSelectedDomains, 'structuredSearchDomains')}
                  {renderMultiSelect('منطقه', settings.structuredSearchRegions, selectedRegions, setSelectedRegions, 'structuredSearchRegions')}
                  {renderMultiSelect('منبع', settings.structuredSearchSources, selectedSources, setSelectedSources, 'structuredSearchSources')}
-                 <button onClick={handleSearch} disabled={isLoading || !query.trim()} className="w-full flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black font-bold py-3 px-4 rounded-lg transition">
+                 <button onClick={() => handleSearch(query)} disabled={isLoading || !query.trim()} className="w-full flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black font-bold py-3 px-4 rounded-lg transition">
                     {isLoading ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <SearchIcon className="w-5 h-5"/>}
                     <span>{isLoading ? 'در حال جستجو...' : 'جستجو'}</span>
                 </button>
             </div>
-            <div className="lg:col-span-2">
-                {lastQuery && (
-                   <h2 className="text-lg font-semibold text-gray-300 animate-fade-in mb-4">
-                       نتایج برای: <span className="text-cyan-300">"{lastQuery}"</span>
-                   </h2>
-               )}
+            <div className="lg:col-span-2" ref={structuredResultRef}>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-lg font-semibold text-gray-300 animate-fade-in">
+                        {lastQuery && `نتایج برای: `} <span className="text-cyan-300">"{lastQuery}"</span>
+                    </h2>
+                    {result && (
+                        <ExportButton
+                            elementRef={structuredResultRef}
+                            data={result}
+                            title={lastQuery}
+                            type="structured"
+                            disabled={isLoading || !result}
+                        />
+                    )}
+                </div>
                 {isLoading && <LoadingSkeleton />}
                 {error && <div className="flex items-center justify-center h-full p-6 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300"><p>{error}</p></div>}
                 {!isLoading && !error && !result && <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400"><p>برای شروع، موضوع مورد نظر خود را در پنل جستجو وارد کنید.</p></div>}
