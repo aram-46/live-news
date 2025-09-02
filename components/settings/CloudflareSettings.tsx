@@ -233,7 +233,7 @@ const CloudflareSettings: React.FC = () => {
                 {webhookUrl && (
                      <div className="space-y-2">
                         <label className="block text-sm font-medium text-cyan-300">لینک فعال‌سازی وبهوک</label>
-                        <p className="text-xs text-gray-400">روی لینک زیر کلیک کنید. اگر تلگرام پیام `{"ok":true,"result":true,"description":"Webhook was set"}` را نمایش داد، وبهوک با موفقیت فعال شده است.</p>
+                        <p className="text-xs text-gray-400">روی لینک زیر کلیک کنید. اگر تلگرام پیام <code className="bg-gray-800 p-1 rounded text-xs break-all">{`{"ok":true,"result":true,"description":"Webhook was set"}`}</code> را نمایش داد، وبهوک با موفقیت فعال شده است.</p>
                         <a href={webhookUrl} target="_blank" rel="noopener noreferrer" className="block text-blue-400 break-all bg-gray-800 p-2 rounded-lg text-sm hover:underline">{webhookUrl}</a>
                     </div>
                 )}
