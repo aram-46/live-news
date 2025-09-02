@@ -3,6 +3,7 @@
 
 
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult } from '../types';
 
@@ -23,7 +24,7 @@ const newsArticleSchema = {
     credibility: { type: Type.STRING, description: "درجه اعتبار منبع (مثال: بسیار معتبر، معتبر، نیازمند بررسی)" },
     link: { type: Type.STRING, description: "لینک مستقیم به مقاله خبر اصلی" },
     category: { type: Type.STRING, description: "دسته‌بندی خبر (سیاسی، اقتصادی و...)" },
-    imageUrl: { type: Type.STRING, description: "یک URL مستقیم به یک تصویر مرتبط با کیفیت بالا برای خبر" },
+    imageUrl: { type: Type.STRING, description: "یک URL مستقیم به یک عکس با کیفیت بالا که کاملاً مرتبط بوده و محتوای خبر را به درستی نمایش می‌دهد. تصویر باید مستقیماً در مورد موضوع مقاله باشد." },
   },
   required: ["title", "summary", "source", "publicationTime", "credibility", "link", "category"]
 };
@@ -58,7 +59,7 @@ export async function fetchNews(filters: Filters, instructions: string, articles
       - Regions: "${filters.regions.length === 0 || filters.regions.includes('all') ? 'any' : filters.regions.join(', ')}"
       - Sources: "${filters.sources.length === 0 || filters.sources.includes('all') ? 'any reputable source' : filters.sources.join(', ')}"
       Provide a diverse set of results. Also, provide 3 related and diverse search suggestions in Persian.
-      ${showImages ? 'For each article, you MUST provide a relevant image URL.' : 'Do not include image URLs.'}
+      ${showImages ? 'Image Requirement: For each article, you MUST find and provide a direct URL to a high-quality, relevant photograph that accurately represents the news content. The image must be directly related to the subject of the article. Generic or unrelated images are not acceptable.' : 'Do not include image URLs.'}
     `;
 
     const response = await ai.models.generateContent({
@@ -294,7 +295,7 @@ export async function fetchLiveNews(tab: string, allSources: Sources, instructio
             ${filters}
             Prioritize results from the following user-provided sources if possible: ${sourceNames}.
             Return the results in the standard news article format.
-            ${showImages ? 'For each article, you MUST provide a relevant image URL.' : 'Do not include image URLs.'}
+            ${showImages ? 'Image Requirement: For each article, you MUST find and provide a direct URL to a high-quality, relevant photograph that accurately represents the news content. The image must be directly related to the subject of the article. Generic or unrelated images are not acceptable.' : 'Do not include image URLs.'}
         `;
 
         const response = await ai.models.generateContent({
