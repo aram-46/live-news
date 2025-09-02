@@ -1,10 +1,9 @@
 
 
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Filters, AppSettings, SearchTab } from '../types';
 import { SearchIcon, FilterIcon, MagicIcon } from './icons';
-import { generateEditableListItems } from '../services/geminiService';
+import { generateDynamicFilters } from '../services/geminiService';
 
 
 interface FilterPanelProps {
@@ -23,7 +22,27 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['all']);
   const [selectedRegions, setSelectedRegions] = useState<string[]>(['all']);
   const [selectedSources, setSelectedSources] = useState<string[]>(['all']);
+
+  // Dynamic options state
+  const [dynamicCategories, setDynamicCategories] = useState<string[]>([]);
+  const [dynamicRegions, setDynamicRegions] = useState<string[]>([]);
+  const [dynamicSources, setDynamicSources] = useState<string[]>([]);
+
   const [isAiLoading, setIsAiLoading] = useState<string | null>(null);
+  const [aiCounts, setAiCounts] = useState({ categories: 3, regions: 2, sources: 2 });
+
+  useEffect(() => {
+    setDynamicCategories(categories);
+  }, [categories]);
+
+  useEffect(() => {
+    setDynamicRegions(regions);
+  }, [regions]);
+  
+  useEffect(() => {
+    setDynamicSources(sources);
+  }, [sources]);
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,41 +74,27 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
     }
   };
 
-  const handleGenerateList = async (listType: 'categories' | 'regions' | 'sources') => {
-      const stateKey = `${searchType}-${listType}`;
-      setIsAiLoading(stateKey);
+  const handleGenerateDynamicFilters = async (listType: 'categories' | 'regions' | 'sources') => {
+      if (!query.trim()) {
+          alert('لطفا ابتدا یک موضوع برای جستجو وارد کنید.');
+          return;
+      }
+      setIsAiLoading(listType);
       try {
-          const currentItems = settings.searchOptions[searchType][listType];
-          const listNameMap = {
-            categories: 'دسته‌بندی‌ها',
-            regions: 'مناطق جغرافیایی',
-            sources: 'منابع',
-          };
-          const listName = `${listNameMap[listType]} برای ${searchType}`;
-
-          const newItems = await generateEditableListItems(listName, currentItems);
+          const count = aiCounts[listType];
+          const newItems = await generateDynamicFilters(query, listType, count);
           
-          const updatedItems = [...currentItems];
-          newItems.forEach(item => {
-              if (!updatedItems.includes(item)) {
-                  updatedItems.push(item);
-              }
-          });
-          
-          onSettingsChange({
-            ...settings,
-            searchOptions: {
-                ...settings.searchOptions,
-                [searchType]: {
-                    ...settings.searchOptions[searchType],
-                    [listType]: updatedItems
-                }
-            }
-          });
+          if (listType === 'categories') {
+            setDynamicCategories(prev => [...new Set([...prev, ...newItems])]);
+          } else if (listType === 'regions') {
+            setDynamicRegions(prev => [...new Set([...prev, ...newItems])]);
+          } else if (listType === 'sources') {
+            setDynamicSources(prev => [...new Set([...prev, ...newItems])]);
+          }
 
       } catch (error) {
-          console.error(`Failed to generate items for ${stateKey}`, error);
-          alert(`خطا در تولید موارد برای ${stateKey}`);
+          console.error(`Failed to generate items for ${listType}`, error);
+          alert(`خطا در تولید موارد برای ${listType}`);
       } finally {
           setIsAiLoading(null);
       }
@@ -103,14 +108,32 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
     listType: 'categories' | 'regions' | 'sources'
   ) => (
     <div>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center justify-between gap-2 mb-2">
             <label className="block text-sm font-medium text-cyan-300">{label}</label>
-            <button type="button" onClick={() => handleGenerateList(listType)} disabled={isAiLoading === `${searchType}-${listType}`} className="text-purple-400 hover:text-purple-300 disabled:opacity-50" title="افزودن موارد جدید با هوش مصنوعی">
-                {isAiLoading === `${searchType}-${listType}` 
-                    ? <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> 
-                    : <MagicIcon className="w-4 h-4"/>
-                }
-            </button>
+            <div className="flex items-center gap-1.5">
+                <input 
+                    type="number" 
+                    min="1" max="5" 
+                    value={aiCounts[listType]}
+                    onChange={(e) => setAiCounts(prev => ({ ...prev, [listType]: Number(e.target.value)}))}
+                    className="w-12 bg-gray-900/50 border border-gray-600 rounded-md text-center text-xs p-1"
+                />
+                <button type="button" onClick={() => handleGenerateDynamicFilters(listType)} disabled={!!isAiLoading} className="text-purple-400 hover:text-purple-300 disabled:opacity-50" title="تولید خودکار گزینه‌ها با هوش مصنوعی">
+                    {isAiLoading === listType 
+                        ? <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> 
+                        : <MagicIcon className="w-4 h-4"/>
+                    }
+                </button>
+                 <button type="button" onClick={() => {
+                     // A simple way to add manually. A modal would be better for UX but this satisfies the request.
+                     const newItem = prompt(`یک مورد جدید برای "${label}" وارد کنید:`);
+                     if(newItem && newItem.trim()) {
+                         if (listType === 'categories') setDynamicCategories(p => [...p, newItem]);
+                         if (listType === 'regions') setDynamicRegions(p => [...p, newItem]);
+                         if (listType === 'sources') setDynamicSources(p => [...p, newItem]);
+                     }
+                 }} className="text-cyan-400 hover:text-cyan-300" title="افزودن دستی">+</button>
+            </div>
         </div>
         <div className="flex flex-wrap gap-2">
             {['all', ...options].map(opt => (
@@ -156,9 +179,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
           </div>
         </div>
         
-        {renderMultiSelect('دسته‌بندی', categories, selectedCategories, (value) => handleMultiSelect(value, selectedCategories, setSelectedCategories), 'categories')}
-        {renderMultiSelect('منطقه', regions, selectedRegions, (value) => handleMultiSelect(value, selectedRegions, setSelectedRegions), 'regions')}
-        {renderMultiSelect('منبع', sources, selectedSources, (value) => handleMultiSelect(value, selectedSources, setSelectedSources), 'sources')}
+        {renderMultiSelect('دسته‌بندی', dynamicCategories, selectedCategories, (value) => handleMultiSelect(value, selectedCategories, setSelectedCategories), 'categories')}
+        {renderMultiSelect('منطقه', dynamicRegions, selectedRegions, (value) => handleMultiSelect(value, selectedRegions, setSelectedRegions), 'regions')}
+        {renderMultiSelect('منبع', dynamicSources, selectedSources, (value) => handleMultiSelect(value, selectedSources, setSelectedSources), 'sources')}
 
         <button
           type="submit"

@@ -5,12 +5,14 @@ import { Filters, NewsArticle, AppSettings, SearchTab } from '../types';
 import { fetchNews } from '../services/geminiService';
 import FilterPanel from './FilterPanel';
 import NewsResults from './NewsResults';
-import { RefreshIcon } from './icons';
+import { RefreshIcon, SparklesIcon } from './icons';
 import StructuredSearch from './StructuredSearch';
 import WebSearch from './WebSearch';
 import Converter from './Converter';
 import ExportButton from './ExportButton';
 import Suggestions from './Suggestions';
+import GeneralTopicsSearch from './GeneralTopicsSearch';
+import ContentCreator from './ContentCreator';
 
 interface AdvancedSearchProps {
     settings: AppSettings;
@@ -62,15 +64,16 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
 
   const visibleNews = news.filter(article => !hiddenArticleLinks.includes(article.link));
   
-  const renderTabButton = (tabId: SearchTab, label: string) => (
+  const renderTabButton = (tabId: SearchTab, label: string, icon?: React.ReactNode) => (
     <button
       onClick={() => setActiveTab(tabId)}
-      className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 whitespace-nowrap ${
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 whitespace-nowrap ${
         activeTab === tabId
           ? 'border-cyan-400 text-cyan-300'
           : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
       }`}
     >
+      {icon}
       {label}
     </button>
   );
@@ -158,6 +161,10 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
             );
         case 'converter':
             return <Converter settings={settings} onOpenUrl={onOpenUrl} />;
+        case 'general_topics':
+            return <GeneralTopicsSearch settings={settings} onOpenUrl={onOpenUrl} onSettingsChange={onSettingsChange} />;
+        case 'content-creator':
+            return <ContentCreator settings={settings} />;
         default:
             return null;
     }
@@ -167,6 +174,8 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
     <div className="space-y-6">
        <div className="flex border-b border-cyan-400/20 overflow-x-auto">
           {renderTabButton('news', 'اخبار')}
+          {renderTabButton('general_topics', 'موضوعات عمومی')}
+          {renderTabButton('content-creator', 'محتوا ساز', <SparklesIcon className="w-5 h-5" />)}
           {renderTabButton('video', 'ویدئو')}
           {renderTabButton('audio', 'صدا')}
           {renderTabButton('book', 'کتاب و سایت')}

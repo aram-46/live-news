@@ -1,8 +1,10 @@
 
 
 
+
+
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult } from '../types';
+import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult } from '../types';
 
 // Helper function to get the API key and initialize the client.
 // Per guidelines, the API key MUST be obtained exclusively from the environment variable.
@@ -346,6 +348,34 @@ export async function generateEditableListItems(listName: string, existingItems:
         console.error(`Error generating items for list "${listName}":`, error);
         throw new Error(`Failed to generate items for "${listName}".`);
     }
+}
+
+// FIX: Implement missing generateDynamicFilters function.
+export async function generateDynamicFilters(
+  query: string,
+  listType: 'categories' | 'regions' | 'sources',
+  count: number
+): Promise<string[]> {
+  const ai = getAiClient();
+  const typeMap = {
+    categories: 'دسته‌بندی‌های خبری',
+    regions: 'مناطق جغرافیایی',
+    sources: 'منابع خبری (نام خبرگزاری یا وب‌سایت)',
+  };
+
+  const prompt = `Based on the search query "${query}", generate a JSON array of ${count} relevant and specific ${typeMap[listType]} in Persian. The output must be only the JSON array of strings. For example: ["ایران", "خاورمیانه"].`;
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const cleanedText = response.text.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(cleanedText) as string[];
+  } catch (error) {
+    console.error(`Error generating dynamic filters for ${listType}:`, error);
+    throw new Error(`Failed to generate dynamic filters for ${listType}.`);
+  }
 }
 
 export async function testGeminiConnection(): Promise<boolean> {
@@ -710,6 +740,184 @@ export async function fetchReligiousText(query: string, instructions: string): P
     });
     const jsonString = response.text.trim();
     return JSON.parse(jsonString);
+}
+
+// FIX: Implement missing functions for Content Creator tab.
+// --- NEW CONTENT CREATOR FUNCTIONS ---
+
+// A generic helper for SEO/Naming tools that expect a JSON array of strings
+async function generateStringList(
+    topic: string,
+    instructions: string,
+    count: number = 10
+): Promise<string[]> {
+    const ai = getAiClient();
+    const prompt = `${instructions}\n\n**Topic:** "${topic}"\n\nGenerate ${count} items. The output must be a single, valid JSON array of strings. Do NOT include markdown backticks (\`\`\`) around the JSON.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        const jsonString = response.text.trim().replace(/^```json\s*|```$/g, '');
+        return JSON.parse(jsonString) as string[];
+    } catch (error) {
+        console.error(`Error generating string list for topic "${topic}":`, error);
+        throw new Error(`Failed to generate items for "${topic}".`);
+    }
+}
+
+export async function generateSeoKeywords(topic: string, instructions: string): Promise<string[]> {
+    return generateStringList(topic, instructions, 10);
+}
+
+export async function suggestWebsiteNames(topic: string, instructions: string): Promise<string[]> {
+    return generateStringList(topic, instructions, 10);
+}
+
+export async function suggestDomainNames(topic: string, instructions: string): Promise<string[]> {
+    return generateStringList(topic, instructions, 10);
+}
+
+export async function generateArticle(
+    topic: string,
+    wordCount: number,
+    instructions: string
+): Promise<string> {
+    const ai = getAiClient();
+    const prompt = `${instructions}\n\n**Topic:** "${topic}"\n**Word Count:** Approximately ${wordCount} words.\n\nGenerate the article now.`;
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+        return response.text.trim();
+    } catch (error) {
+        console.error(`Error generating article for topic "${topic}":`, error);
+        throw new Error(`Failed to generate article for "${topic}".`);
+    }
+}
+
+export async function generateImagesForArticle(
+    prompt: string,
+    numberOfImages: number,
+    aspectRatio: string = '1:1'
+): Promise<string[]> {
+    const ai = getAiClient();
+    try {
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt,
+            config: {
+                numberOfImages,
+                aspectRatio: ['1:1', '3:4', '4:3', '9:16', '16:9'].includes(aspectRatio) ? aspectRatio : '1:1',
+                outputMimeType: 'image/jpeg',
+            },
+        });
+
+        if (response.generatedImages && response.generatedImages.length > 0) {
+            return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
+        }
+        return [];
+    } catch (error) {
+        console.error("Error generating images for article:", error);
+        throw new Error("Failed to generate images.");
+    }
+}
+
+
+// FIX: Implement missing generateKeywordsForTopic function.
+export async function generateKeywordsForTopic(
+  mainTopic: string,
+  comparisonTopic: string
+): Promise<string[]> {
+  const ai = getAiClient();
+  let prompt = `Generate a JSON array of 5 highly relevant keywords in Persian for a research topic on "${mainTopic}".`;
+  if (comparisonTopic) {
+    prompt += ` The research also involves a comparison with "${comparisonTopic}".`;
+  }
+  prompt += ` The output must be only a valid JSON array of strings.`;
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    const cleanedText = response.text.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(cleanedText) as string[];
+  } catch (error) {
+    console.error("Error generating keywords for topic:", error);
+    throw new Error("Failed to generate keywords.");
+  }
+}
+
+// FIX: Implement missing fetchGeneralTopicAnalysis function.
+export async function fetchGeneralTopicAnalysis(
+    mainTopic: string,
+    comparisonTopic: string,
+    keywords: string[],
+    domains: string[],
+    instructions: string
+): Promise<GeneralTopicResult> {
+    const ai = getAiClient();
+    let prompt = `${instructions}\n\n**Main Topic:** "${mainTopic}"`;
+    if (comparisonTopic) {
+        prompt += `\n**Comparison Topic:** "${comparisonTopic}"`;
+    }
+    if (keywords.length > 0) {
+        prompt += `\n**Keywords to focus on:** ${keywords.join(', ')}`;
+    }
+    if (domains.length > 0) {
+        prompt += `\n**Relevant Domains:** ${domains.join(', ')}`;
+    }
+    prompt += `\n\nYour task is to use Google Search to research these topics and produce a comprehensive, structured report in Persian. The output must be a single, valid JSON object that follows the specified structure. Do NOT include markdown backticks (\`\`\`) around the JSON.
+    - The JSON must have these keys: "title", "summary", "keyPoints" (an array of objects with "title" and "description"), and optionally "comparison".
+    - If a comparison topic is provided, the 'comparison' field in the JSON MUST be populated with "topicA", "topicB", and "points". Otherwise, it should be null.
+    - The 'sources' array will be populated automatically from grounding metadata, so you can leave it as an empty array \`[]\` in your JSON output.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }],
+            },
+        });
+
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        const sources: GroundingSource[] = groundingChunks
+            .map((chunk: any) => ({
+                uri: chunk.web?.uri,
+                title: chunk.web?.title,
+            }))
+            .filter((source: GroundingSource) => source.uri && source.title);
+
+        const jsonString = response.text.trim();
+        const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '');
+        const parsedResult = JSON.parse(cleanedJsonString) as Omit<GeneralTopicResult, 'sources'>;
+
+        // Ensure comparison is null if not provided
+        if (!comparisonTopic) {
+            parsedResult.comparison = null;
+        }
+
+        return {
+            ...parsedResult,
+            sources: sources
+        };
+    } catch (error) {
+        console.error("Error fetching general topic analysis:", error);
+        throw new Error("Failed to fetch general topic analysis. The model may have returned an invalid JSON format.");
+    }
 }
 
 // --- NEW VIDEO CONVERTER FUNCTION ---

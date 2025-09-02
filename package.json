@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "An intelligent web tool for real-time searching of national and international news.",
   "scripts": {
-    "dev": "npx esbuild index.tsx --bundle --outfile=build/index.js --format=esm --jsx=automatic --servedir=. --serve=3000 --define:process.env.API_KEY='\"%API_KEY%\"'",
+    "dev": "npx esbuild index.tsx --bundle --outfile=build/index.js --format=esm --jsx=automatic --servedir=. --serve=3001 --define:process.env.API_KEY='\"%API_KEY%\"'",
     "build": "npx esbuild index.tsx --bundle --outfile=build/index.js --format=esm --jsx=automatic --minify --define:process.env.API_KEY='\"%API_KEY%\"'"
   },
   "dependencies": {

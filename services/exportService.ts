@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { NewsArticle, WebResult, StatisticsResult, ScientificArticleResult, AgentExecutionResult } from '../types';
+import { NewsArticle, WebResult, StatisticsResult, ScientificArticleResult, AgentExecutionResult, GeneralTopicResult } from '../types';
 
 // Helper to sanitize text for HTML
 const escapeHtml = (unsafe: string | undefined | null) => {
@@ -31,6 +31,9 @@ const generateHtmlStyles = () => `
     .structured-section { border-top: 1px solid #4b5563; margin-top: 10px; padding-top: 10px; }
     .structured-section h3 { color: #a5b4fc; font-size: 1.1em; }
     ul { list-style-type: disc; padding-right: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #4b5563; padding: 8px; text-align: right; }
+    th { background-color: #374151; color: #d1d5db; }
 </style>
 `;
 
@@ -94,7 +97,37 @@ const generateAgentHtml = (data: AgentExecutionResult): string => {
     return html;
 };
 
-export const generateHtmlContent = (data: any, title: string, type: 'news' | 'web' | 'structured' | 'agent'): string => {
+const generateGeneralTopicHtml = (data: GeneralTopicResult): string => {
+    let html = `<div class="card">`;
+    html += `<h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.summary)}</p>`;
+    
+    html += `<div class="structured-section"><h3>نکات کلیدی</h3>`;
+    data.keyPoints.forEach(point => {
+        html += `<h4>${escapeHtml(point.title)}</h4><p>${escapeHtml(point.description)}</p>`;
+    });
+    html += `</div>`;
+
+    if (data.comparison) {
+        html += `<div class="structured-section"><h3>تحلیل مقایسه‌ای</h3><table>`;
+        html += `<thead><tr><th>جنبه مقایسه</th><th>${escapeHtml(data.comparison.topicA)}</th><th>${escapeHtml(data.comparison.topicB)}</th></tr></thead>`;
+        html += `<tbody>`;
+        data.comparison.points.forEach(p => {
+            html += `<tr><td>${escapeHtml(p.aspect)}</td><td>${escapeHtml(p.analysisA)}</td><td>${escapeHtml(p.analysisB)}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    }
+
+    html += `<div class="structured-section"><h3>منابع</h3><ul>`;
+    data.sources.forEach(source => {
+        html += `<li><a href="${escapeHtml(source.uri)}" target="_blank">${escapeHtml(source.title)}</a></li>`;
+    });
+    html += `</ul></div>`;
+    
+    html += `</div>`;
+    return html;
+};
+
+export const generateHtmlContent = (data: any, title: string, type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic'): string => {
     let contentHtml = '';
     if (!data || (Array.isArray(data) && data.length === 0)) {
         contentHtml = '<p>No data to display.</p>';
@@ -106,6 +139,8 @@ export const generateHtmlContent = (data: any, title: string, type: 'news' | 'we
         contentHtml = generateStructuredHtml(data as StatisticsResult | ScientificArticleResult);
     } else if (type === 'agent') {
         contentHtml = generateAgentHtml(data as AgentExecutionResult);
+    } else if (type === 'general_topic') {
+        contentHtml = generateGeneralTopicHtml(data as GeneralTopicResult);
     }
     
     return `

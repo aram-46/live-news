@@ -208,7 +208,7 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'fact-check': 'فکت چک و ردیابی شایعه',
@@ -238,6 +238,11 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'analyzer-theological': 'تحلیل کلامی',
   'analyzer-fallacy-finder': 'مغلطه یاب',
   'browser-agent': 'عامل هوشمند وب',
+  'general-topics': 'جستجوی موضوعات عمومی',
+  'seo-keywords': 'تولید کلمات کلیدی سئو',
+  'website-names': 'پیشنهاد نام سایت',
+  'domain-names': 'پیشنهاد نام دامنه',
+  'article-generation': 'تولید محتوای مقاله',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;
@@ -360,7 +365,7 @@ export interface LiveNewsSpecificSettings {
   autoSend: boolean;
 }
 
-export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter';
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter' | 'general_topics' | 'content-creator';
 
 export interface SearchOptions {
     categories: string[];
@@ -387,9 +392,22 @@ export interface AppSettings {
     structuredSearchDomains: string[];
     structuredSearchRegions: string[];
     structuredSearchSources: string[];
+    generalTopicDomains: string[];
     modelAssignments: Partial<Record<AIInstructionType, AIModelProvider>>;
 }
 
+// --- New General Topics Search Result Type ---
+export interface GeneralTopicResult {
+    title: string;
+    summary: string;
+    keyPoints: { title: string; description: string }[];
+    comparison: {
+        topicA: string;
+        topicB: string;
+        points: { aspect: string; analysisA: string; analysisB: string }[];
+    } | null;
+    sources: GroundingSource[];
+}
 
 // --- CHAT ---
 export interface ChatMessage {
