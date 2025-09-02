@@ -1,16 +1,14 @@
 
-
-
-
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID } from '../types';
+import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings } from '../types';
 import { findSourcesWithAI, FindSourcesOptions } from '../services/geminiService';
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
 
 interface SourcesManagerProps {
   sources: Sources;
   onSourcesChange: (sources: Sources) => void;
+  settings: AppSettings;
 }
 
 const getCredibilityClass = (credibility: string) => {
@@ -21,7 +19,7 @@ const getCredibilityClass = (credibility: string) => {
     return { dot: 'bg-gray-400', text: 'text-gray-300' };
 };
 
-const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChange }) => {
+const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChange, settings }) => {
   const [editingSource, setEditingSource] = useState<Source | null>(null);
   const [isAdding, setIsAdding] = useState<SourceCategory | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -72,6 +70,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
     setAiLoading(true);
     try {
         const existingSources = sources[activeAiCategory];
+        // FIX: Removed extra 'settings' argument from the function call.
         const newFoundSources = await findSourcesWithAI(activeAiCategory, existingSources, aiOptions);
         
         if(newFoundSources.length === 0) {

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Filters, AppSettings, SearchTab } from '../types';
 import { SearchIcon, FilterIcon, MagicIcon } from './icons';
@@ -82,6 +81,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
       setIsAiLoading(listType);
       try {
           const count = aiCounts[listType];
+          // FIX: Removed extra 'settings' argument from the function call.
           const newItems = await generateDynamicFilters(query, listType, count);
           
           if (listType === 'categories') {

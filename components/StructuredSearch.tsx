@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, StatisticsResult, ScientificArticleResult, Credibility, StanceHolder, ChartData } from '../types';
 import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateEditableListItems } from '../services/geminiService';
@@ -106,14 +105,16 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                 fullQuery += `. منابع: "${selectedSources.join(', ')}"`;
             }
 
-            const instructions = settings.aiInstructions[getInstructionKey()];
             let apiResult;
             if (searchType === 'stats') {
-                apiResult = await fetchStatistics(fullQuery, instructions);
+                // FIX: Pass the correct instruction string from settings instead of the whole object.
+                apiResult = await fetchStatistics(fullQuery, settings.aiInstructions['statistics-search']);
             } else if (searchType === 'science') {
-                apiResult = await fetchScientificArticle(fullQuery, instructions);
+                // FIX: Pass the correct instruction string from settings instead of the whole object.
+                apiResult = await fetchScientificArticle(fullQuery, settings.aiInstructions['science-search']);
             } else if (searchType === 'religion') {
-                apiResult = await fetchReligiousText(fullQuery, instructions);
+                // FIX: Pass the correct instruction string from settings instead of the whole object.
+                apiResult = await fetchReligiousText(fullQuery, settings.aiInstructions['religion-search']);
             }
             setResult(apiResult);
         } catch (err) {
@@ -134,6 +135,7 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                 structuredSearchSources: 'منابع معتبر آماری/علمی/دینی'
             }[listType];
 
+            // FIX: Removed extra 'settings' argument from the function call.
             const newItems = await generateEditableListItems(listName, currentItems);
             
             const updatedItems = [...new Set([...currentItems, ...newItems])];

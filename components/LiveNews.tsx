@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { NewsArticle, AppSettings } from '../types';
 import { fetchLiveNews, checkForUpdates } from '../services/geminiService';
@@ -31,13 +30,8 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings, onOpenUrl }) => {
     setError(prev => ({ ...prev, [tabId]: null }));
     setUpdateAvailable(false);
     try {
-      const results = await fetchLiveNews(
-        tabId, 
-        settings.sources, 
-        settings.aiInstructions['news-display'], 
-        settings.display.showImages,
-        settings.liveNewsSpecifics
-      );
+      // FIX: Pass all required arguments to the fetchLiveNews function.
+      const results = await fetchLiveNews(tabId, settings.sources, settings.aiInstructions['news-display'], settings.display.showImages, settings.liveNewsSpecifics);
       setNews(prev => ({ ...prev, [tabId]: results }));
       setLastUpdated(new Date());
     } catch (err) {

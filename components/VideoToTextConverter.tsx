@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppSettings, VideoFactCheckResult, VideoTimestampResult } from '../types';
 import { analyzeVideoFromUrl } from '../services/geminiService';
@@ -43,8 +44,8 @@ const VideoToTextConverter: React.FC<VideoToTextConverterProps> = ({ settings, o
         setResult(null);
 
         try {
-            const instructions = settings.aiInstructions['video-converter'];
-            const apiResult = await analyzeVideoFromUrl(videoUrl, analysisType, keywords, instructions);
+            // FIX: Pass the correct instruction string from settings instead of the whole object.
+            const apiResult = await analyzeVideoFromUrl(videoUrl, analysisType, keywords, settings.aiInstructions['video-converter']);
             setResult(apiResult);
         } catch (err) {
             console.error("Error during video analysis:", err);

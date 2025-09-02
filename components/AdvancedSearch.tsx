@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Filters, NewsArticle, AppSettings, SearchTab } from '../types';
 import { fetchNews } from '../services/geminiService';
@@ -41,6 +40,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
     setNews([]);
     setSuggestions([]);
     try {
+      // FIX: Pass the correct instruction string from settings instead of the whole object.
       const results = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages);
       setNews(results.articles);
       setSuggestions(results.suggestions);

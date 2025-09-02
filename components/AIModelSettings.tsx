@@ -1,22 +1,18 @@
 
-
-
 import React, { useState } from 'react';
-import { AppAIModelSettings, AIInstructionType, aiInstructionLabels, AIModelProvider } from '../types';
+import { AppAIModelSettings } from '../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from './icons';
 import { testGeminiConnection } from '../services/geminiService';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../services/integrationService';
 
 interface AIModelSettingsProps {
   settings: AppAIModelSettings;
-  assignments: Partial<Record<AIInstructionType, AIModelProvider>>;
   onSettingsChange: (settings: AppAIModelSettings) => void;
-  onAssignmentsChange: (assignments: Partial<Record<AIInstructionType, AIModelProvider>>) => void;
 }
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
-const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments, onSettingsChange, onAssignmentsChange }) => {
+const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsChange }) => {
     const [geminiStatus, setGeminiStatus] = useState<TestStatus>('idle');
     const [openaiStatus, setOpenaiStatus] = useState<TestStatus>('idle');
     const [openrouterStatus, setOpenrouterStatus] = useState<TestStatus>('idle');
@@ -36,13 +32,6 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
         onSettingsChange({
             ...settings,
             [provider]: { ...settings[provider], [field]: value }
-        });
-    };
-
-    const handleAssignmentChange = (task: AIInstructionType, provider: AIModelProvider) => {
-        onAssignmentsChange({
-            ...assignments,
-            [task]: provider
         });
     };
 
@@ -82,7 +71,6 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
     }
     
     return (
-        <>
         <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
             <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -173,32 +161,6 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
                 توجه: برای استفاده از مدل‌های غیر از Gemini، پیاده‌سازی منطق مربوط به هر سرویس‌دهنده در فایل `geminiService.ts` ضروری است.
             </p>
         </div>
-
-        {/* Model Assignments */}
-        <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
-            <h2 className="text-xl font-bold mb-6 text-cyan-300">تخصیص مدل به قابلیت‌ها</h2>
-            <div className="space-y-4">
-                 {(Object.keys(aiInstructionLabels) as AIInstructionType[]).map(taskKey => (
-                    <div key={taskKey} className="grid grid-cols-2 gap-4 items-center p-2 rounded-lg hover:bg-gray-800/50">
-                        <label htmlFor={`assign-${taskKey}`} className="text-sm font-medium text-cyan-300 justify-self-start">
-                           {aiInstructionLabels[taskKey]}
-                        </label>
-                        <select
-                            id={`assign-${taskKey}`}
-                            value={assignments[taskKey] || 'gemini'}
-                            onChange={(e) => handleAssignmentChange(taskKey, e.target.value as AIModelProvider)}
-                             className="w-full max-w-xs bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm justify-self-end"
-                        >
-                            <option value="gemini">Google Gemini</option>
-                            <option value="openai" disabled={!settings.openai.apiKey}>OpenAI</option>
-                            <option value="openrouter" disabled={!settings.openrouter.apiKey}>OpenRouter</option>
-                            <option value="groq" disabled={!settings.groq.apiKey}>Groq</option>
-                        </select>
-                    </div>
-                 ))}
-            </div>
-        </div>
-        </>
     );
 };
 

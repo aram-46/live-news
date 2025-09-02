@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { AppSettings, DisplaySettings, SearchTab } from '../types';
 import EditableList from './settings/EditableList';
@@ -89,19 +88,19 @@ const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsC
                     <h2 className="text-xl font-bold mb-4 text-cyan-300">مدیریت گزینه‌های فیلتر</h2>
                     <p className="text-sm text-gray-400 mb-6">لیست‌های اصلی که در بخش‌های مختلف برنامه (جستجو، نوار اخبار و...) استفاده می‌شوند را مدیریت کنید.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <EditableList title="دسته‌بندی‌های جستجوی خبر" items={settings.searchOptions.news.categories} onItemsChange={(newItems) => handleSearchOptionsChange('news', 'categories', newItems)} placeholder="افزودن دسته‌بندی جدید..."/>
-                        <EditableList title="مناطق جغرافیایی خبر" items={settings.searchOptions.news.regions} onItemsChange={(newItems) => handleSearchOptionsChange('news', 'regions', newItems)} placeholder="افزودن منطقه جدید..."/>
-                        <EditableList title="منابع خبر" items={settings.searchOptions.news.sources} onItemsChange={(newItems) => handleSearchOptionsChange('news', 'sources', newItems)} placeholder="افزودن نوع منبع..."/>
-                        <EditableList title="دسته‌بندی‌های ویدئو" items={settings.searchOptions.video.categories} onItemsChange={(newItems) => handleSearchOptionsChange('video', 'categories', newItems)} placeholder="افزودن دسته‌بندی جدید..."/>
+                        <EditableList settings={settings} title="دسته‌بندی‌های جستجوی خبر" items={settings.searchOptions.news.categories} onItemsChange={(newItems) => handleSearchOptionsChange('news', 'categories', newItems)} placeholder="افزودن دسته‌بندی جدید..."/>
+                        <EditableList settings={settings} title="مناطق جغرافیایی خبر" items={settings.searchOptions.news.regions} onItemsChange={(newItems) => handleSearchOptionsChange('news', 'regions', newItems)} placeholder="افزودن منطقه جدید..."/>
+                        <EditableList settings={settings} title="منابع خبر" items={settings.searchOptions.news.sources} onItemsChange={(newItems) => handleSearchOptionsChange('news', 'sources', newItems)} placeholder="افزودن نوع منبع..."/>
+                        <EditableList settings={settings} title="دسته‌بندی‌های ویدئو" items={settings.searchOptions.video.categories} onItemsChange={(newItems) => handleSearchOptionsChange('video', 'categories', newItems)} placeholder="افزودن دسته‌بندی جدید..."/>
                         
                         <div className="md:col-span-2">
-                             <EditableList title="حوزه‌های جستجوی ساختاریافته (آمار، علمی و...)" items={settings.structuredSearchDomains} onItemsChange={(newItems) => handlePartialChange({ structuredSearchDomains: newItems })} placeholder="افزودن حوزه جدید..."/>
+                             <EditableList settings={settings} title="حوزه‌های جستجوی ساختاریافته (آمار، علمی و...)" items={settings.structuredSearchDomains} onItemsChange={(newItems) => handlePartialChange({ structuredSearchDomains: newItems })} placeholder="افزودن حوزه جدید..."/>
                         </div>
                         <div className="md:col-span-2">
-                            <EditableList title="حوزه‌های موضوعات عمومی" items={settings.generalTopicDomains} onItemsChange={(newItems) => handlePartialChange({ generalTopicDomains: newItems })} placeholder="افزودن حوزه جدید..." />
+                            <EditableList settings={settings} title="حوزه‌های موضوعات عمومی" items={settings.generalTopicDomains} onItemsChange={(newItems) => handlePartialChange({ generalTopicDomains: newItems })} placeholder="افزودن حوزه جدید..." />
                         </div>
                         <div className="md:col-span-2">
-                            <EditableList title="دسته‌بندی‌های نوار اخبار متحرک" items={settings.allTickerCategories} onItemsChange={(newItems) => handlePartialChange({ allTickerCategories: newItems })} placeholder="افزودن دسته‌بندی برای نوار اخبار..."/>
+                            <EditableList settings={settings} title="دسته‌بندی‌های نوار اخبار متحرک" items={settings.allTickerCategories} onItemsChange={(newItems) => handlePartialChange({ allTickerCategories: newItems })} placeholder="افزودن دسته‌بندی برای نوار اخبار..."/>
                         </div>
                     </div>
                 </div>

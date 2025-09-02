@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import ThemeSelector from './ThemeSelector';
@@ -20,6 +19,7 @@ import ThemeSettings from './settings/ThemeSettings';
 import { ALL_THEMES } from '../data/defaults';
 import DiscordBotSettings from './settings/DiscordBotSettings';
 import InstallationGuide from './settings/InstallationGuide';
+import AIModelAssignments from './settings/AIModelAssignments';
 
 
 interface SettingsProps {
@@ -27,7 +27,7 @@ interface SettingsProps {
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type SettingsTab = 'content' | 'theme' | 'sources' | 'ai' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'appwrite' | 'github' | 'about' | 'security' | 'installation';
+type SettingsTab = 'content' | 'theme' | 'sources' | 'ai-instructions' | 'ai-models' | 'ai-assignments' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'appwrite' | 'github' | 'about' | 'security' | 'installation';
 
 const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('content');
@@ -55,7 +55,9 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('content', 'محتوا و نمایش')}
         {renderTabButton('theme', 'تم / استایل')}
         {renderTabButton('sources', 'منابع')}
-        {renderTabButton('ai', 'هوش مصنوعی')}
+        {renderTabButton('ai-instructions', 'دستورالعمل‌های AI')}
+        {renderTabButton('ai-models', 'مدل‌های AI')}
+        {renderTabButton('ai-assignments', 'تخصیص مدل‌ها')}
         {renderTabButton('installation', 'نصب و راه‌اندازی')}
         {renderTabButton('integrations', 'اتصالات وب‌سایت')}
         {renderTabButton('discord-bot', 'ربات دیسکورد')}
@@ -96,19 +98,26 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
             />
         )}
 
-        {activeTab === 'ai' && (
-             <div className="space-y-8">
-                <AIInstructionsSettings
-                    instructions={settings.aiInstructions}
-                    onInstructionsChange={(aiInstructions) => handlePartialChange({ aiInstructions })}
-                />
-                <AIModelSettings
-                    settings={settings.aiModelSettings}
-                    assignments={settings.modelAssignments}
-                    onSettingsChange={(aiModelSettings) => handlePartialChange({ aiModelSettings })}
-                    onAssignmentsChange={(modelAssignments) => handlePartialChange({ modelAssignments })}
-                />
-            </div>
+        {activeTab === 'ai-instructions' && (
+            <AIInstructionsSettings
+                settings={settings}
+                instructions={settings.aiInstructions}
+                onInstructionsChange={(aiInstructions) => handlePartialChange({ aiInstructions })}
+            />
+        )}
+
+        {activeTab === 'ai-models' && (
+            <AIModelSettings
+                settings={settings.aiModelSettings}
+                onSettingsChange={(aiModelSettings) => handlePartialChange({ aiModelSettings })}
+            />
+        )}
+        
+        {activeTab === 'ai-assignments' && (
+            <AIModelAssignments
+                settings={settings}
+                onAssignmentsChange={(modelAssignments) => handlePartialChange({ modelAssignments })}
+            />
         )}
 
         {activeTab === 'installation' && <InstallationGuide />}
@@ -128,6 +137,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
             <SourcesManager
                 sources={settings.sources}
                 onSourcesChange={(sources) => handlePartialChange({ sources })}
+                settings={settings}
             />
         )}
 

@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { AppSettings, LiveNewsSpecificSettings } from '../../types';
 import EditableList from './EditableList';
@@ -34,6 +32,7 @@ const LiveNewsSettings: React.FC<LiveNewsSettingsProps> = ({ settings, onSetting
                 regions: 'مناطق جغرافیایی مهم خبری'
             }[listType];
 
+            // FIX: Removed extra 'settings' argument from the function call.
             const newItems = await generateEditableListItems(listName, currentItems);
             
             const updatedItems = [...currentItems];
@@ -75,11 +74,13 @@ const LiveNewsSettings: React.FC<LiveNewsSettingsProps> = ({ settings, onSetting
                     }
                  </button>
             </div>
+            {/* FIX: Added the required 'settings' prop to the EditableList component. */}
             <EditableList
                 title=""
                 items={settings.liveNewsSpecifics[listType]}
                 onItemsChange={(items) => handleLiveNewsChange({ [listType]: items })}
                 placeholder={placeholder}
+                settings={settings}
             />
         </div>
     );

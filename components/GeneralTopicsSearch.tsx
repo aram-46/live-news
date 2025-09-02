@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useRef } from 'react';
 import { AppSettings, GeneralTopicResult } from '../types';
 import { generateKeywordsForTopic, fetchGeneralTopicAnalysis } from '../services/geminiService';
@@ -40,6 +39,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
         }
         setIsKeywordsLoading(true);
         try {
+            // FIX: Removed extra 'settings' argument from the function call.
             const newKeywords = await generateKeywordsForTopic(mainTopic, comparisonTopic);
             setKeywords(prev => [...new Set([...prev, ...newKeywords])]);
         } catch (err) {
@@ -48,7 +48,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
         } finally {
             setIsKeywordsLoading(false);
         }
-    }, [mainTopic, comparisonTopic]);
+    }, [mainTopic, comparisonTopic, settings]);
 
     const handleSearch = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();

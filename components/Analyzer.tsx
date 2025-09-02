@@ -142,14 +142,15 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings, onOpenUrl }) => {
         }));
 
         const instructionKey = `analyzer-${activeTab}` as AIInstructionType;
-        const instructions = settings.aiInstructions[instructionKey] || '';
 
         try {
             if (activeTab === 'fallacy-finder') {
-                const fallacyResult = await findFallacies(finalPrompt, instructions, FALLACY_LIST);
+                // FIX: Pass the correct instruction string from settings instead of the whole object.
+                const fallacyResult = await findFallacies(finalPrompt, settings.aiInstructions['analyzer-fallacy-finder'], FALLACY_LIST);
                 setResult(fallacyResult);
             } else {
-                const analysisResult = await performAnalysis(finalPrompt, filesForApi, instructions);
+                // FIX: Pass the correct instruction string from settings instead of multiple arguments.
+                const analysisResult = await performAnalysis(finalPrompt, filesForApi, settings.aiInstructions[instructionKey]);
                 setResult(analysisResult);
             }
         } catch (err) {
@@ -184,6 +185,7 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings, onOpenUrl }) => {
         }));
         
         try {
+            // FIX: Removed extra 'settings' argument from the function call.
             const clarificationRes = await askForClarification(prompt, filesForApi);
             if (clarificationRes.clarificationNeeded) {
                 setClarification(clarificationRes);

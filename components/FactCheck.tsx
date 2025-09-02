@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useRef } from 'react';
 import { FactCheckResult, Credibility, AppSettings, MediaFile } from '../types';
 import { CheckCircleIcon, LinkIcon, UploadIcon, ImageIcon, AudioIcon, VideoIcon, UserIcon, CalendarIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon } from './icons';
@@ -66,6 +64,7 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
     try {
         const fileData = mediaFile ? { data: mediaFile.data, mimeType: mediaFile.type } : null;
         const checkUrl = activeTab === 'url' ? url : undefined;
+        // FIX: Pass the correct instruction string from settings instead of the whole object.
         const apiResult = await factCheckNews(text, fileData, checkUrl, settings.aiInstructions['fact-check']);
         setResult(apiResult);
     } catch (err) {
@@ -74,7 +73,7 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
     } finally {
         setIsLoading(false);
     }
-  }, [text, mediaFile, url, activeTab, settings.aiInstructions]);
+  }, [text, mediaFile, url, activeTab, settings]);
   
   const resultCredibilityClasses = getCredibilityClass(result?.overallCredibility);
 

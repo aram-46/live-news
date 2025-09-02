@@ -1,6 +1,4 @@
 
-
-
 import React, { useState } from 'react';
 import { PlusIcon, TrashIcon } from '../icons';
 
@@ -9,6 +7,8 @@ interface EditableListProps {
   items: string[];
   onItemsChange: (items: string[]) => void;
   placeholder: string;
+  // settings prop is unused here but might be needed for AI generation in child components
+  settings: any; 
 }
 
 const EditableList: React.FC<EditableListProps> = ({ title, items, onItemsChange, placeholder }) => {

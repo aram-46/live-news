@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { AppSettings } from '../types';
 import { generateSeoKeywords, suggestWebsiteNames, suggestDomainNames, generateArticle, generateImagesForArticle } from '../services/geminiService';
@@ -75,23 +76,20 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
     const handleSeoGeneration = useCallback(async (type: 'keywords' | 'names' | 'domains') => {
         if (!seoTopic.trim()) return;
         setSeoLoading(type);
-        const instructionMap = {
-            keywords: 'seo-keywords',
-            names: 'website-names',
-            domains: 'domain-names',
-        };
         try {
-            const instructions = settings.aiInstructions[instructionMap[type]];
             let result: string[] = [];
-            if (type === 'keywords') result = await generateSeoKeywords(seoTopic, instructions);
-            if (type === 'names') result = await suggestWebsiteNames(seoTopic, instructions);
-            if (type === 'domains') result = await suggestDomainNames(seoTopic, instructions);
+            // FIX: Pass the correct instruction string from settings instead of the whole object.
+            if (type === 'keywords') result = await generateSeoKeywords(seoTopic, settings.aiInstructions['seo-keywords']);
+            // FIX: Pass the correct instruction string from settings instead of the whole object.
+            if (type === 'names') result = await suggestWebsiteNames(seoTopic, settings.aiInstructions['website-names']);
+            // FIX: Pass the correct instruction string from settings instead of the whole object.
+            if (type === 'domains') result = await suggestDomainNames(seoTopic, settings.aiInstructions['domain-names']);
             
             if (type === 'keywords') setSeoKeywords(result);
             if (type === 'names') setWebsiteNames(result);
             if (type === 'domains') setDomainNames(result);
         } catch (err) { console.error(err); } finally { setSeoLoading(null); }
-    }, [seoTopic, settings.aiInstructions]);
+    }, [seoTopic, settings]);
 
     const handleGenerateArticle = useCallback(async () => {
         if (!articleTopic.trim()) return;
@@ -99,13 +97,15 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setArticleText('');
         setArticleKeywords([]);
         try {
+            // FIX: Pass the correct instruction string from settings instead of the whole object.
             const article = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation']);
             setArticleText(article);
             // Also generate keywords for the article
+            // FIX: Pass the correct instruction string from settings instead of the whole object.
             const keywords = await generateSeoKeywords(articleTopic, settings.aiInstructions['seo-keywords']);
             setArticleKeywords(keywords);
         } catch (err) { console.error(err); } finally { setArticleLoading(null); }
-    }, [articleTopic, wordCount, settings.aiInstructions]);
+    }, [articleTopic, wordCount, settings]);
 
     const handleGenerateImages = useCallback(async () => {
         if (!articleTopic.trim() && !articleText.trim()) return;

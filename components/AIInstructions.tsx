@@ -1,16 +1,16 @@
 
-
 import React, { useState } from 'react';
-import { AIInstructions, AIInstructionType, aiInstructionLabels } from '../types';
+import { AIInstructions, AIInstructionType, aiInstructionLabels, AppSettings } from '../types';
 import { generateAIInstruction, testAIInstruction } from '../services/geminiService';
 import { MagicIcon, CheckCircleIcon, CloseIcon } from './icons';
 
 interface AIInstructionsProps {
   instructions: AIInstructions;
   onInstructionsChange: (instructions: AIInstructions) => void;
+  settings: AppSettings; // Add settings to props
 }
 
-const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, onInstructionsChange }) => {
+const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, onInstructionsChange, settings }) => {
   const [loadingInstruction, setLoadingInstruction] = useState<AIInstructionType | null>(null);
   const [testStatus, setTestStatus] = useState<Record<string, 'idle' | 'testing' | 'success' | 'error'>>({});
 
@@ -26,6 +26,7 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
   const handleGenerateWithAI = async (type: AIInstructionType) => {
     setLoadingInstruction(type);
     try {
+      // FIX: Removed extra 'settings' argument.
       const generatedInstruction = await generateAIInstruction(aiInstructionLabels[type]);
       handleChange(type, generatedInstruction);
     } catch (error) {
@@ -38,6 +39,7 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
 
   const handleTestInstruction = async (type: AIInstructionType) => {
       setTestStatus(prev => ({...prev, [type]: 'testing'}));
+      // FIX: Removed extra 'settings' argument.
       const success = await testAIInstruction(instructions[type]);
       setTestStatus(prev => ({...prev, [type]: success ? 'success' : 'error'}));
       setTimeout(() => setTestStatus(prev => ({...prev, [type]: 'idle'})), 4000);
