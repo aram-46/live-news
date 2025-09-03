@@ -6,7 +6,6 @@ interface ExportButtonProps {
   elementRef: React.RefObject<HTMLElement>;
   data: any;
   title: string;
-  // FIX: Add 'agent' and 'general_topic' to the type definition.
   type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic';
   disabled: boolean;
 }

@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, BrowserIcon, BrainIcon } from './components/icons';
+import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, BrowserIcon, BrainIcon, SparklesIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
@@ -86,7 +86,6 @@ const App: React.FC = () => {
   const loadTicker = useCallback(async () => {
       if (!settings) return;
       try {
-        // FIX: Pass ticker settings and AI instructions to fetchTickerHeadlines.
         const headlines = await fetchTickerHeadlines(settings.ticker, settings.aiInstructions['news-ticker']);
         setTickerHeadlines(headlines);
       } catch (error) {
@@ -139,7 +138,7 @@ const App: React.FC = () => {
             {renderNavButton('factcheck', <CheckCircleIcon className="w-5 h-5" />, 'فکت چک')}
             {renderNavButton('analyzer', <BrainIcon className="w-5 h-5" />, 'تحلیل‌گر')}
             {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
-            {renderNavButton('browseruse', <BrowserIcon className="w-5 h-5" />, 'استفاده از مرورگر')}
+            {renderNavButton('browseruse', <SparklesIcon className="w-5 h-5" />, 'عامل هوشمند')}
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
           </nav>
         </div>

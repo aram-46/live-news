@@ -1,9 +1,5 @@
 
 
-
-
-
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult } from '../types';
 
@@ -29,7 +25,6 @@ const newsArticleSchema = {
   required: ["title", "summary", "source", "publicationTime", "credibility", "link", "category"]
 };
 
-// FIX: Define a schema that includes both articles and suggestions to match component usage.
 const newsResultSchema = {
     type: Type.OBJECT,
     properties: {
@@ -67,7 +62,6 @@ export async function fetchNews(filters: Filters, instructions: string, articles
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        // FIX: Use the new schema that returns articles and suggestions.
         responseSchema: newsResultSchema
       },
     });
@@ -351,7 +345,6 @@ export async function generateEditableListItems(listName: string, existingItems:
     }
 }
 
-// FIX: Implement missing generateDynamicFilters function.
 export async function generateDynamicFilters(
   query: string,
   listType: 'categories' | 'regions' | 'sources',
@@ -428,7 +421,6 @@ export async function checkForUpdates(sources: Sources): Promise<boolean> {
 }
 
 // --- New Web Search Function ---
-// FIX: Update function to return suggestions and parse them from the response.
 export async function fetchWebResults(searchType: 'video' | 'audio' | 'book' | 'music' | 'dollar', filters: Filters, instructions: string): Promise<{ results: WebResult[], sources: GroundingSource[], suggestions: string[] }> {
     const ai = getAiClient();
     try {
@@ -743,7 +735,6 @@ export async function fetchReligiousText(query: string, instructions: string): P
     return JSON.parse(jsonString);
 }
 
-// FIX: Implement missing functions for Content Creator tab.
 // --- NEW CONTENT CREATOR FUNCTIONS ---
 
 // A generic helper for SEO/Naming tools that expect a JSON array of strings
@@ -835,7 +826,6 @@ export async function generateImagesForArticle(
 }
 
 
-// FIX: Implement missing generateKeywordsForTopic function.
 export async function generateKeywordsForTopic(
   mainTopic: string,
   comparisonTopic: string
@@ -860,7 +850,6 @@ export async function generateKeywordsForTopic(
   }
 }
 
-// FIX: Implement missing fetchGeneralTopicAnalysis function.
 export async function fetchGeneralTopicAnalysis(
     mainTopic: string,
     comparisonTopic: string,
@@ -1208,7 +1197,6 @@ export async function findFallacies(text: string, instructions: string, fallacyL
 
 // --- NEW WEB AGENT FUNCTIONS ---
 
-// FIX: Implement missing analyzeAgentRequest function
 export async function analyzeAgentRequest(topic: string, request: string, instructions: string): Promise<AgentClarificationRequest> {
     const ai = getAiClient();
     const prompt = `
@@ -1264,7 +1252,6 @@ export async function analyzeAgentRequest(topic: string, request: string, instru
     }
 }
 
-// FIX: Implement missing executeAgentTask function
 export async function executeAgentTask(finalPrompt: string, instructions: string): Promise<AgentExecutionResult> {
     const ai = getAiClient();
     const prompt = `
@@ -1276,13 +1263,26 @@ export async function executeAgentTask(finalPrompt: string, instructions: string
         **Execution Plan:**
         1.  Use Google Search to browse the web and gather all necessary information to complete the task.
         2.  Synthesize the information you find.
-        3.  Formulate a step-by-step breakdown of how you completed the task.
-        4.  Provide a concise summary of the final result.
-        5.  Your entire output MUST be a single JSON object string. Do NOT include markdown backticks (\`\`\`) around the JSON. The JSON should have the following structure:
-            \`{ "summary": "...", "steps": [{ "title": "...", "description": "..." }], "sources": [] }\`
-        6.  The 'sources' array will be populated automatically from grounding metadata, so you can leave it as an empty array \`[]\` in your JSON output.
-        
-        Begin execution and provide the final JSON output.
+        3.  Structure your response as follows, using the exact separators. Do NOT output JSON.
+            - Start with a line containing only "--- SUMMARY ---".
+            - On the next lines, provide the concise summary of the final result in Persian.
+            - Then, add a line containing only "--- STEPS ---".
+            - After that, list each step. Each step must start with a line containing only "--- STEP ---".
+            - The line after "--- STEP ---" must be the step title in Persian.
+            - The lines after the title are the step description in Persian.
+
+        Example:
+        --- SUMMARY ---
+        خلاصه یافته‌ها در اینجا قرار می‌گیرد.
+        --- STEPS ---
+        --- STEP ---
+        عنوان مرحله ۱
+        شرح برای مرحله ۱ که می‌تواند چند خط باشد.
+        --- STEP ---
+        عنوان مرحله ۲
+        شرح برای مرحله ۲.
+
+        The 'sources' array will be populated automatically from grounding metadata. Begin execution.
     `;
 
     try {
@@ -1302,17 +1302,45 @@ export async function executeAgentTask(finalPrompt: string, instructions: string
             }))
             .filter((source: GroundingSource) => source.uri && source.title);
 
-        const jsonString = response.text.trim();
-        // Clean potential markdown wrappers
-        const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '');
-        const parsedResult = JSON.parse(cleanedJsonString) as Omit<AgentExecutionResult, 'sources'>;
+        const textResponse = response.text.trim();
+        const result: Omit<AgentExecutionResult, 'sources'> = {
+            summary: '',
+            steps: []
+        };
+
+        const parts = textResponse.split(/--- (?:SUMMARY|STEPS) ---/);
+        
+        if (parts.length >= 2) {
+            result.summary = parts[1].trim();
+        }
+
+        if (parts.length >= 3) {
+            const stepsText = parts[2].trim();
+            const stepBlocks = stepsText.split('--- STEP ---').filter(s => s.trim());
+            
+            for (const block of stepBlocks) {
+                const lines = block.trim().split('\n');
+                const title = lines.shift()?.trim();
+                const description = lines.join('\n').trim();
+
+                if (title && description) {
+                    result.steps.push({ title, description });
+                }
+            }
+        }
+
+        // Fallback if parsing fails but there is text
+        if (!result.summary && result.steps.length === 0 && textResponse.length > 10) {
+            console.warn("Agent task result parsing failed. Using raw text as summary.");
+            result.summary = textResponse;
+        }
 
         return {
-            ...parsedResult,
+            ...result,
             sources: sources
         };
     } catch (error) {
         console.error("Error executing agent task:", error);
-        throw new Error("Failed to execute agent task. The model may have returned an invalid JSON format.");
+        throw new Error("Failed to execute agent task. The model may have returned an invalid format or an API error occurred.");
     }
 }
