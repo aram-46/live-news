@@ -1,8 +1,13 @@
 
+
 import React, { useState, useCallback, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import { FactCheckResult, Credibility, AppSettings, MediaFile } from '../types';
-import { CheckCircleIcon, LinkIcon, UploadIcon, ImageIcon, AudioIcon, VideoIcon, UserIcon, CalendarIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon } from './icons';
+import { CheckCircleIcon, LinkIcon, UploadIcon, UserIcon, CalendarIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, ClipboardIcon, CheckCircleIcon as CheckIcon } from './icons';
 import { factCheckNews } from '../services/geminiService';
+import ExportButton from './ExportButton';
+import ScreenshotModal from './ScreenshotModal';
+
 
 interface FactCheckProps {
   settings: AppSettings;
@@ -38,6 +43,9 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
   const [result, setResult] = useState<FactCheckResult | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [screenshotImage, setScreenshotImage] = useState<string | null>(null);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -73,7 +81,7 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
     } finally {
         setIsLoading(false);
     }
-  }, [text, mediaFile, url, activeTab, settings]);
+  }, [text, mediaFile, url, activeTab, settings.aiInstructions]);
   
   const resultCredibilityClasses = getCredibilityClass(result?.overallCredibility);
 
@@ -85,6 +93,25 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
               <span className={text}>{credibility}</span>
           </div>
       );
+  };
+
+  const handleCopyLink = () => {
+    if (!result?.originalSource.link) return;
+    navigator.clipboard.writeText(result.originalSource.link);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleTakeScreenshot = async () => {
+    if (resultRef.current) {
+        try {
+            const canvas = await html2canvas(resultRef.current, { backgroundColor: '#0a0a0a' });
+            setScreenshotImage(canvas.toDataURL('image/png'));
+        } catch (error) {
+            console.error("Error taking screenshot:", error);
+            alert("خطا در گرفتن اسکرین شات.");
+        }
+    }
   };
   
   const resetInputs = () => {
@@ -135,6 +162,7 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
   }
 
   return (
+    <>
     <div className="max-w-4xl mx-auto p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
       <h2 className="text-xl font-bold mb-4 text-cyan-300 flex items-center gap-3">
         <CheckCircleIcon className="w-6 h-6" />
@@ -213,18 +241,25 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
       {error && <p className="mt-4 text-sm text-red-400 bg-red-900/30 p-3 rounded-lg">{error}</p>}
       
       {result && (
-        <div className="mt-8 space-y-6 animate-fade-in">
+        <div ref={resultRef} className="mt-8 space-y-6 animate-fade-in">
+             <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-cyan-300">نتایج بررسی</h3>
+                <div className="flex gap-2">
+                    <button onClick={handleTakeScreenshot} className="text-xs bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 px-3 rounded">اسکرین‌شات</button>
+                    <ExportButton elementRef={resultRef} data={result} title={text || url || mediaFile?.name || 'fact-check'} type="fact-check" disabled={!result} />
+                </div>
+            </div>
             {/* Overall Result */}
             <div className={`p-4 rounded-lg border ${resultCredibilityClasses.border} ${resultCredibilityClasses.bg}`}>
                 <h4 className={`font-bold text-lg mb-2 ${resultCredibilityClasses.text}`}>نتیجه کلی: {result.overallCredibility}</h4>
-                <p className="text-sm text-gray-300 leading-relaxed">{result.summary}</p>
+                <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{result.summary}</p>
             </div>
 
             {/* Original Source */}
             <div className="p-4 rounded-lg border border-gray-700 bg-gray-800/30">
                 <h4 className="font-semibold text-cyan-200 mb-3">ردیابی و بررسی منبع اولیه</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                    <div className="flex items-center gap-2"><UserIcon className="w-5 h-5 text-cyan-400"/><strong className="ml-1">منبع:</strong> <a href={result.originalSource.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{result.originalSource.name}</a></div>
+                    <div className="flex items-center gap-2 col-span-full"><UserIcon className="w-5 h-5 text-cyan-400"/><strong className="ml-1">منبع:</strong> <a href={result.originalSource.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate">{result.originalSource.name}</a><button onClick={handleCopyLink} className="p-1">{isCopied ? <CheckIcon className="w-4 h-4 text-green-400"/> : <ClipboardIcon className="w-4 h-4 text-gray-400"/>}</button></div>
                     <div className="flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-cyan-400"/><strong className="ml-1">تاریخ انتشار:</strong> {result.originalSource.publicationDate}</div>
                     <div className="flex items-center gap-2"><UserIcon className="w-5 h-5 text-cyan-400"/><strong className="ml-1">منتشر کننده:</strong> {result.originalSource.author}</div>
                     <div className="flex items-center gap-2"><DocumentTextIcon className="w-5 h-5 text-cyan-400"/><strong className="ml-1">نوع مدرک:</strong> {result.originalSource.evidenceType}</div>
@@ -275,7 +310,7 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
                                 <li key={index}>
                                     <button
                                         onClick={() => onOpenUrl(source.url)}
-                                        className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors p-2 bg-gray-800/30 rounded-md w-full text-right"
+                                        className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 hover:underline p-2 bg-gray-800/30 rounded-md w-full text-right"
                                     >
                                         <LinkIcon className="w-4 h-4 flex-shrink-0" />
                                         <span className="truncate">{source.title}</span>
@@ -289,6 +324,8 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
         </div>
       )}
     </div>
+    {screenshotImage && <ScreenshotModal image={screenshotImage} onClose={() => setScreenshotImage(null)} />}
+    </>
   );
 };
 

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { NewsArticle, WebResult, StatisticsResult, ScientificArticleResult, AgentExecutionResult, GeneralTopicResult } from '../types';
+import * as XLSX from 'xlsx';
+import { NewsArticle, WebResult, StatisticsResult, ScientificArticleResult, AgentExecutionResult, GeneralTopicResult, FactCheckResult } from '../types';
 
 // Helper to sanitize text for HTML
 const escapeHtml = (unsafe: string | undefined | null) => {
@@ -127,7 +128,42 @@ const generateGeneralTopicHtml = (data: GeneralTopicResult): string => {
     return html;
 };
 
-export const generateHtmlContent = (data: any, title: string, type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic'): string => {
+const generateFactCheckHtml = (data: FactCheckResult): string => {
+    let html = `<div class="card">`;
+    html += `<h2>نتیجه کلی: ${escapeHtml(String(data.overallCredibility))} (${escapeHtml(String(data.acceptancePercentage))}% پذیرش)</h2>`;
+    html += `<p>${escapeHtml(data.summary)}</p>`;
+    
+    html += `<div class="structured-section"><h3>منبع اولیه</h3>`;
+    html += `<p><strong>نام:</strong> <a href="${escapeHtml(data.originalSource.link)}" target="_blank">${escapeHtml(data.originalSource.name)}</a></p>`;
+    html += `<p><strong>نویسنده:</strong> ${escapeHtml(data.originalSource.author)}</p>`;
+    html += `<p><strong>تاریخ انتشار:</strong> ${escapeHtml(data.originalSource.publicationDate)}</p>`;
+    html += `<p><strong>اعتبار منبع:</strong> ${escapeHtml(data.originalSource.credibility)}</p>`;
+    html += `</div>`;
+
+    html += `<div class="structured-section"><h3>استدلال‌ها</h3><table>`;
+    html += `<thead><tr><th>موافقین</th><th>مخالفین</th></tr></thead><tbody>`;
+    const rows = Math.max(data.proponents.length, data.opponents.length);
+    for (let i = 0; i < rows; i++) {
+        const proponent = data.proponents[i];
+        const opponent = data.opponents[i];
+        html += `<tr>`;
+        html += `<td>${proponent ? `<strong>${escapeHtml(proponent.name)}:</strong> ${escapeHtml(proponent.argument)}` : ''}</td>`;
+        html += `<td>${opponent ? `<strong>${escapeHtml(opponent.name)}:</strong> ${escapeHtml(opponent.argument)}` : ''}</td>`;
+        html += `</tr>`;
+    }
+    html += `</tbody></table></div>`;
+    
+    html += `<div class="structured-section"><h3>منابع مرتبط</h3><ul>`;
+    data.relatedSources.forEach(source => {
+        html += `<li><a href="${escapeHtml(source.url)}" target="_blank">${escapeHtml(source.title)}</a></li>`;
+    });
+    html += `</ul></div>`;
+
+    html += `</div>`;
+    return html;
+};
+
+export const generateHtmlContent = (data: any, title: string, type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic' | 'fact-check' | 'text-formatter'): string => {
     let contentHtml = '';
     if (!data || (Array.isArray(data) && data.length === 0)) {
         contentHtml = '<p>No data to display.</p>';
@@ -141,6 +177,10 @@ export const generateHtmlContent = (data: any, title: string, type: 'news' | 'we
         contentHtml = generateAgentHtml(data as AgentExecutionResult);
     } else if (type === 'general_topic') {
         contentHtml = generateGeneralTopicHtml(data as GeneralTopicResult);
+    } else if (type === 'fact-check') {
+        contentHtml = generateFactCheckHtml(data as FactCheckResult);
+    } else if (type === 'text-formatter') {
+        contentHtml = data; // For text formatter, the data is already the HTML content
     }
     
     return `
@@ -153,7 +193,7 @@ export const generateHtmlContent = (data: any, title: string, type: 'news' | 'we
         </head>
         <body>
             <div class="container">
-                <h1>نتایج جستجو برای: "${escapeHtml(title)}"</h1>
+                <h1>نتایج برای: "${escapeHtml(title)}"</h1>
                 ${contentHtml}
             </div>
         </body>
@@ -162,7 +202,8 @@ export const generateHtmlContent = (data: any, title: string, type: 'news' | 'we
 }
 
 export const exportToHtml = (htmlContent: string, fileName: string) => {
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const fullHtml = generateHtmlContent(htmlContent, fileName, 'text-formatter');
+    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `${fileName}.html`;
@@ -170,6 +211,39 @@ export const exportToHtml = (htmlContent: string, fileName: string) => {
     link.click();
     document.body.removeChild(link);
 }
+
+export const exportToDocx = (htmlContent: string, fileName: string) => {
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word</title></head><body>";
+    const footer = "</body></html>";
+    const sourceHTML = header + htmlContent + footer;
+
+    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+    const fileDownload = document.createElement("a");
+    document.body.appendChild(fileDownload);
+    fileDownload.href = source;
+    fileDownload.download = `${fileName}.doc`;
+    fileDownload.click();
+    document.body.removeChild(fileDownload);
+};
+
+export const exportToXlsx = (htmlContent: string, fileName: string) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    const data: { Content: string }[] = [];
+    const elements = tempDiv.querySelectorAll('h1, h2, h3, p, li');
+    
+    elements.forEach(el => {
+        if (el.textContent) {
+            data.push({ "Content": el.textContent.trim() });
+        }
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Formatted Text");
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+};
 
 // --- Image & PDF Export ---
 

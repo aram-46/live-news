@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, StatisticsResult, ScientificArticleResult, Credibility, StanceHolder, ChartData } from '../types';
 import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateEditableListItems } from '../services/geminiService';

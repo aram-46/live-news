@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Filters, NewsArticle, AppSettings, SearchTab } from '../types';
 import { fetchNews } from '../services/geminiService';
@@ -11,7 +12,6 @@ import Converter from './Converter';
 import ExportButton from './ExportButton';
 import Suggestions from './Suggestions';
 import GeneralTopicsSearch from './GeneralTopicsSearch';
-import ContentCreator from './ContentCreator';
 
 interface AdvancedSearchProps {
     settings: AppSettings;
@@ -60,7 +60,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
      if(activeTab === 'news' && news.length === 0 && !isLoadingNews) {
         handleNewsSearch(currentFilters);
      }
-  }, [activeTab]);
+  }, [activeTab, handleNewsSearch, isLoadingNews, news.length, currentFilters]);
 
   const visibleNews = news.filter(article => !hiddenArticleLinks.includes(article.link));
   
@@ -163,8 +163,6 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
             return <Converter settings={settings} onOpenUrl={onOpenUrl} />;
         case 'general_topics':
             return <GeneralTopicsSearch settings={settings} onOpenUrl={onOpenUrl} onSettingsChange={onSettingsChange} />;
-        case 'content-creator':
-            return <ContentCreator settings={settings} />;
         default:
             return null;
     }
@@ -175,7 +173,6 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
        <div className="flex border-b border-cyan-400/20 overflow-x-auto">
           {renderTabButton('news', 'اخبار')}
           {renderTabButton('general_topics', 'موضوعات عمومی')}
-          {renderTabButton('content-creator', 'محتوا ساز', <SparklesIcon className="w-5 h-5" />)}
           {renderTabButton('video', 'ویدئو')}
           {renderTabButton('audio', 'صدا')}
           {renderTabButton('book', 'کتاب و سایت')}

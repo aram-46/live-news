@@ -1,6 +1,7 @@
 
+
 import React, { useState } from 'react';
-import { AppSettings, VideoFactCheckResult, VideoTimestampResult } from '../types';
+import { AppSettings, VideoFactCheckResult, VideoTimestampResult, TranscriptionResult } from '../types';
 import { analyzeVideoFromUrl } from '../services/geminiService';
 import { LinkIcon, CheckCircleIcon, CloseIcon, SearchIcon } from './icons';
 
@@ -9,7 +10,7 @@ interface VideoToTextConverterProps {
     onOpenUrl: (url: string) => void;
 }
 
-type AnalysisType = 'summary' | 'analysis' | 'fact-check' | 'timestamp';
+type AnalysisType = 'summary' | 'analysis' | 'fact-check' | 'timestamp' | 'transcription';
 
 const LoadingSkeleton = () => (
     <div className="p-6 bg-black/20 rounded-2xl border border-cyan-400/10 animate-pulse space-y-4">
@@ -57,6 +58,7 @@ const VideoToTextConverter: React.FC<VideoToTextConverterProps> = ({ settings, o
     
     const analysisOptions: { id: AnalysisType; label: string; description: string }[] = [
         { id: 'summary', label: 'خلاصه', description: 'ارائه یک خلاصه از ویدئو در چند خط.' },
+        { id: 'transcription', label: 'دریافت متن کامل', description: 'استخراج و نمایش تمام متن گفتگوهای موجود در فایل.' },
         { id: 'analysis', label: 'تحلیل جامع', description: 'بررسی و تحلیل موضوعات و ادعاهای مطرح شده در ویدئو.' },
         { id: 'fact-check', label: 'راستی‌آزمایی عمیق', description: 'تحلیل منطقی ادعاها و بررسی اعتبار اسناد ارائه شده.' },
         { id: 'timestamp', label: 'یافتن کلمات کلیدی', description: 'پیدا کردن زمان دقیق بیان کلمات یا عبارات در ویدئو.' },
@@ -72,6 +74,14 @@ const VideoToTextConverter: React.FC<VideoToTextConverterProps> = ({ settings, o
                      <div className="p-4 rounded-lg bg-gray-800/30 border border-gray-700 space-y-2">
                         <h3 className="font-semibold text-cyan-200">{analysisType === 'summary' ? 'خلاصه ویدئو' : 'گزارش تحلیلی'}</h3>
                         <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">{result.summary || result.comprehensiveReport || 'نتیجه‌ای یافت نشد.'}</p>
+                    </div>
+                );
+            case 'transcription':
+                const transcriptionResult = result as TranscriptionResult;
+                 return (
+                     <div className="p-4 rounded-lg bg-gray-800/30 border border-gray-700 space-y-2">
+                        <h3 className="font-semibold text-cyan-200">متن کامل ویدئو</h3>
+                        <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">{transcriptionResult.transcription || 'نتیجه‌ای یافت نشد.'}</p>
                     </div>
                 );
             case 'fact-check':

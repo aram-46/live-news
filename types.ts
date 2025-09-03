@@ -183,6 +183,10 @@ export interface VideoTimestampResult {
     timestamps: VideoTimestamp[];
 }
 
+export interface TranscriptionResult {
+    transcription: string;
+}
+
 
 // --- SETTINGS ---
 
@@ -208,7 +212,7 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'fact-check': 'فکت چک و ردیابی شایعه',
@@ -243,6 +247,7 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'website-names': 'پیشنهاد نام سایت',
   'domain-names': 'پیشنهاد نام دامنه',
   'article-generation': 'تولید محتوای مقاله',
+  'page-builder': 'صفحه ساز (تولید درباره من)',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;
@@ -365,7 +370,7 @@ export interface LiveNewsSpecificSettings {
   autoSend: boolean;
 }
 
-export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter' | 'general_topics' | 'content-creator';
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter' | 'general_topics';
 
 export interface SearchOptions {
     categories: string[];
@@ -489,4 +494,76 @@ export interface AgentExecutionResult {
     summary: string;
     steps: { title: string; description: string; }[];
     sources: GroundingSource[];
+}
+
+// --- PAGE BUILDER (Enhanced) ---
+export interface MenuItem {
+    id: string;
+    label: string;
+    link: string;
+    children?: MenuItem[];
+}
+
+export interface MenuOptions {
+    enabled: boolean;
+    items: MenuItem[];
+    // Styling
+    fontFamily: string;
+    fontSize: number;
+    textColor: string;
+    bgColor: string;
+    borderColor: string;
+    borderRadius: number;
+    gradientFrom: string;
+    gradientTo: string;
+    iconColor: string;
+}
+
+export interface Slide {
+    id: string;
+    type: 'url' | 'upload';
+    content: string; // URL or Base64 data
+    name: string; // File name or label for URL
+    caption: string;
+}
+
+export interface SlideshowOptions {
+    enabled: boolean;
+    slides: Slide[];
+    style: 'Carousel' | 'Grid' | 'Fade Gallery';
+    animation: 'Slide' | 'Fade' | 'Zoom';
+    direction: 'Horizontal' | 'Vertical';
+    delay: number; // in seconds
+    speed: number; // in milliseconds
+    width: string; // e.g., '100%', '800px'
+    height: string; // e.g., '400px'
+    // Caption styling
+    captionFontFamily: string;
+    captionFontSize: number;
+    captionColor: string;
+    captionBgColor: string;
+}
+
+export interface MarqueeOptions {
+    enabled: boolean;
+    text: string;
+    // Styling
+    fontFamily: string;
+    fontSize: number;
+    textColor: string;
+    bgColor: string;
+    speed: number; // seconds
+    direction: 'left' | 'right';
+    border: string; // e.g., '1px solid #FFFFFF'
+    padding: string; // e.g., '10px'
+}
+
+export interface PageConfig {
+    template: 'Minimalist Dark' | 'Professional Light' | 'Creative Portfolio';
+    layoutColumns: 1 | 2;
+    header: boolean;
+    footer: boolean;
+    menu: MenuOptions;
+    slideshow: SlideshowOptions;
+    marquee: MarqueeOptions;
 }

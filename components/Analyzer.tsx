@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useCallback } from 'react';
 import { AppSettings, MediaFile, AnalyzerTabId, analyzerTabLabels, ClarificationResponse, AnalysisResult, FallacyResult, AIInstructionType } from '../types';
 import { BrainIcon, UploadIcon, LinkIcon, VideoIcon, AudioIcon, MicrophoneIcon, CloseIcon, SearchIcon, PaperClipIcon } from './icons';

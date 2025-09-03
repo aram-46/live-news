@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, BrowserIcon, BrainIcon, SparklesIcon } from './components/icons';
+import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, BrowserIcon, BrainIcon, SparklesIcon, ToolsIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
@@ -16,8 +16,9 @@ import Chatbot from './components/Chatbot';
 import PasswordPrompt from './components/PasswordPrompt';
 import BrowserUse from './components/BrowserUse';
 import Analyzer from './components/Analyzer';
+import OnlineTools from './components/OnlineTools';
 
-type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings';
+type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools';
 
 const FullScreenLoader: React.FC<{ message: string }> = ({ message }) => (
     <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
@@ -137,6 +138,7 @@ const App: React.FC = () => {
             {renderNavButton('search', <SearchIcon className="w-5 h-5" />, 'جستجو')}
             {renderNavButton('factcheck', <CheckCircleIcon className="w-5 h-5" />, 'فکت چک')}
             {renderNavButton('analyzer', <BrainIcon className="w-5 h-5" />, 'تحلیل‌گر')}
+            {renderNavButton('online-tools', <ToolsIcon className="w-5 h-5" />, 'ابزار آنلاین')}
             {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
             {renderNavButton('browseruse', <SparklesIcon className="w-5 h-5" />, 'عامل هوشمند')}
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
@@ -152,6 +154,7 @@ const App: React.FC = () => {
         {activeView === 'factcheck' && <FactCheck settings={settings} onOpenUrl={setDialogUrl} />}
         {activeView === 'analyzer' && <Analyzer settings={settings} onOpenUrl={setDialogUrl} />}
         {activeView === 'browseruse' && <BrowserUse settings={settings} />}
+        {activeView === 'online-tools' && <OnlineTools settings={settings} />}
         {activeView === 'settings' && (
             isSettingsLocked ? 
             <PasswordPrompt password={settings.password!} onUnlock={() => setIsSettingsLocked(false)} /> :

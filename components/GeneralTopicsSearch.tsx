@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useRef } from 'react';
 import { AppSettings, GeneralTopicResult } from '../types';
 import { generateKeywordsForTopic, fetchGeneralTopicAnalysis } from '../services/geminiService';
@@ -48,7 +49,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
         } finally {
             setIsKeywordsLoading(false);
         }
-    }, [mainTopic, comparisonTopic, settings]);
+    }, [mainTopic, comparisonTopic]);
 
     const handleSearch = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();

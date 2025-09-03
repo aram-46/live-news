@@ -1,7 +1,5 @@
-
-
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult } from '../types';
+import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult, PageConfig, TranscriptionResult } from '../types';
 
 // Helper function to get the API key and initialize the client.
 // Per guidelines, the API key MUST be obtained exclusively from the environment variable.
@@ -120,6 +118,10 @@ export async function factCheckNews(text: string, file: { data: string; mimeType
             2.  **Analyze the Source:** Evaluate the credibility of the original source. Do they have a history of spreading misinformation? Are they a reliable source on this topic?
             3.  **Verify the Content:** Fact-check the claim itself using at least two independent, high-credibility sources.
             4.  **Summarize Findings:** Provide a clear, concise verdict and summary.
+            5.  **(If Media Provided) Check for Manipulation:**
+                - For video: Analyze for signs of clipping (تقطیع), editing, or out-of-context presentation.
+                - For audio: Analyze for signs of dubbing (صداگذاری) or manipulation.
+                - If manipulation is detected, describe it in the summary and if possible, find a link to the original, unedited media and add it to the 'relatedSources' section.
 
             **Content for Analysis:**
             - Link (if provided): ${url || 'Not provided.'}
@@ -132,7 +134,7 @@ export async function factCheckNews(text: string, file: { data: string; mimeType
                 type: Type.OBJECT,
                 properties: {
                     overallCredibility: { type: Type.STRING, enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'], description: "The final credibility verdict in Persian." },
-                    summary: { type: Type.STRING, description: "A concise summary of the fact-check findings in Persian." },
+                    summary: { type: Type.STRING, description: "A concise summary of the fact-check findings in Persian. If media was provided, include any findings on manipulation (clipping, dubbing, etc.) here." },
                     originalSource: {
                         type: Type.OBJECT,
                         properties: {
@@ -692,9 +694,8 @@ export async function fetchScientificArticle(query: string, instructions: string
     - \`sourceDetails\`: The primary source. Include name (e.g., 'Journal of Science'), link (to the article page or DOI), author(s), publication date, credibility, the type of research (e.g., 'Peer-reviewed study'), and the target audience.
     - \`analysis\`: Provide a balanced view with proponents and opponents, its acceptance in the scientific community, and its current validity.
     - \`relatedSuggestions\`: Offer 3 suggestions for related fields of study.
-    - \`references\`: Provide up to 3 links to other papers that cite or are cited by this work.
+    - \`references\`: Provide up to 3 links to other academic works that cite or are cited by this paper.
     `;
-
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
@@ -707,46 +708,132 @@ export async function fetchScientificArticle(query: string, instructions: string
     return JSON.parse(jsonString);
 }
 
+// This function can serve for both religion and potentially other text-based academic fields
 export async function fetchReligiousText(query: string, instructions: string): Promise<ScientificArticleResult> {
     const ai = getAiClient();
-    const prompt = `${instructions}
-    **Task:** Find a key religious text, interpretation, or scholarly article for the user's query and format it as a JSON object. Prioritize primary religious texts (like verses, chapters) or well-regarded commentaries and academic studies on religion. The entire output must be in Persian.
+     const prompt = `${instructions}
+    **Task:** Find a key religious text, interpretation, or academic article for the user's query and format it as a JSON object. Prioritize primary religious texts (like Quran, Bible, etc.) and reputable academic or theological sources. The entire output must be in Persian.
     **Query:** "${query}"
     
     **Instructions for JSON fields:**
-    - \`title\`: The title of the text, verse, or article (e.g., 'تفسیر آیه 5 سوره مائده').
-    - \`summary\`: A summary of the content, meaning, or key findings.
-    - \`keywords\`: Extract the main keywords.
-    - \`sourceDetails\`: The primary source. Include name (e.g., 'قرآن کریم', 'صحیح بخاری', 'Journal of Religious Studies'), link (to an online version if available), author(s) (e.g., 'علامه طباطبایی', 'پیامبر اسلام (ص)' if applicable), publication date (if it's an article), credibility (e.g., 'متواتر', 'معتبر', 'مورد اختلاف'), the type of research (e.g., 'آیه قرآن', 'حدیث', 'مقاله تفسیری'), and the target audience.
-    - \`analysis\`: Provide a balanced view with different interpretations or views if they exist (proponents/opponents can represent different schools of thought), its acceptance in the relevant religious community, and its current validity or interpretation.
-    - \`relatedSuggestions\`: Offer 3 suggestions for related topics or verses.
-    - \`references\`: Provide up to 3 links to other texts or commentaries that reference this work.
+    - \`title\`: The title of the text, chapter, or article.
+    - \`summary\`: A summary of the content and its significance.
+    - \`keywords\`: Extract the main keywords or concepts.
+    - \`sourceDetails\`: The primary source. Include name (e.g., 'Quran, Surah Al-Baqarah', 'Tafsir al-Mizan'), link (if available), author(s), and its credibility/importance.
+    - \`analysis\`: Provide a balanced view of different interpretations or schools of thought (proponents/opponents), its acceptance, and its current relevance.
+    - \`relatedSuggestions\`: Offer 3 suggestions for related topics or texts.
+    - \`references\`: Provide up to 3 links to commentaries or related studies.
     `;
-
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
         config: {
             responseMimeType: "application/json",
-            responseSchema: scientificArticleResultSchema
+            responseSchema: scientificArticleResultSchema // The schema is reusable
         }
     });
     const jsonString = response.text.trim();
     return JSON.parse(jsonString);
 }
 
-// --- NEW CONTENT CREATOR FUNCTIONS ---
 
-// A generic helper for SEO/Naming tools that expect a JSON array of strings
-async function generateStringList(
-    topic: string,
-    instructions: string,
-    count: number = 10
-): Promise<string[]> {
+export async function analyzeVideoFromUrl(url: string, analysisType: 'summary' | 'analysis' | 'fact-check' | 'timestamp' | 'transcription', keywords: string, instructions: string): Promise<any> {
     const ai = getAiClient();
-    const prompt = `${instructions}\n\n**Topic:** "${topic}"\n\nGenerate ${count} items. The output must be a single, valid JSON array of strings. Do NOT include markdown backticks (\`\`\`) around the JSON.`;
+    
+    const commonPrompt = `
+        ${instructions}
+        **Video URL for analysis:** ${url}
+        **Requested Task:** ${analysisType}
+    `;
 
+    let specificPrompt = '';
+    let responseSchema: any = { type: Type.OBJECT, properties: {} };
+
+    switch (analysisType) {
+        case 'summary':
+            specificPrompt = 'Provide a concise summary of the video content.';
+            responseSchema.properties = { summary: { type: Type.STRING }};
+            break;
+        case 'analysis':
+            specificPrompt = 'Provide a comprehensive analysis of the topics, arguments, and tone of the video.';
+            responseSchema.properties = { comprehensiveReport: { type: Type.STRING }};
+            break;
+        case 'fact-check':
+            specificPrompt = 'Deeply analyze the video. Identify key claims made. For each claim, analyze its logical soundness and verify any evidence presented. Check for context manipulation. Provide an overall verdict and detailed breakdown.';
+            responseSchema.properties = {
+                overallVerdict: { type: Type.STRING, description: "Final verdict (e.g., 'Mostly True', 'Misleading', 'False')." },
+                claims: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            claimText: { type: Type.STRING },
+                            analysis: { type: Type.STRING },
+                            evidence: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        evidenceText: { type: Type.STRING },
+                                        isReal: { type: Type.BOOLEAN },
+                                        isCredible: { type: Type.BOOLEAN },
+                                        isRelevant: { type: Type.BOOLEAN },
+                                        sourceLink: { type: Type.STRING }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            break;
+        case 'timestamp':
+            specificPrompt = `Find all occurrences of the following keywords/phrases in the video transcript: "${keywords}". For each finding, provide the exact timestamp (HH:MM:SS) and the full sentence in which it appeared.`;
+            responseSchema.properties = {
+                found: { type: Type.BOOLEAN },
+                timestamps: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            keyword: { type: Type.STRING },
+                            sentence: { type: Type.STRING },
+                            timestamp: { type: Type.STRING }
+                        }
+                    }
+                }
+            };
+            break;
+        case 'transcription':
+            specificPrompt = 'Transcribe the entire video content into fluent Persian text. The output should be a single block of text containing the full transcription.';
+            responseSchema.properties = { transcription: { type: Type.STRING }};
+            break;
+    }
+
+    const fullPrompt = `${commonPrompt}\n${specificPrompt}`;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: fullPrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: responseSchema
+        }
+    });
+    const jsonString = response.text.trim();
+    return JSON.parse(jsonString);
+}
+
+// --- GENERAL TOPICS SEARCH ---
+
+export async function generateKeywordsForTopic(mainTopic: string, comparisonTopic: string): Promise<string[]> {
+    const ai = getAiClient();
     try {
+        let prompt = `Generate a JSON array of 5 relevant and diverse search keywords for the main topic: "${mainTopic}".`;
+        if (comparisonTopic) {
+            prompt += ` Also consider the comparison with "${comparisonTopic}".`;
+        }
+        prompt += ` The keywords should be in Persian. The output must be only the JSON array of strings.`;
+
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
@@ -758,96 +845,13 @@ async function generateStringList(
                 }
             }
         });
-        const jsonString = response.text.trim().replace(/^```json\s*|```$/g, '');
-        return JSON.parse(jsonString) as string[];
+        
+        const cleanedText = response.text.replace(/```json\n?|```/g, '').trim();
+        return JSON.parse(cleanedText);
     } catch (error) {
-        console.error(`Error generating string list for topic "${topic}":`, error);
-        throw new Error(`Failed to generate items for "${topic}".`);
+        console.error("Error generating keywords for topic:", error);
+        throw new Error("Failed to generate keywords.");
     }
-}
-
-export async function generateSeoKeywords(topic: string, instructions: string): Promise<string[]> {
-    return generateStringList(topic, instructions, 10);
-}
-
-export async function suggestWebsiteNames(topic: string, instructions: string): Promise<string[]> {
-    return generateStringList(topic, instructions, 10);
-}
-
-export async function suggestDomainNames(topic: string, instructions: string): Promise<string[]> {
-    return generateStringList(topic, instructions, 10);
-}
-
-export async function generateArticle(
-    topic: string,
-    wordCount: number,
-    instructions: string
-): Promise<string> {
-    const ai = getAiClient();
-    const prompt = `${instructions}\n\n**Topic:** "${topic}"\n**Word Count:** Approximately ${wordCount} words.\n\nGenerate the article now.`;
-    
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-        });
-        return response.text.trim();
-    } catch (error) {
-        console.error(`Error generating article for topic "${topic}":`, error);
-        throw new Error(`Failed to generate article for "${topic}".`);
-    }
-}
-
-export async function generateImagesForArticle(
-    prompt: string,
-    numberOfImages: number,
-    aspectRatio: string = '1:1'
-): Promise<string[]> {
-    const ai = getAiClient();
-    try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt,
-            config: {
-                numberOfImages,
-                aspectRatio: ['1:1', '3:4', '4:3', '9:16', '16:9'].includes(aspectRatio) ? aspectRatio : '1:1',
-                outputMimeType: 'image/jpeg',
-            },
-        });
-
-        if (response.generatedImages && response.generatedImages.length > 0) {
-            return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
-        }
-        return [];
-    } catch (error) {
-        console.error("Error generating images for article:", error);
-        throw new Error("Failed to generate images.");
-    }
-}
-
-
-export async function generateKeywordsForTopic(
-  mainTopic: string,
-  comparisonTopic: string
-): Promise<string[]> {
-  const ai = getAiClient();
-  let prompt = `Generate a JSON array of 5 highly relevant keywords in Persian for a research topic on "${mainTopic}".`;
-  if (comparisonTopic) {
-    prompt += ` The research also involves a comparison with "${comparisonTopic}".`;
-  }
-  prompt += ` The output must be only a valid JSON array of strings.`;
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-    const cleanedText = response.text.replace(/```json\n?|```/g, '').trim();
-    return JSON.parse(cleanedText) as string[];
-  } catch (error) {
-    console.error("Error generating keywords for topic:", error);
-    throw new Error("Failed to generate keywords.");
-  }
 }
 
 export async function fetchGeneralTopicAnalysis(
@@ -858,23 +862,46 @@ export async function fetchGeneralTopicAnalysis(
     instructions: string
 ): Promise<GeneralTopicResult> {
     const ai = getAiClient();
-    let prompt = `${instructions}\n\n**Main Topic:** "${mainTopic}"`;
-    if (comparisonTopic) {
-        prompt += `\n**Comparison Topic:** "${comparisonTopic}"`;
-    }
-    if (keywords.length > 0) {
-        prompt += `\n**Keywords to focus on:** ${keywords.join(', ')}`;
-    }
-    if (domains.length > 0) {
-        prompt += `\n**Relevant Domains:** ${domains.join(', ')}`;
-    }
-    prompt += `\n\nYour task is to use Google Search to research these topics and produce a comprehensive, structured report in Persian. The output must be a single, valid JSON object that follows the specified structure. Do NOT include markdown backticks (\`\`\`) around the JSON.
-    - The JSON must have these keys: "title", "summary", "keyPoints" (an array of objects with "title" and "description"), and optionally "comparison".
-    - If a comparison topic is provided, the 'comparison' field in the JSON MUST be populated with "topicA", "topicB", and "points". Otherwise, it should be null.
-    - The 'sources' array will be populated automatically from grounding metadata, so you can leave it as an empty array \`[]\` in your JSON output.
-    `;
-
     try {
+        let prompt = `
+            ${instructions}
+            **Main Topic:** ${mainTopic}
+        `;
+        if (comparisonTopic) {
+            prompt += `\n**Comparison Topic:** ${comparisonTopic}`;
+        }
+        if (keywords.length > 0) {
+            prompt += `\n**Keywords to focus on:** ${keywords.join(', ')}`;
+        }
+        if (domains.length > 0) {
+            prompt += `\n**Relevant Domains/Fields:** ${domains.join(', ')}`;
+        }
+
+        prompt += `\n
+            Please perform a comprehensive web search to generate a report.
+            IMPORTANT: All output text must be in Persian.
+            
+            Structure your response using the following format, starting each section with the key on a new line. Do NOT use markdown.
+
+            title: [A clear and concise title for the report in Persian]
+            
+            summary: [A detailed summary of the findings in Persian]
+            
+            --- KEY POINTS ---
+            [Up to 5 key points. Each point should be on a new line, formatted as: point_title: point_description]
+            
+            --- COMPARISON ---
+            [If a comparison topic was provided, give a side-by-side analysis. Format as:
+            topicA: [Main Topic]
+            topicB: [Comparison Topic]
+            -- Point --
+            aspect: [The aspect being compared]
+            analysisA: [Analysis for Topic A]
+            analysisB: [Analysis for Topic B]
+            (Repeat for multiple points)]
+            [If no comparison topic, just write "comparison: null"]
+        `;
+
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
@@ -891,247 +918,310 @@ export async function fetchGeneralTopicAnalysis(
             }))
             .filter((source: GroundingSource) => source.uri && source.title);
 
-        const jsonString = response.text.trim();
-        const cleanedJsonString = jsonString.replace(/^```json\s*|```$/g, '');
-        const parsedResult = JSON.parse(cleanedJsonString) as Omit<GeneralTopicResult, 'sources'>;
+        // Parse the text response
+        const text = response.text;
+        const result: Partial<GeneralTopicResult> = { sources, keyPoints: [] };
 
-        // Ensure comparison is null if not provided
-        if (!comparisonTopic) {
-            parsedResult.comparison = null;
+        const titleMatch = text.match(/^title:\s*(.*)/m);
+        result.title = titleMatch ? titleMatch[1].trim() : `Report on ${mainTopic}`;
+
+        const summaryMatch = text.match(/^summary:\s*([\s\S]*?)(?=--- KEY POINTS ---)/m);
+        result.summary = summaryMatch ? summaryMatch[1].trim() : 'No summary provided.';
+        
+        const keyPointsSection = text.split('--- KEY POINTS ---')[1]?.split('--- COMPARISON ---')[0];
+        if (keyPointsSection) {
+            const pointMatches = [...keyPointsSection.matchAll(/^(.*?):\s*(.*)/gm)];
+            pointMatches.forEach(match => {
+                if (match[1].trim() && match[2].trim()) {
+                    result.keyPoints!.push({ title: match[1].trim(), description: match[2].trim() });
+                }
+            });
         }
 
-        return {
-            ...parsedResult,
-            sources: sources
-        };
-    } catch (error) {
-        console.error("Error fetching general topic analysis:", error);
-        throw new Error("Failed to fetch general topic analysis. The model may have returned an invalid JSON format.");
-    }
-}
-
-// --- NEW VIDEO CONVERTER FUNCTION ---
-
-export async function analyzeVideoFromUrl(
-    url: string, 
-    task: 'summary' | 'analysis' | 'fact-check' | 'timestamp', 
-    keywords: string, 
-    instructions: string
-): Promise<any> {
-    const ai = getAiClient();
-    let prompt = `${instructions}\n\n**Video URL for analysis:** ${url}\n\n`;
-    let schema: any;
-
-    switch (task) {
-        case 'summary':
-            prompt += "Task: Provide a concise summary of the video in a few lines.";
-            schema = { type: Type.OBJECT, properties: { summary: { type: Type.STRING } } };
-            break;
-        case 'analysis':
-            prompt += "Task: Provide a comprehensive but relatively short report analyzing the topics, content, and claims made in the video.";
-            schema = { type: Type.OBJECT, properties: { comprehensiveReport: { type: Type.STRING } } };
-            break;
-        case 'fact-check':
-            prompt += "Task: Conduct a deep fact-check of the video. Analyze claims based on logical, philosophical, and grammatical rules. Verify any presented documents or references for their reality, credibility, and relevance. Provide a final verdict, a list of analyzed claims with their evidence, and links to the sources of evidence.";
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    overallVerdict: { type: Type.STRING },
-                    claims: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                claimText: { type: Type.STRING },
-                                analysis: { type: Type.STRING },
-                                evidence: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: {
-                                            evidenceText: { type: Type.STRING },
-                                            isReal: { type: Type.BOOLEAN },
-                                            isCredible: { type: Type.BOOLEAN },
-                                            isRelevant: { type: Type.BOOLEAN },
-                                            sourceLink: { type: Type.STRING },
-                                        },
-                                        required: ["evidenceText", "isReal", "isCredible", "isRelevant", "sourceLink"]
-                                    }
-                                }
-                            },
-                             required: ["claimText", "analysis", "evidence"]
-                        }
+        result.comparison = null;
+        const comparisonSection = text.split('--- COMPARISON ---')[1];
+        if (comparisonSection && !comparisonSection.includes("comparison: null")) {
+            const topicAMatch = comparisonSection.match(/^topicA:\s*(.*)/m);
+            const topicBMatch = comparisonSection.match(/^topicB:\s*(.*)/m);
+            if (topicAMatch && topicBMatch) {
+                result.comparison = {
+                    topicA: topicAMatch[1].trim(),
+                    topicB: topicBMatch[1].trim(),
+                    points: []
+                };
+                const pointBlocks = comparisonSection.split('-- Point --').slice(1);
+                pointBlocks.forEach(block => {
+                    const aspectMatch = block.match(/^aspect:\s*(.*)/m);
+                    const analysisAMatch = block.match(/^analysisA:\s*(.*)/m);
+                    const analysisBMatch = block.match(/^analysisB:\s*(.*)/m);
+                    if (aspectMatch && analysisAMatch && analysisBMatch) {
+                        result.comparison!.points.push({
+                            aspect: aspectMatch[1].trim(),
+                            analysisA: analysisAMatch[1].trim(),
+                            analysisB: analysisBMatch[1].trim(),
+                        });
                     }
-                },
-                 required: ["overallVerdict", "claims"]
-            };
-            break;
-        case 'timestamp':
-            prompt += `Task: Find all occurrences of the following keywords/phrases in the video: "${keywords}". For each occurrence, provide the exact sentence and the timestamp in HH:MM:SS format. If none are found, indicate that.`;
-            schema = {
-                type: Type.OBJECT,
-                properties: {
-                    found: { type: Type.BOOLEAN },
-                    timestamps: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                keyword: { type: Type.STRING },
-                                sentence: { type: Type.STRING },
-                                timestamp: { type: Type.STRING },
-                            },
-                             required: ["keyword", "sentence", "timestamp"]
-                        }
-                    }
-                },
-                required: ["found", "timestamps"]
-            };
-            break;
-    }
-    
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: schema,
-            },
-        });
+                });
+            }
+        }
         
-        const jsonString = response.text.trim();
-        return JSON.parse(jsonString);
+        return result as GeneralTopicResult;
 
     } catch (error) {
-        console.error("Error analyzing video with Gemini:", error);
-        throw new Error("Failed to analyze video.");
+        console.error("Error fetching general topic analysis from Gemini:", error);
+        throw new Error("Failed to fetch general topic analysis.");
     }
 }
 
 
-// --- NEW ANALYZER FUNCTIONS ---
+// --- ONLINE TOOLS - CONTENT CREATOR ---
 
-export async function askForClarification(prompt: string, files: any[]): Promise<ClarificationResponse> {
+export const generateSeoKeywords = async (topic: string, instructions: string): Promise<string[]> => {
     const ai = getAiClient();
-    const clarificationPrompt = `
-        Review the user's analysis request below. Is it clear, specific, and unambiguous enough for a deep, academic-level analysis?
-        If it is clear, respond with '{"clarificationNeeded": false, "question": ""}'.
-        If it is ambiguous, vague, or too broad, formulate a SINGLE, concise question in PERSIAN that will best clarify the user's intent. The question should help narrow down the scope or specify the core of the request.
-        Respond in this strict JSON format: '{"clarificationNeeded": true, "question": "Your question in Persian..."}'.
+    const prompt = `${instructions}\nTopic: "${topic}"`;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+        }
+    });
+    return JSON.parse(response.text.trim());
+};
 
-        --- USER'S REQUEST ---
-        ${prompt}
+export const suggestWebsiteNames = async (topic: string, instructions: string): Promise<string[]> => {
+    const ai = getAiClient();
+    const prompt = `${instructions}\nTopic: "${topic}"`;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+        }
+    });
+    return JSON.parse(response.text.trim());
+};
+
+export const suggestDomainNames = async (topic: string, instructions: string): Promise<string[]> => {
+    const ai = getAiClient();
+    const prompt = `${instructions}\nTopic: "${topic}"`;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+        }
+    });
+    return JSON.parse(response.text.trim());
+};
+
+export const generateArticle = async (topic: string, wordCount: number, instructions: string): Promise<string> => {
+    const ai = getAiClient();
+    const prompt = `${instructions}\nTopic: "${topic}"\nWord Count: Approximately ${wordCount} words.`;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt
+    });
+    return response.text.trim();
+};
+
+export const generateImagesForArticle = async (prompt: string, count: number, instructions: string): Promise<string[]> => {
+    const ai = getAiClient();
+    // This function will need a different model, likely an image generation one.
+    // Placeholder for now as the exact API might differ.
+    // For now, we simulate by asking Gemini to find image URLs.
+    const findImagePrompt = `Find ${count} high-quality, royalty-free image URLs that perfectly match this description: "${prompt}". Return as a JSON array of strings.`;
+     const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: findImagePrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+        }
+    });
+    return JSON.parse(response.text.trim());
+};
+
+export async function formatTextContent(text: string | null, url: string | null, instructions: string): Promise<string> {
+    const ai = getAiClient();
+    
+    let promptContent;
+    if (url) {
+        promptContent = `First, fetch the main article content from this URL: ${url}. Ignore navigation, ads, and footers. Then, format the extracted content.`;
+    } else {
+        promptContent = `Format the following text:\n\n---\n\n${text}`;
+    }
+
+    const fullPrompt = `
+        ${instructions}
+        You are an expert content formatter and editor. Your task is to take the provided raw text (or the main content extracted from the provided URL) and reformat it into a clean, well-structured, and visually appealing HTML snippet.
+
+        **Formatting Rules:**
+        1.  **Structure:**
+            *   Identify the main title and wrap it in an \`<h1 style="...">\` tag.
+            *   Identify subheadings and wrap them in \`<h2 style="...">\` or \`<h3 style="...">\` tags.
+            *   Break down long blocks of text into logical paragraphs wrapped in \`<p style="...">\`.
+            *   Identify and format bulleted lists as \`<ul><li>...</li></ul>\` and numbered lists as \`<ol><li>...</li></ol>\`.
+        2.  **Styling:**
+            *   Apply **inline CSS styles** directly to the HTML elements.
+            *   Use a professional and attractive color palette suitable for a dark theme. For example:
+                *   Main title (\`h1\`): A prominent color like \`color: #67e8f9;\` (light cyan).
+                *   Subheadings (\`h2\`, \`h3\`): A clear color like \`color: #93c5fd;\` (light blue).
+                *   Paragraphs (\`p\`): A readable, slightly off-white color like \`color: #d1d5db;\`.
+                *   Links (\`a\`): A distinct color like \`color: #818cf8;\` (indigo) and add \`text-decoration: none;\`.
+            *   Ensure good readability with \`line-height: 1.6;\` on paragraphs and list items.
+        3.  **Output:**
+            *   The entire output MUST be in Persian.
+            *   The output must be **ONLY the formatted HTML content**. Do NOT include \`<html>\`, \`<head>\`, or \`<body>\` tags.
+        
+        **Content to Process:**
+        ${promptContent}
     `;
 
     try {
-        const contentParts = [{ text: clarificationPrompt }, ...files];
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: { parts: contentParts },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        clarificationNeeded: { type: Type.BOOLEAN },
-                        question: { type: Type.STRING }
-                    },
-                    required: ["clarificationNeeded", "question"]
-                }
-            }
+            contents: fullPrompt
         });
-        const jsonString = response.text.trim();
-        return JSON.parse(jsonString);
+        const cleanedHtml = response.text.trim().replace(/^```html\n?|```$/g, '');
+        return cleanedHtml;
     } catch (error) {
-        console.error("Error asking for clarification:", error);
-        return { clarificationNeeded: false, question: "" }; // Fail safe
+        console.error("Error formatting text content from Gemini:", error);
+        throw new Error("Failed to format text content.");
     }
 }
 
-const analysisResultSchema = {
-    type: Type.OBJECT,
-    properties: {
-        understanding: { type: Type.STRING, description: "A short summary of your understanding of the user's final request in Persian." },
-        analysis: { type: Type.STRING, description: "The main, detailed, and structured analysis in Persian, using markdown for formatting." },
-        proponents: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    name: { type: Type.STRING },
-                    argument: { type: Type.STRING },
-                    scientificLevel: { type: Type.INTEGER, description: "A rating from 1 (low) to 5 (high) of the scientific/academic rigor of the argument." }
-                },
-                required: ["name", "argument", "scientificLevel"]
-            }
-        },
-        opponents: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    name: { type: Type.STRING },
-                    argument: { type: Type.STRING },
-                    scientificLevel: { type: Type.INTEGER }
-                },
-                required: ["name", "argument", "scientificLevel"]
-            }
-        },
-        proponentPercentage: { type: Type.NUMBER, description: "Estimated percentage of proponents' view acceptance (0-100)." },
-        sources: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING },
-                    url: { type: Type.STRING }
-                },
-                required: ["title", "url"]
-            }
-        },
-        techniques: { type: Type.ARRAY, items: { type: Type.STRING } },
-        suggestions: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING },
-                    url: { type: Type.STRING }
-                },
-                required: ["title", "url"]
-            }
-        },
-        examples: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING },
-                    content: { type: Type.STRING }
-                },
-                required: ["title", "content"]
-            }
-        }
-    },
-    required: ["understanding", "analysis", "proponents", "opponents", "proponentPercentage", "sources", "techniques", "suggestions", "examples"]
-};
+// --- ANALYZER FUNCTIONS ---
 
-export async function performAnalysis(prompt: string, files: any[], instructions: string): Promise<AnalysisResult> {
+export async function askForClarification(
+    prompt: string,
+    files: { inlineData: { data: string; mimeType: string } }[]
+): Promise<ClarificationResponse> {
     const ai = getAiClient();
-    try {
-        const fullPrompt = `${instructions}\n\n**User Request:**\n${prompt}\n\nProduce a comprehensive analysis based on the user's request, using the provided files as context. Your response must be in Persian and conform strictly to the JSON schema.`;
-        const contentParts = [{ text: fullPrompt }, ...files];
+    const clarificationSchema = {
+        type: Type.OBJECT,
+        properties: {
+            clarificationNeeded: { type: Type.BOOLEAN, description: 'True if the user\'s request is ambiguous or needs more detail before proceeding with a full analysis.' },
+            question: { type: Type.STRING, description: 'If clarificationNeeded is true, ask a single, clear question to the user to get the necessary information. This question must be in Persian.' },
+        },
+        required: ['clarificationNeeded']
+    };
 
+    const fullPrompt = `
+        You are an AI assistant preparing to perform a complex analysis. Your first task is to evaluate the user's request for clarity.
+        User's Request: "${prompt}"
+        Based on this request, determine if you have enough specific information to proceed.
+        - If the request is clear and actionable, set 'clarificationNeeded' to false.
+        - If the request is vague (e.g., "analyze politics"), ambiguous, or lacks key details, set 'clarificationNeeded' to true and formulate a single, concise question in Persian to ask the user. For example: "منظور شما از «سیاست» کدام حوزه است؟ سیاست داخلی ایران، روابط بین‌الملل، یا موضوعی خاص؟"
+    `;
+
+    const contentParts: any[] = [{ text: fullPrompt }];
+    files.forEach(file => contentParts.push(file));
+
+    try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: { parts: contentParts },
             config: {
                 responseMimeType: "application/json",
-                responseSchema: analysisResultSchema
+                responseSchema: clarificationSchema,
             },
         });
+        const jsonString = response.text.trim();
+        const parsed = JSON.parse(jsonString);
+        // Ensure question is not null if needed
+        if (parsed.clarificationNeeded && !parsed.question) {
+            parsed.question = "لطفاً درخواست خود را با جزئیات بیشتری بیان کنید.";
+        }
+        return parsed;
+    } catch (error) {
+        console.error("Error asking for clarification:", error);
+        // Fallback to proceeding without clarification on error
+        return { clarificationNeeded: false, question: '' };
+    }
+}
 
+export async function performAnalysis(
+    prompt: string,
+    files: { inlineData: { data: string; mimeType: string } }[],
+    instructions: string,
+): Promise<AnalysisResult> {
+    const ai = getAiClient();
+    const analysisSchema = {
+        type: Type.OBJECT,
+        properties: {
+            understanding: { type: Type.STRING, description: 'A brief summary in Persian of how the AI understood the user\'s final request.' },
+            analysis: { type: Type.STRING, description: 'The main, detailed analysis of the topic, written in Persian. This should be a comprehensive, well-structured text.' },
+            proponents: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        argument: { type: Type.STRING },
+                        scientificLevel: { type: Type.NUMBER, description: 'A rating from 1 (low) to 5 (high) of the scientific/academic rigor of the argument.' },
+                    },
+                    required: ["name", "argument", "scientificLevel"]
+                }
+            },
+            opponents: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        argument: { type: Type.STRING },
+                        scientificLevel: { type: Type.NUMBER, description: 'A rating from 1 (low) to 5 (high) of the scientific/academic rigor of the argument.' },
+                    },
+                    required: ["name", "argument", "scientificLevel"]
+                }
+            },
+            proponentPercentage: { type: Type.NUMBER, description: 'An estimated percentage (0-100) of experts or the public who support the proponent\'s view.' },
+            sources: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT, properties: { title: { type: Type.STRING }, url: { type: Type.STRING } }, required: ["title", "url"]
+                }
+            },
+            techniques: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'A list of analytical techniques used (e.g., "Historical Analysis", "Logical Reasoning").' },
+            suggestions: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT, properties: { title: { type: Type.STRING }, url: { type: Type.STRING } }, required: ["title", "url"]
+                }
+            },
+            examples: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT, properties: { title: { type: Type.STRING }, content: { type: Type.STRING } }, required: ["title", "content"]
+                }
+            },
+        },
+        required: ["understanding", "analysis", "proponents", "opponents", "proponentPercentage", "sources", "techniques", "suggestions", "examples"]
+    };
+
+    const fullPrompt = `
+        ${instructions}
+        **User Request for Analysis:**
+        ${prompt}
+        
+        Please conduct a comprehensive analysis based on the user's request and your instructions. Your entire output must be in Persian and conform to the provided JSON schema.
+    `;
+    const contentParts: any[] = [{ text: fullPrompt }];
+    files.forEach(file => contentParts.push(file));
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: contentParts },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: analysisSchema,
+            },
+        });
         const jsonString = response.text.trim();
         return JSON.parse(jsonString);
     } catch (error) {
@@ -1140,53 +1230,51 @@ export async function performAnalysis(prompt: string, files: any[], instructions
     }
 }
 
-
-export async function findFallacies(text: string, instructions: string, fallacyList: string[]): Promise<FallacyResult> {
+export async function findFallacies(
+    prompt: string,
+    instructions: string,
+    fallacyList: string[]
+): Promise<FallacyResult> {
     const ai = getAiClient();
-    const prompt = `
+    const fallacySchema = {
+        type: Type.OBJECT,
+        properties: {
+            identifiedFallacies: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        type: { type: Type.STRING, description: 'The name of the logical fallacy, chosen from the provided list.' },
+                        quote: { type: Type.STRING, description: 'The exact quote from the input text that contains the fallacy.' },
+                        explanation: { type: Type.STRING, description: 'A clear explanation in Persian of why this is a fallacy.' },
+                        correctedStatement: { type: Type.STRING, description: 'A corrected, fallacy-free version of the statement, in Persian.' },
+                    },
+                    required: ["type", "quote", "explanation", "correctedStatement"]
+                }
+            }
+        },
+        required: ["identifiedFallacies"]
+    };
+
+    const fullPrompt = `
         ${instructions}
-        Analyze the following text for logical fallacies. Your entire output must be in Persian and structured as JSON.
-        Reference Fallacy List: ${fallacyList.join(', ')}.
+        **Text to Analyze for Fallacies:**
+        ${prompt}
 
-        For each fallacy you identify, provide:
-        1.  The type of fallacy.
-        2.  The exact quote from the text containing the fallacy.
-        3.  A brief explanation of why it is a fallacy in this context.
-        4.  A corrected, fallacy-free version of the statement.
-
+        Please analyze the text and identify any logical fallacies from the following list: ${fallacyList.join(', ')}.
         If no fallacies are found, return an empty array for 'identifiedFallacies'.
-
-        Text for Analysis: "${text}"
+        Your entire output must be in Persian and conform to the provided JSON schema.
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
+            contents: fullPrompt,
             config: {
                 responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        identifiedFallacies: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    type: { type: Type.STRING },
-                                    quote: { type: Type.STRING },
-                                    explanation: { type: Type.STRING },
-                                    correctedStatement: { type: Type.STRING }
-                                },
-                                required: ["type", "quote", "explanation", "correctedStatement"]
-                            }
-                        }
-                    },
-                    required: ["identifiedFallacies"]
-                }
-            }
+                responseSchema: fallacySchema,
+            },
         });
-
         const jsonString = response.text.trim();
         return JSON.parse(jsonString);
     } catch (error) {
@@ -1195,54 +1283,54 @@ export async function findFallacies(text: string, instructions: string, fallacyL
     }
 }
 
-// --- NEW WEB AGENT FUNCTIONS ---
-
-export async function analyzeAgentRequest(topic: string, request: string, instructions: string): Promise<AgentClarificationRequest> {
+// --- WEB AGENT FUNCTIONS ---
+export async function analyzeAgentRequest(
+    topic: string,
+    request: string,
+    instructions: string
+): Promise<AgentClarificationRequest> {
     const ai = getAiClient();
-    const prompt = `
-        ${instructions}
-        
-        **User's Goal:**
-        - Topic/URL: "${topic}"
-        - Task: "${request}"
-
-        **Your Task:**
-        1. Analyze the user's request. Is it perfectly clear, specific, and actionable for you to proceed with web browsing and task execution?
-        2. If YES (the request is clear): Respond with \`{"isClear": true, "questions": [], "refinedPrompt": "A single, refined prompt that you will use for execution..."}\`. The refined prompt should combine the topic and task into a clear, actionable instruction for yourself.
-        3. If NO (the request is vague, ambiguous, or missing key information): Respond with \`{"isClear": false, "questions": [...]}\`. Formulate 1-3 concise, multiple-choice or text-input questions in PERSIAN to clarify the user's intent. Do not refine the prompt yet.
-        
-        The entire output must be a single, valid JSON object matching the specified schema.
-    `;
-
-    const schema = {
+    const agentClarificationSchema = {
         type: Type.OBJECT,
         properties: {
-            isClear: { type: Type.BOOLEAN },
+            isClear: { type: Type.BOOLEAN, description: 'True if the request is specific enough to be executed directly.' },
             questions: {
                 type: Type.ARRAY,
                 items: {
                     type: Type.OBJECT,
                     properties: {
-                        questionText: { type: Type.STRING },
+                        questionText: { type: Type.STRING, description: 'A question in Persian to clarify the user\'s intent.' },
                         questionType: { type: Type.STRING, enum: ['multiple-choice', 'text-input'] },
-                        options: { type: Type.ARRAY, items: { type: Type.STRING } }
+                        options: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Optional list of choices for multiple-choice questions.' },
                     },
                     required: ["questionText", "questionType"]
-                }
+                },
+                description: 'A list of questions to ask the user if the request is not clear.'
             },
-            refinedPrompt: { type: Type.STRING }
+            refinedPrompt: { type: Type.STRING, description: 'If the request is clear, provide a refined, detailed version of the prompt that the execution agent will use. If not clear, this can be an empty string.' },
         },
-        required: ["isClear", "questions"]
+        required: ["isClear", "questions", "refinedPrompt"]
     };
+
+    const fullPrompt = `
+        ${instructions}
+        **User Topic:** ${topic}
+        **User Request:** ${request}
+
+        Analyze this request. Determine if it's clear enough for a web agent to execute.
+        - If clear, set isClear to true and create a detailed, refined prompt for the next step.
+        - If ambiguous, set isClear to false and create 1-3 questions to ask the user for clarification.
+        Your entire output must be in Persian and conform to the provided JSON schema.
+    `;
 
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
+            contents: fullPrompt,
             config: {
                 responseMimeType: "application/json",
-                responseSchema: schema
-            }
+                responseSchema: agentClarificationSchema,
+            },
         });
         const jsonString = response.text.trim();
         return JSON.parse(jsonString);
@@ -1252,43 +1340,30 @@ export async function analyzeAgentRequest(topic: string, request: string, instru
     }
 }
 
-export async function executeAgentTask(finalPrompt: string, instructions: string): Promise<AgentExecutionResult> {
+export async function executeAgentTask(
+    finalPrompt: string,
+    instructions: string
+): Promise<AgentExecutionResult> {
     const ai = getAiClient();
-    const prompt = `
+    const fullPrompt = `
         ${instructions}
-
-        **Final, Approved Task:**
+        **Final Confirmed Task:**
         ${finalPrompt}
 
-        **Execution Plan:**
-        1.  Use Google Search to browse the web and gather all necessary information to complete the task.
-        2.  Synthesize the information you find.
-        3.  Structure your response as follows, using the exact separators. Do NOT output JSON.
-            - Start with a line containing only "--- SUMMARY ---".
-            - On the next lines, provide the concise summary of the final result in Persian.
-            - Then, add a line containing only "--- STEPS ---".
-            - After that, list each step. Each step must start with a line containing only "--- STEP ---".
-            - The line after "--- STEP ---" must be the step title in Persian.
-            - The lines after the title are the step description in Persian.
-
-        Example:
-        --- SUMMARY ---
-        خلاصه یافته‌ها در اینجا قرار می‌گیرد.
+        Execute this task by searching the web. Provide a summary, a list of steps taken, and the sources you used.
+        The entire output MUST be in Persian.
+        Structure your response using the following format, starting each section with the key on a new line. Do NOT use markdown.
+        
+        summary: [A detailed summary of the findings in Persian]
+        
         --- STEPS ---
-        --- STEP ---
-        عنوان مرحله ۱
-        شرح برای مرحله ۱ که می‌تواند چند خط باشد.
-        --- STEP ---
-        عنوان مرحله ۲
-        شرح برای مرحله ۲.
-
-        The 'sources' array will be populated automatically from grounding metadata. Begin execution.
+        [Up to 5 steps. Each point should be on a new line, formatted as: step_title: step_description]
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
+            contents: fullPrompt,
             config: {
                 tools: [{ googleSearch: {} }],
             },
@@ -1302,45 +1377,129 @@ export async function executeAgentTask(finalPrompt: string, instructions: string
             }))
             .filter((source: GroundingSource) => source.uri && source.title);
 
-        const textResponse = response.text.trim();
-        const result: Omit<AgentExecutionResult, 'sources'> = {
-            summary: '',
-            steps: []
-        };
+        // Parse the text response
+        const text = response.text;
+        const result: Partial<AgentExecutionResult> = { sources, steps: [] };
 
-        const parts = textResponse.split(/--- (?:SUMMARY|STEPS) ---/);
+        const summaryMatch = text.match(/^summary:\s*([\s\S]*?)(?=--- STEPS ---)/m);
+        result.summary = summaryMatch ? summaryMatch[1].trim() : 'No summary provided.';
         
-        if (parts.length >= 2) {
-            result.summary = parts[1].trim();
-        }
-
-        if (parts.length >= 3) {
-            const stepsText = parts[2].trim();
-            const stepBlocks = stepsText.split('--- STEP ---').filter(s => s.trim());
-            
-            for (const block of stepBlocks) {
-                const lines = block.trim().split('\n');
-                const title = lines.shift()?.trim();
-                const description = lines.join('\n').trim();
-
-                if (title && description) {
-                    result.steps.push({ title, description });
+        const stepsSection = text.split('--- STEPS ---')[1];
+        if (stepsSection) {
+            const stepMatches = [...stepsSection.matchAll(/^(.*?):\s*(.*)/gm)];
+            stepMatches.forEach(match => {
+                if (match[1].trim() && match[2].trim()) {
+                    result.steps!.push({ title: match[1].trim(), description: match[2].trim() });
                 }
-            }
+            });
         }
+        
+        return result as AgentExecutionResult;
 
-        // Fallback if parsing fails but there is text
-        if (!result.summary && result.steps.length === 0 && textResponse.length > 10) {
-            console.warn("Agent task result parsing failed. Using raw text as summary.");
-            result.summary = textResponse;
-        }
-
-        return {
-            ...result,
-            sources: sources
-        };
     } catch (error) {
         console.error("Error executing agent task:", error);
-        throw new Error("Failed to execute agent task. The model may have returned an invalid format or an API error occurred.");
+        throw new Error("Failed to execute agent task.");
+    }
+}
+
+// --- ONLINE TOOLS - PAGE BUILDER ---
+export async function generateAboutMePage(
+    description: string,
+    siteUrl: string,
+    platform: string,
+    images: { data: string; mimeType: string }[],
+    config: PageConfig,
+    instructions: string
+): Promise<string> {
+    const ai = getAiClient();
+
+    // Helper to format menu items for the prompt
+    const formatMenuItems = (items: any[], level = 0) => {
+        let prompt = '';
+        items.forEach(item => {
+            prompt += `${'  '.repeat(level)}- "${item.label}" -> ${item.link}\n`;
+            if (item.children && item.children.length > 0) {
+                prompt += formatMenuItems(item.children, level + 1);
+            }
+        });
+        return prompt;
+    };
+    
+    // Helper to format slideshow items
+    const formatSlides = (slides: any[]) => {
+        return slides.map((slide, index) => 
+            `- Slide ${index + 1}:\n  - Image Name: ${slide.name}\n  - Caption: "${slide.caption}"`
+        ).join('\n');
+    }
+
+    const configPrompt = `
+      **Page Configuration Details:**
+      - **Template:** ${config.template}
+      - **Layout:** ${config.layoutColumns}-column layout.
+      - **Header Enabled:** ${config.header ? 'Yes' : 'No'}
+      - **Footer Enabled:** ${config.footer ? 'Yes' : 'No'}
+
+      **Menu Configuration:**
+      - **Enabled:** ${config.menu.enabled}
+      - **Items:**\n${formatMenuItems(config.menu.items)}
+      - **Styling:** Font: ${config.menu.fontFamily}, ${config.menu.fontSize}px, color ${config.menu.textColor}. Background: gradient from ${config.menu.gradientFrom} to ${config.menu.gradientTo} (or solid ${config.menu.bgColor}). Border: ${config.menu.borderColor} with ${config.menu.borderRadius}px radius. Dropdown icon color: ${config.menu.iconColor}.
+
+      **Slideshow Configuration:**
+      - **Enabled:** ${config.slideshow.enabled}
+      - **Slides:**\n${formatSlides(config.slideshow.slides)}
+      - **Style:** ${config.slideshow.style} with ${config.slideshow.animation} animation. Direction: ${config.slideshow.direction}.
+      - **Timing:** Delay per slide: ${config.slideshow.delay}s. Animation speed: ${config.slideshow.speed}ms.
+      - **Dimensions:** Width: ${config.slideshow.width}, Height: ${config.slideshow.height}.
+      - **Caption Styling:** Font: ${config.slideshow.captionFontFamily}, ${config.slideshow.captionFontSize}px, color ${config.slideshow.captionColor}. Background: ${config.slideshow.captionBgColor}.
+      - **IMPORTANT for captions:** Parse markdown links like [text](url) into HTML <a> tags. Parse bold text like **text** into <strong> tags.
+
+      **Marquee Configuration:**
+      - **Enabled:** ${config.marquee.enabled}
+      - **Content (may contain HTML):** "${config.marquee.text}"
+      - **Styling:** Font: ${config.marquee.fontFamily}, ${config.marquee.fontSize}px, color ${config.marquee.textColor}. Background: ${config.marquee.bgColor}.
+      - **Animation:** Speed (duration): ${config.marquee.speed}s. Direction: ${config.marquee.direction}.
+      - **Box Style:** Border: ${config.marquee.border}. Padding: ${config.marquee.padding}.
+
+      Integrate the ${images.length} uploaded images creatively into the design, using them in the slideshow if enabled.
+    `;
+
+    const fullPrompt = `
+      ${instructions}
+
+      **User's Request:**
+      - **Core Description:** "${description}"
+      - **Target Platform:** ${platform}
+      - **Personal Website (if provided):** ${siteUrl}
+
+      ${configPrompt}
+
+      Please generate a complete, single HTML file with modern, responsive CSS inside a <style> tag. Fulfill all configuration requirements. The final output must be ONLY the raw HTML code, starting with <!DOCTYPE html> and ending with </html>. Do not include any explanations or markdown formatting around the code.
+    `;
+
+    const contentParts: any[] = [{ text: fullPrompt }];
+
+    images.forEach(image => {
+        contentParts.push({
+            inlineData: {
+                data: image.data,
+                mimeType: image.mimeType,
+            },
+        });
+    });
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: contentParts },
+        });
+
+        const text = response.text.trim();
+        if (text.startsWith('```html')) {
+            return text.replace(/```html\n?|```/g, '').trim();
+        }
+        return text;
+    } catch (error) {
+        console.error("Error generating 'About Me' page from Gemini:", error);
+        throw new Error("Failed to generate 'About Me' page.");
     }
 }

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Filters, AppSettings, SearchTab } from '../types';
 import { SearchIcon, FilterIcon, MagicIcon } from './icons';
