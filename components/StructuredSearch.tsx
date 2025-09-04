@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, StatisticsResult, ScientificArticleResult, Credibility, StanceHolder, ChartData } from '../types';
-import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateEditableListItems, generateContextualFilters } from '../services/geminiService';
-import { SearchIcon, PlusIcon, TrashIcon, MagicIcon, LinkIcon, CheckCircleIcon, UserIcon, CalendarIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, ChartBarIcon, ChartLineIcon, ChartPieIcon, TableCellsIcon } from './icons';
+import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateContextualFilters } from '../services/geminiService';
+import { SearchIcon, MagicIcon, LinkIcon, CheckCircleIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, ChartBarIcon, ChartLineIcon, ChartPieIcon, TableCellsIcon } from './icons';
 import BarChart from './charts/BarChart';
 import PieChart from './charts/PieChart';
 import LineChart from './charts/LineChart';
@@ -153,25 +153,25 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
 
     const AiFilterSection: React.FC<{
         title: string;
-        listType: 'fields' | 'regions' | 'sources';
         options: string[];
         selectedOptions: string[];
         onSelect: (item: string) => void;
         onGenerate: () => void;
         isLoading: boolean;
-        isDisabled: boolean;
-    }> = ({ title, listType, options, selectedOptions, onSelect, onGenerate, isLoading, isDisabled }) => (
+        isDisabled?: boolean;
+    }> = ({ title, options, selectedOptions, onSelect, onGenerate, isLoading, isDisabled = false }) => (
         <div>
             <div className="flex items-center justify-between gap-2 mb-2">
-                <label className="block text-sm font-medium text-cyan-300">{title}</label>
+                <label className={`block text-sm font-medium ${isDisabled ? 'text-gray-500' : 'text-cyan-300'}`}>{title}</label>
                 <button type="button" onClick={onGenerate} disabled={isLoading || isDisabled} className="text-purple-400 hover:text-purple-300 disabled:opacity-50" title="تولید خودکار گزینه‌ها با هوش مصنوعی">
-                     {isLoading ? <svg className="animate-spin h-4 w-4" /> : <MagicIcon className="w-4 h-4"/>}
+                     {isLoading ? <svg className="animate-spin h-4 w-4 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <MagicIcon className="w-4 h-4"/>}
                 </button>
             </div>
-            <div className={`flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg min-h-[40px] ${isDisabled ? 'opacity-50' : ''}`}>
+            <div className={`flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg min-h-[40px] ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {options.map(opt => (
-                    <TagButton key={opt} label={opt} isSelected={selectedOptions.includes(opt)} onClick={() => onSelect(opt)} />
+                    <TagButton key={opt} label={opt} isSelected={selectedOptions.includes(opt)} onClick={() => !isDisabled && onSelect(opt)} />
                 ))}
+                {options.length === 0 && <span className="text-xs text-gray-500 p-1">گزینه‌ای وجود ندارد.</span>}
             </div>
         </div>
     );
@@ -187,16 +187,16 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
 
                     {searchType === 'religion' ? (
                         <>
-                           <AiFilterSection title="حوزه" listType="fields" options={fields} selectedOptions={selectedFields} onSelect={(item) => handleSelection(item, selectedFields, setSelectedFields)} onGenerate={() => handleGenerateContextualFilters('fields')} isLoading={aiLoading === 'fields'} isDisabled={false} />
-                           <AiFilterSection title="منطقه" listType="regions" options={regions} selectedOptions={selectedRegions} onSelect={(item) => handleSelection(item, selectedRegions, setSelectedRegions)} onGenerate={() => handleGenerateContextualFilters('regions')} isLoading={aiLoading === 'regions'} isDisabled={selectedFields.length === 0} />
-                           <AiFilterSection title="منبع" listType="sources" options={sources} selectedOptions={selectedSources} onSelect={(item) => handleSelection(item, selectedSources, setSelectedSources)} onGenerate={() => handleGenerateContextualFilters('sources')} isLoading={aiLoading === 'sources'} isDisabled={selectedRegions.length === 0} />
+                           <AiFilterSection title="۱. حوزه" options={fields} selectedOptions={selectedFields} onSelect={(item) => handleSelection(item, selectedFields, setSelectedFields)} onGenerate={() => handleGenerateContextualFilters('fields')} isLoading={aiLoading === 'fields'} />
+                           <AiFilterSection title="۲. منطقه" options={regions} selectedOptions={selectedRegions} onSelect={(item) => handleSelection(item, selectedRegions, setSelectedRegions)} onGenerate={() => handleGenerateContextualFilters('regions')} isLoading={aiLoading === 'regions'} isDisabled={selectedFields.length === 0} />
+                           <AiFilterSection title="۳. منبع" options={sources} selectedOptions={selectedSources} onSelect={(item) => handleSelection(item, selectedSources, setSelectedSources)} onGenerate={() => handleGenerateContextualFilters('sources')} isLoading={aiLoading === 'sources'} isDisabled={selectedRegions.length === 0} />
                         </>
                     ) : (
                          <p className="text-xs text-gray-400">برای جستجو در آمار و مقالات علمی، موضوع را به طور دقیق وارد کرده و دکمه جستجو را بزنید.</p>
                     )}
                     
                     <button type="submit" disabled={isLoading} className="w-full flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black font-bold py-3 px-4 rounded-lg transition">
-                        {isLoading ? <svg className="animate-spin h-5 w-5" /> : <SearchIcon className="w-5 h-5"/>}
+                        {isLoading ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <SearchIcon className="w-5 h-5"/>}
                         {isLoading ? 'در حال جستجو...' : 'جستجو'}
                     </button>
                 </form>
