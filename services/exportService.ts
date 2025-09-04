@@ -202,20 +202,22 @@ export const generateHtmlContent = (data: any, title: string, type: 'news' | 'we
 }
 
 export const exportToHtml = (htmlContent: string, fileName: string) => {
-    const fullHtml = generateHtmlContent(htmlContent, fileName, 'text-formatter');
-    const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `${fileName}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-}
+};
 
 export const exportToDocx = (htmlContent: string, fileName: string) => {
+    const bodyContent = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    const content = bodyContent ? bodyContent[1] : htmlContent;
+
     const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word</title></head><body>";
     const footer = "</body></html>";
-    const sourceHTML = header + htmlContent + footer;
+    const sourceHTML = header + content + footer;
 
     const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
     const fileDownload = document.createElement("a");
@@ -231,19 +233,25 @@ export const exportToXlsx = (htmlContent: string, fileName: string) => {
     tempDiv.innerHTML = htmlContent;
     
     const data: { Content: string }[] = [];
-    const elements = tempDiv.querySelectorAll('h1, h2, h3, p, li');
+    const elements = tempDiv.querySelectorAll('h1, h2, h3, p, li, th, td');
     
     elements.forEach(el => {
-        if (el.textContent) {
+        if (el.textContent && el.textContent.trim() !== '') {
             data.push({ "Content": el.textContent.trim() });
         }
     });
+
+    if (data.length === 0) {
+        alert("محتوایی برای خروجی اکسل یافت نشد.");
+        return;
+    }
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Formatted Text");
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
+
 
 // --- Image & PDF Export ---
 

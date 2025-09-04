@@ -374,6 +374,64 @@ export async function generateDynamicFilters(
   }
 }
 
+export async function generateContextualFilters(
+  listType: 'fields' | 'regions' | 'sources',
+  context: {
+    topic: string;
+    fields?: string[];
+    regions?: string[];
+  }
+): Promise<string[]> {
+  const ai = getAiClient();
+  let prompt;
+  const count = 5;
+
+  const baseInstruction = `Generate a JSON array of ${count} relevant items for a religious studies search in Persian. The output must be only the JSON array of strings.`;
+
+  switch (listType) {
+    case 'fields':
+      prompt = `${baseInstruction}
+      Task: Generate ${count} academic or theological fields of study (حوزه) related to the main topic.
+      Main Topic: "${context.topic}"
+      Example output for "آخرالزمان": ["کلام اسلامی", "مسیحیت‌شناسی", "اسکاتولوژی زرتشتی", "مطالعات تطبیقی ادیان", "مهدویت"]`;
+      break;
+    case 'regions':
+      prompt = `${baseInstruction}
+      Task: Generate ${count} geographical regions or historical areas (منطقه) relevant to the main topic and the selected fields.
+      Main Topic: "${context.topic}"
+      Selected Fields: "${context.fields?.join(', ') || 'N/A'}"
+      Example output for topic "مسیحیت اولیه" and fields "مسیحیت‌شناسی, گنوسیسم": ["یهودیه", "مصر روم", "سوریه", "آسیای صغیر", "یونان"]`;
+      break;
+    case 'sources':
+      prompt = `${baseInstruction}
+      Task: Generate ${count} primary or secondary sources (books, texts, authors, or research institutions) (منبع) relevant to the topic, fields, and regions.
+      Main Topic: "${context.topic}"
+      Selected Fields: "${context.fields?.join(', ') || 'N/A'}"
+      Selected Regions: "${context.regions?.join(', ') || 'N/A'}"
+      Example output for topic "تصوف", fields "عرفان اسلامی", regions "ایران": ["مثنوی معنوی مولوی", "عطار نیشابوری", "امام محمد غزالی", "ابن عربی", "شهاب‌الدین سهروردی"]`;
+      break;
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: { type: Type.STRING }
+        }
+      }
+    });
+    const cleanedText = response.text.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(cleanedText) as string[];
+  } catch (error) {
+    console.error(`Error generating contextual filters for ${listType}:`, error);
+    throw new Error(`Failed to generate contextual filters for ${listType}.`);
+  }
+}
+
 export async function testGeminiConnection(): Promise<boolean> {
     try {
         const apiKey = process.env.API_KEY;

@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { exportToImage, exportToPdf, generateHtmlContent, exportToHtml } from '../services/exportService';
-import { DownloadIcon } from './icons';
+import { exportToImage, exportToPdf, generateHtmlContent, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
+import { DownloadIcon, ImageIcon, FilePdfIcon, FileWordIcon, FileExcelIcon, FileCodeIcon } from './icons';
 
 interface ExportButtonProps {
   elementRef: React.RefObject<HTMLElement>;
   data: any;
   title: string;
-  // FIX: Added 'fact-check' to the list of allowed types.
   type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic' | 'fact-check';
   disabled: boolean;
 }
@@ -16,8 +15,8 @@ const ExportButton: React.FC<ExportButtonProps> = ({ elementRef, data, title, ty
     const [isExporting, setIsExporting] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const handleExport = async (format: 'pdf' | 'image' | 'html') => {
-        if (!elementRef.current || (!data && format === 'html') || (Array.isArray(data) && data.length === 0)) {
+    const handleExport = async (format: 'pdf' | 'image' | 'html' | 'doc' | 'xlsx') => {
+        if (!elementRef.current || (!data && format !== 'image' && format !== 'pdf') || (Array.isArray(data) && data.length === 0)) {
              alert('موردی برای خروجی گرفتن وجود ندارد.');
              setIsOpen(false);
              return;
@@ -27,17 +26,19 @@ const ExportButton: React.FC<ExportButtonProps> = ({ elementRef, data, title, ty
         const fileName = `نتایج-${title.replace(/[\s"<>|:*?/\\.]+/g, '_') || 'جستجو'}`;
 
         try {
-            switch (format) {
-                case 'image':
-                    await exportToImage(elementRef.current, fileName);
-                    break;
-                case 'pdf':
-                    await exportToPdf(elementRef.current, fileName);
-                    break;
-                case 'html':
-                    const htmlContent = generateHtmlContent(data, title, type);
+            if (format === 'image') {
+                await exportToImage(elementRef.current, fileName);
+            } else if (format === 'pdf') {
+                await exportToPdf(elementRef.current, fileName);
+            } else {
+                const htmlContent = generateHtmlContent(data, title, type);
+                if (format === 'html') {
                     exportToHtml(htmlContent, fileName);
-                    break;
+                } else if (format === 'doc') {
+                    exportToDocx(htmlContent, fileName);
+                } else if (format === 'xlsx') {
+                    exportToXlsx(htmlContent, fileName);
+                }
             }
         } catch (err) {
             console.error("Export failed", err);
@@ -79,10 +80,12 @@ const ExportButton: React.FC<ExportButtonProps> = ({ elementRef, data, title, ty
                 )}
             </button>
              {isOpen && (
-                <div className="absolute left-0 mt-2 w-32 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-10">
-                    <button onClick={() => handleExport('html')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-t-lg">HTML</button>
-                    <button onClick={() => handleExport('pdf')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700">PDF</button>
-                    <button onClick={() => handleExport('image')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-b-lg">PNG</button>
+                <div className="absolute left-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-10">
+                    <button onClick={() => handleExport('html')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-t-lg flex items-center gap-2"><FileCodeIcon className="w-4 h-4" /> HTML</button>
+                    <button onClick={() => handleExport('doc')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2"><FileWordIcon className="w-4 h-4"/> Word (.doc)</button>
+                    <button onClick={() => handleExport('xlsx')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2"><FileExcelIcon className="w-4 h-4"/> Excel (.xlsx)</button>
+                    <button onClick={() => handleExport('pdf')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2"><FilePdfIcon className="w-4 h-4"/> PDF</button>
+                    <button onClick={() => handleExport('image')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-b-lg flex items-center gap-2"><ImageIcon className="w-4 h-4"/> PNG</button>
                 </div>
             )}
         </div>
