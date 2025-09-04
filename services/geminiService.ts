@@ -34,6 +34,33 @@ function handleGeminiError(error: any, context: string): Error {
     return new Error(`یک خطای پیش‌بینی نشده در ارتباط با هوش مصنوعی رخ داد. (${context})`);
 }
 
+export type ApiKeyStatus = 'valid' | 'invalid_key' | 'not_set' | 'network_error';
+
+export async function checkApiKeyStatus(): Promise<ApiKeyStatus> {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        console.error("API Key Status Check: Not set in environment variables.");
+        return 'not_set';
+    }
+
+    try {
+        const client = new GoogleGenAI({ apiKey });
+        const response = await client.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: "test",
+            config: { thinkingConfig: { thinkingBudget: 0 } }
+        });
+        return typeof response.text === 'string' ? 'valid' : 'network_error';
+    } catch (error: any) {
+        console.error("API Key Status Check Failed:", error);
+        const errorString = JSON.stringify(error);
+        if (errorString.includes("API key not valid") || errorString.includes("API_KEY_INVALID")) {
+            return 'invalid_key';
+        }
+        return 'network_error';
+    }
+}
+
 
 const newsArticleSchema = {
   type: Type.OBJECT,

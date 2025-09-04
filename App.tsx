@@ -17,6 +17,7 @@ import PasswordPrompt from './components/PasswordPrompt';
 import BrowserUse from './components/BrowserUse';
 import Analyzer from './components/Analyzer';
 import OnlineTools from './components/OnlineTools';
+import ConnectionStatus from './components/ConnectionStatus';
 
 type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools';
 
@@ -142,6 +143,8 @@ const App: React.FC = () => {
             {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
             {renderNavButton('browseruse', <SparklesIcon className="w-5 h-5" />, 'عامل هوشمند')}
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
+            <div className="border-l border-gray-600/50 h-6 mx-2"></div>
+            <ConnectionStatus />
           </nav>
         </div>
       </header>
