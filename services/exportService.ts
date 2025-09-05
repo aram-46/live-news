@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
-import { NewsArticle, WebResult, StatisticsResult, ScientificArticleResult, AgentExecutionResult, GeneralTopicResult, FactCheckResult } from '../types';
+import { NewsArticle, WebResult, StatisticsResult, ScientificArticleResult, AgentExecutionResult, GeneralTopicResult, FactCheckResult, PodcastResult } from '../types';
 
 // Helper to sanitize text for HTML
 const escapeHtml = (unsafe: string | undefined | null) => {
@@ -61,6 +61,36 @@ const generateWebHtml = (data: WebResult[]): string => {
             <p>${escapeHtml(result.description)}</p>
             <div class="meta">
                 <span><strong>منبع:</strong> ${escapeHtml(result.source)}</span>
+            </div>
+        </div>
+    `).join('');
+};
+
+const generatePodcastHtml = (data: PodcastResult[]): string => {
+    return data.map(podcast => `
+        <div class="card">
+            <h2><a href="${escapeHtml(podcast.link)}" target="_blank">${escapeHtml(podcast.title)}</a></h2>
+            <p>${escapeHtml(podcast.summary)}</p>
+            <div class="meta">
+                <span><strong>ناشر:</strong> ${escapeHtml(podcast.publisher)}</span>
+                <span><strong>موضوع:</strong> ${escapeHtml(podcast.topic)}</span>
+                <span><strong>سال:</strong> ${escapeHtml(podcast.publicationYear)}</span>
+            </div>
+            <div class="structured-section">
+                <h3>دیدگاه‌ها</h3>
+                <table>
+                    <thead><tr><th>موافقین</th><th>مخالفین</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <ul>${podcast.proponents.map(p => `<li><strong>${escapeHtml(p.name)}:</strong> ${escapeHtml(p.argument)}</li>`).join('')}</ul>
+                            </td>
+                            <td>
+                                <ul>${podcast.opponents.map(o => `<li><strong>${escapeHtml(o.name)}:</strong> ${escapeHtml(o.argument)}</li>`).join('')}</ul>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     `).join('');
@@ -163,7 +193,7 @@ const generateFactCheckHtml = (data: FactCheckResult): string => {
     return html;
 };
 
-export const generateHtmlContent = (data: any, title: string, type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic' | 'fact-check' | 'text-formatter'): string => {
+export const generateHtmlContent = (data: any, title: string, type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic' | 'fact-check' | 'text-formatter' | 'podcast'): string => {
     let contentHtml = '';
     if (!data || (Array.isArray(data) && data.length === 0)) {
         contentHtml = '<p>No data to display.</p>';
@@ -171,6 +201,8 @@ export const generateHtmlContent = (data: any, title: string, type: 'news' | 'we
         contentHtml = generateNewsHtml(data as NewsArticle[]);
     } else if (type === 'web') {
         contentHtml = generateWebHtml(data as WebResult[]);
+    } else if (type === 'podcast') {
+        contentHtml = generatePodcastHtml(data as PodcastResult[]);
     } else if (type === 'structured') {
         contentHtml = generateStructuredHtml(data as StatisticsResult | ScientificArticleResult);
     } else if (type === 'agent') {

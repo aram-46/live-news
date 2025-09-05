@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult, PageConfig, TranscriptionResult } from '../types';
+import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult, PageConfig, TranscriptionResult, PodcastResult, HostingSite } from '../types';
 
 // Helper function to get the API key and initialize the client.
 // Per guidelines, the API key MUST be obtained exclusively from the environment variable.
@@ -364,6 +364,74 @@ export async function fetchLiveNews(tab: string, allSources: Sources, instructio
         throw handleGeminiError(error, `fetching live news for ${tab}`);
     }
 }
+
+// --- NEW PODCAST SEARCH FUNCTION ---
+const stanceHolderSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING },
+        argument: { type: Type.STRING },
+    },
+    required: ["name", "argument"]
+};
+
+const hostingSiteSchema = {
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING, description: "The name of the website or platform hosting the podcast (e.g., 'Apple Podcasts', 'Castbox')." },
+        url: { type: Type.STRING, description: "The direct URL to the podcast on that specific website." },
+    },
+    required: ["name", "url"]
+};
+
+const podcastResultSchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING },
+        summary: { type: Type.STRING },
+        publisher: { type: Type.STRING },
+        topic: { type: Type.STRING },
+        publicationYear: { type: Type.STRING },
+        link: { type: Type.STRING },
+        audioUrl: { type: Type.STRING, description: "A direct, streamable audio URL (e.g., .mp3). If not available, provide the page link again." },
+        proponents: { type: Type.ARRAY, items: stanceHolderSchema },
+        opponents: { type: Type.ARRAY, items: stanceHolderSchema },
+        hostingSites: {
+            type: Type.ARRAY,
+            items: hostingSiteSchema,
+            description: "A list of other websites and platforms where this podcast can be found."
+        },
+    },
+    required: ["title", "summary", "publisher", "topic", "publicationYear", "link", "audioUrl", "proponents", "opponents", "hostingSites"]
+};
+
+export async function fetchPodcasts(query: string, instructions: string): Promise<PodcastResult[]> {
+    const ai = getAiClient();
+    try {
+        const prompt = `${instructions}
+The user is searching for podcasts. The query might contain a podcast name, a speaker's name, or topics discussed in the podcast. Find up to 5 relevant podcasts based on this query.
+For each podcast, also find and list at least 2-3 other websites or platforms (like Apple Podcasts, Spotify, Castbox, etc.) where it is hosted, including their names and direct links.
+**User Query:** "${query}"
+`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: podcastResultSchema
+                }
+            }
+        });
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        throw handleGeminiError(error, "fetching podcasts");
+    }
+}
+
 
 export async function generateAIInstruction(taskDescription: string): Promise<string> {
     const ai = getAiClient();

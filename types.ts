@@ -1,5 +1,4 @@
 
-
 /**
  * Generates a universally unique identifier (UUID).
  * Uses the standard `crypto.randomUUID` if available in a secure context,
@@ -151,6 +150,26 @@ export interface GroundingSource {
     title: string;
 }
 
+// --- New Podcast Search Result Type ---
+export interface HostingSite {
+    name: string;
+    url: string;
+}
+
+export interface PodcastResult {
+    title: string;
+    summary: string;
+    publisher: string;
+    topic: string;
+    publicationYear: string;
+    link: string;
+    audioUrl: string;
+    proponents: StanceHolder[];
+    opponents: StanceHolder[];
+    hostingSites: HostingSite[];
+}
+
+
 // --- Video Converter Result Types ---
 export interface VideoAnalysisEvidence {
     evidenceText: string;
@@ -212,7 +231,7 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder' | 'podcast-search';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'fact-check': 'فکت چک و ردیابی شایعه',
@@ -248,6 +267,7 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'domain-names': 'پیشنهاد نام دامنه',
   'article-generation': 'تولید محتوای مقاله',
   'page-builder': 'صفحه ساز (تولید درباره من)',
+  'podcast-search': 'جستجوی پادکست',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;
@@ -370,7 +390,7 @@ export interface LiveNewsSpecificSettings {
   autoSend: boolean;
 }
 
-export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter' | 'general_topics';
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter' | 'general_topics' | 'podcast';
 
 export interface SearchOptions {
     categories: string[];
