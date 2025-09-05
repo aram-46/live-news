@@ -310,8 +310,6 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
             );
         case 'podcast':
             return <PodcastSearch settings={settings} onOpenUrl={onOpenUrl} />;
-        case 'converter':
-            return <Converter settings={settings} onOpenUrl={onOpenUrl} />;
         case 'general_topics':
             return <GeneralTopicsSearch settings={settings} onOpenUrl={onOpenUrl} onSettingsChange={onSettingsChange} />;
         default:
@@ -333,7 +331,6 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
           {renderTabButton('stats', 'آمار')}
           {renderTabButton('science', 'مقالات علمی')}
           {renderTabButton('religion', 'موضوعات دینی')}
-          {renderTabButton('converter', 'تبدیل کننده')}
         </div>
         
         {renderCurrentTab()}

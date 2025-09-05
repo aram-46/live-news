@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import WebsiteBuilder from './WebsiteBuilder';
-import { SparklesIcon, DocumentTextIcon } from './icons';
+import { SparklesIcon, DocumentTextIcon, VideoIcon } from './icons';
 import TextFormatter from './TextFormatter';
+import Converter from './Converter';
 
-type ToolTab = 'website-builder' | 'text-formatter';
+type ToolTab = 'website-builder' | 'text-formatter' | 'converter';
 
 interface OnlineToolsProps {
     settings: AppSettings;
+    onOpenUrl: (url: string) => void;
 }
 
-const OnlineTools: React.FC<OnlineToolsProps> = ({ settings }) => {
+const OnlineTools: React.FC<OnlineToolsProps> = ({ settings, onOpenUrl }) => {
     const [activeTab, setActiveTab] = useState<ToolTab>('website-builder');
     
     const renderTabButton = (tabId: ToolTab, label: string, icon: React.ReactNode) => (
@@ -32,11 +34,12 @@ const OnlineTools: React.FC<OnlineToolsProps> = ({ settings }) => {
             <div className="flex border-b border-cyan-400/20 overflow-x-auto">
                 {renderTabButton('website-builder', 'سایت ساز', <SparklesIcon className="w-5 h-5" />)}
                 {renderTabButton('text-formatter', 'متن ساز', <DocumentTextIcon className="w-5 h-5" />)}
-                {/* Future tools can be added here */}
+                {renderTabButton('converter', 'تبدیل کننده', <VideoIcon className="w-5 h-5" />)}
             </div>
             <div>
                 {activeTab === 'website-builder' && <WebsiteBuilder settings={settings} />}
                 {activeTab === 'text-formatter' && <TextFormatter settings={settings} />}
+                {activeTab === 'converter' && <Converter settings={settings} onOpenUrl={onOpenUrl} />}
             </div>
         </div>
     );

@@ -390,7 +390,7 @@ export interface LiveNewsSpecificSettings {
   autoSend: boolean;
 }
 
-export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'converter' | 'general_topics' | 'podcast';
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'general_topics' | 'podcast';
 
 export interface SearchOptions {
     categories: string[];

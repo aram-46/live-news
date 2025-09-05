@@ -207,8 +207,6 @@ export const INITIAL_SETTINGS: AppSettings = {
     stats: { categories: [], regions: [], sources: [] },
     science: { categories: [], regions: [], sources: [] },
     religion: { categories: [], regions: [], sources: [] },
-    // Placeholder for converter tab
-    converter: { categories: [], regions: [], sources: [] },
     general_topics: { categories: [], regions: [], sources: [] },
   },
   allTickerCategories: ['ایران', 'جهان', 'سیاسی', 'اقتصادی', 'ورزشی', 'فناوری'],

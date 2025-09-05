@@ -157,7 +157,7 @@ const App: React.FC = () => {
         {activeView === 'factcheck' && <FactCheck settings={settings} onOpenUrl={setDialogUrl} />}
         {activeView === 'analyzer' && <Analyzer settings={settings} onOpenUrl={setDialogUrl} />}
         {activeView === 'browseruse' && <BrowserUse settings={settings} />}
-        {activeView === 'online-tools' && <OnlineTools settings={settings} />}
+        {activeView === 'online-tools' && <OnlineTools settings={settings} onOpenUrl={setDialogUrl} />}
         {activeView === 'settings' && (
             isSettingsLocked ? 
             <PasswordPrompt password={settings.password!} onUnlock={() => setIsSettingsLocked(false)} /> :
