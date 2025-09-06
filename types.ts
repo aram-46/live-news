@@ -1,5 +1,4 @@
 
-
 /**
  * Generates a universally unique identifier (UUID).
  * Uses the standard `crypto.randomUUID` if available in a secure context,
