@@ -8,7 +8,6 @@ import { RefreshIcon } from './icons';
 
 interface LiveNewsProps {
   settings: AppSettings;
-  onOpenUrl: (url: string) => void;
 }
 
 const TABS = [
@@ -18,7 +17,7 @@ const TABS = [
   { id: 'سایر', label: 'سایر' }
 ];
 
-const LiveNews: React.FC<LiveNewsProps> = ({ settings, onOpenUrl }) => {
+const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const [news, setNews] = useState<Record<string, NewsArticle[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
@@ -107,7 +106,6 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings, onOpenUrl }) => {
             isLoading={loading[activeTab] || false} 
             error={error[activeTab] || null}
             settings={settings}
-            onOpenUrl={onOpenUrl}
             fontSettings={settings.liveNewsSpecifics.font}
         />
       </div>

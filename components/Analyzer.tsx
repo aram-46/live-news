@@ -9,7 +9,6 @@ import EditableList from './settings/EditableList';
 
 interface AnalyzerProps {
     settings: AppSettings;
-    onOpenUrl: (url: string) => void;
 }
 
 const FALLACY_LIST = [
@@ -19,7 +18,7 @@ const FALLACY_LIST = [
     'علت شمردن هم‌رویدادی (Post Hoc Ergo Propter Hoc)', 'مسموم کردن سرچشمه (Poisoning the Well)'
 ];
 
-const Analyzer: React.FC<AnalyzerProps> = ({ settings, onOpenUrl }) => {
+const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
     const [activeTab, setActiveTab] = useState<AnalyzerTabId>('political');
     
     // Inputs
@@ -146,11 +145,9 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings, onOpenUrl }) => {
 
         try {
             if (activeTab === 'fallacy-finder') {
-                // FIX: Pass the correct instruction string from settings instead of the whole object.
                 const fallacyResult = await findFallacies(finalPrompt, settings.aiInstructions['analyzer-fallacy-finder'], FALLACY_LIST);
                 setResult(fallacyResult);
             } else {
-                // FIX: Pass the correct instruction string from settings instead of multiple arguments.
                 const analysisResult = await performAnalysis(finalPrompt, filesForApi, settings.aiInstructions[instructionKey]);
                 setResult(analysisResult);
             }
@@ -186,7 +183,6 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings, onOpenUrl }) => {
         }));
         
         try {
-            // FIX: Removed extra 'settings' argument from the function call.
             const clarificationRes = await askForClarification(prompt, filesForApi);
             if (clarificationRes.clarificationNeeded) {
                 setClarification(clarificationRes);
@@ -238,77 +234,59 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings, onOpenUrl }) => {
                 <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
                     <h2 className="text-xl font-bold text-cyan-300 flex items-center gap-3">
                         <BrainIcon className="w-6 h-6" />
-                        ورودی تحلیل
+                        ورودی تحلیلگر
                     </h2>
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-cyan-300 mb-2">موضوع اصلی</label>
-                            <textarea value={topic} onChange={e => setTopic(e.target.value)} rows={4} placeholder="موضوع اصلی برای تحلیل را اینجا وارد کنید..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
+                    <form onSubmit={clarification ? handleClarificationSubmit : handleSubmit} className="space-y-4">
+                        <textarea value={topic} onChange={e => setTopic(e.target.value)} rows={4} placeholder="موضوع اصلی یا متن مورد نظر برای تحلیل را اینجا وارد کنید..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
+                        {activeTab !== 'fallacy-finder' && <textarea value={comparisonTopic} onChange={e => setComparisonTopic(e.target.value)} rows={2} placeholder="موضوع مقایسه‌ای (اختیاری)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>}
+                        <div className="flex gap-2">
+                             <input value={currentUrl} onChange={e => setCurrentUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddUrl())} placeholder="افزودن لینک مرتبط..." className="flex-grow bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 text-sm"/>
+                             <button type="button" onClick={handleAddUrl} className="p-2.5 bg-cyan-600 rounded-lg"><LinkIcon className="w-5 h-5"/></button>
                         </div>
-
-                        {activeTab !== 'fallacy-finder' && (
-                            <div>
-                                <label className="block text-sm font-medium text-cyan-300 mb-2">مقایسه با (اختیاری)</label>
-                                <textarea value={comparisonTopic} onChange={e => setComparisonTopic(e.target.value)} rows={2} placeholder="موضوع دوم برای مقایسه..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                            {webUrls.map(url => <div key={url} className="flex items-center gap-1 bg-gray-700 p-1 rounded-full">{url}<button type="button" onClick={() => setWebUrls(u => u.filter(x => x !== url))}><CloseIcon className="w-3 h-3 text-red-400"/></button></div>)}
+                        </div>
+                         {/* File inputs */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple className="hidden"/>
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"><PaperClipIcon className="w-4 h-4"/>فایل</button>
+                            {isRecording ? (
+                                <button type="button" onClick={stopRecording} className="flex items-center justify-center gap-2 p-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm animate-pulse"><MicrophoneIcon className="w-4 h-4"/>توقف ضبط</button>
+                            ) : (
+                                <button type="button" onClick={startRecording} className="flex items-center justify-center gap-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"><MicrophoneIcon className="w-4 h-4"/>ضبط صدا</button>
+                            )}
+                        </div>
+                        {mediaFiles.length > 0 && (
+                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                                {mediaFiles.map((file, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs p-1 bg-gray-900/50 rounded">
+                                        {file.type.startsWith('image/') && <img src={file.url} className="w-8 h-8 rounded-sm"/>}
+                                        {file.type.startsWith('audio/') && <AudioIcon className="w-6 h-6 text-cyan-400"/>}
+                                        <span className="truncate mx-2">{file.name}</span>
+                                        <button type="button" onClick={() => setMediaFiles(f => f.filter((_, idx) => idx !== i))}><CloseIcon className="w-4 h-4 text-red-400"/></button>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
-                        <div>
-                            <label className="block text-sm font-medium text-cyan-300 mb-2">افزودن محتوا (اختیاری)</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple />
-                                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"><PaperClipIcon className="w-4 h-4" />آپلود فایل</button>
-                                <button type="button" onClick={isRecording ? stopRecording : startRecording} className={`flex items-center justify-center gap-2 p-2 rounded-lg text-sm ${isRecording ? 'bg-red-600 hover:bg-red-500 animate-pulse' : 'bg-gray-700 hover:bg-gray-600'}`}><MicrophoneIcon className="w-4 h-4" />{isRecording ? 'توقف ضبط' : 'ضبط صدا'}</button>
-                            </div>
-                            <div className="flex gap-2 mt-2">
-                                <input type="url" value={currentUrl} onChange={e => setCurrentUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddUrl())} placeholder="افزودن لینک سایت..." className="flex-grow bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm"/>
-                                <button type="button" onClick={handleAddUrl} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg"><LinkIcon className="w-5 h-5"/></button>
-                            </div>
-                            <div className="mt-2 space-y-1 text-xs">
-                                {mediaFiles.map((f, i) => <div key={i} className="flex justify-between items-center bg-gray-900/50 p-1.5 rounded"><span>{f.name}</span><button onClick={() => setMediaFiles(m => m.filter((_, idx) => idx !== i))}><CloseIcon className="w-3 h-3 text-red-400"/></button></div>)}
-                                {webUrls.map((u, i) => <div key={i} className="flex justify-between items-center bg-gray-900/50 p-1.5 rounded"><span>{u}</span><button onClick={() => setWebUrls(w => w.filter((_, idx) => idx !== i))}><CloseIcon className="w-3 h-3 text-red-400"/></button></div>)}
-                            </div>
-                        </div>
-                        
-                        {activeTab === 'fallacy-finder' && (
-                            <div>
-                                 <label className="block text-sm font-medium text-cyan-300 mb-2">لیست مغالطه‌ها</label>
-                                 <div className="max-h-32 overflow-y-auto bg-gray-900/50 rounded-lg p-2 text-xs space-y-1">
-                                     {FALLACY_LIST.map(f => <p key={f}>{f}</p>)}
-                                 </div>
-                            </div>
-                        )}
-
-                        <button type="submit" disabled={isLoading || clarification !== null} className="w-full flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black font-bold py-3 px-4 rounded-lg transition">
-                            <SearchIcon className="w-5 h-5"/>
-                            تحلیل کن
-                        </button>
+                        <button type="submit" disabled={isLoading} className="w-full flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black font-bold py-3 px-4 rounded-lg transition"><SearchIcon className="w-5 h-5"/> {clarification ? 'ارسال پاسخ و ادامه' : 'شروع تحلیل'}</button>
                     </form>
                 </div>
-
-                {/* Result Panel */}
+                {/* Output Panel */}
                 <div className="lg:col-span-2 space-y-4">
-                    {isLoading && (
-                        <div className="flex flex-col items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400">
-                             <svg className="animate-spin h-8 w-8 text-cyan-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                             <p className="mt-4 text-sm">{loadingMessage}</p>
-                        </div>
-                    )}
+                    {isLoading && <div className="text-center p-6"><svg className="animate-spin h-8 w-8 text-cyan-300 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><p className="mt-2 text-sm text-cyan-300">{loadingMessage}</p></div>}
                     {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
-                    
                     {clarification && (
-                        <div className="p-6 bg-amber-900/30 border border-amber-500/30 rounded-lg space-y-4 animate-fade-in">
+                        <div className="p-6 bg-amber-900/30 border border-amber-500/50 rounded-2xl space-y-4">
                             <h3 className="font-bold text-amber-300">نیاز به شفاف‌سازی</h3>
                             <p className="text-sm text-amber-200">{clarification.question}</p>
-                            <form onSubmit={handleClarificationSubmit} className="space-y-2">
-                                <textarea value={clarificationAnswer} onChange={e => setClarificationAnswer(e.target.value)} rows={3} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
-                                <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg">ارسال پاسخ</button>
+                            <form onSubmit={handleClarificationSubmit} className="flex gap-2">
+                                <input value={clarificationAnswer} onChange={e => setClarificationAnswer(e.target.value)} autoFocus className="flex-grow bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
+                                <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg">ارسال</button>
                             </form>
                         </div>
                     )}
-
-                    {result && <AnalysisResultDisplay result={result} onOpenUrl={onOpenUrl} />}
+                    {result && <AnalysisResultDisplay result={result} />}
                 </div>
             </div>
         </div>

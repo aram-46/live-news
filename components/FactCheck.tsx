@@ -11,7 +11,6 @@ import ScreenshotModal from './ScreenshotModal';
 
 interface FactCheckProps {
   settings: AppSettings;
-  onOpenUrl: (url: string) => void;
 }
 
 type FactCheckType = 'text' | 'image' | 'audio' | 'video' | 'url';
@@ -32,7 +31,7 @@ const getCredibilityClass = (credibility?: Credibility | string) => {
 };
 
 
-const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
+const FactCheck: React.FC<FactCheckProps> = ({ settings }) => {
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [activeTab, setActiveTab] = useState<FactCheckType>('text');
@@ -308,13 +307,15 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings, onOpenUrl }) => {
                         <ul className="space-y-2">
                             {result.relatedSources.map((source, index) => (
                                 <li key={index}>
-                                    <button
-                                        onClick={() => onOpenUrl(source.url)}
+                                    <a
+                                        href={source.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 hover:underline p-2 bg-gray-800/30 rounded-md w-full text-right"
                                     >
                                         <LinkIcon className="w-4 h-4 flex-shrink-0" />
                                         <span className="truncate">{source.title}</span>
-                                    </button>
+                                    </a>
                                 </li>
                             ))}
                         </ul>

@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
 // --- Telegram Bot Logic ---
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news را ارسال کنید.');
+    bot.sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news و برای قیمت ارزهای دیجیتال /crypto را ارسال کنید.');
 });
 
 bot.onText(/\/news/, (msg) => {
@@ -45,6 +45,13 @@ bot.onText(/\/news/, (msg) => {
     // const news = await fetchLiveNews(...);
     // bot.sendMessage(chatId, formatNewsForTelegram(news));
 });
+
+bot.onText(/\/crypto/, (msg) => {
+    const chatId = msg.chat.id;
+    // In a real application, you would call the Gemini API here to fetch crypto prices
+    bot.sendMessage(chatId, 'در حال دریافت قیمت ارزهای دیجیتال... (این یک عملکرد نمونه است)');
+});
+
 
 console.log('Telegram bot is polling for messages...');
 

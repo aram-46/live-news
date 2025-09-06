@@ -1,4 +1,5 @@
 
+
 /**
  * Generates a universally unique identifier (UUID).
  * Uses the standard `crypto.randomUUID` if available in a secure context,
@@ -206,6 +207,61 @@ export interface TranscriptionResult {
     transcription: string;
 }
 
+// --- NEW CRYPTO TRACKER TYPES ---
+export interface CryptoCoin {
+    id: string;
+    symbol: string;
+    name: string;
+    price_usd: number;
+    price_toman: number;
+    price_change_percentage_24h: number;
+    image?: string;
+}
+
+export interface SimpleCoin {
+    id: string;
+    symbol: string;
+    name: string;
+}
+
+export interface CryptoSource {
+  name: string;
+  link: string;
+  credibility: Credibility | string;
+}
+
+export interface CryptoSearchResult {
+  coin: CryptoCoin;
+  sources: CryptoSource[];
+  summary: string;
+}
+
+export interface CryptoAnalysisResult {
+  coinName: string;
+  symbol: string;
+  summary: string;
+  technicalAnalysis: {
+    title: string;
+    content: string;
+    keyLevels: {
+      support: string[];
+      resistance: string[];
+    };
+  };
+  fundamentalAnalysis: {
+    title: string;
+    content: string;
+    keyMetrics: { name: string; value: string }[];
+  };
+  sentimentAnalysis: {
+    title: string;
+    content: string;
+    score: number; // e.g., 0-100 (bearish to bullish)
+  };
+  futureOutlook: string;
+  keyFactors: { title: string; description: string }[];
+}
+
 
 // --- SETTINGS ---
 
@@ -231,7 +287,7 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder' | 'podcast-search';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder' | 'podcast-search' | 'crypto-data' | 'crypto-search' | 'crypto-analysis';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'fact-check': 'فکت چک و ردیابی شایعه',
@@ -268,6 +324,9 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'article-generation': 'تولید محتوای مقاله',
   'page-builder': 'صفحه ساز (تولید درباره من)',
   'podcast-search': 'جستجوی پادکست',
+  'crypto-data': 'داده‌های ارز دیجیتال',
+  'crypto-search': 'جستجوی ارز دیجیتال',
+  'crypto-analysis': 'تحلیل ارز دیجیتال',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;

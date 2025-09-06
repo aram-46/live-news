@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Filters, NewsArticle, AppSettings, SearchTab, PodcastResult, StanceHolder, HostingSite } from '../types';
 import { fetchNews, fetchPodcasts } from '../services/geminiService';
@@ -11,10 +12,11 @@ import Converter from './Converter';
 import ExportButton from './ExportButton';
 import Suggestions from './Suggestions';
 import GeneralTopicsSearch from './GeneralTopicsSearch';
+import CryptoTracker from './CryptoTracker';
 
 // --- START: New Podcast Components defined in this file ---
 
-const PodcastResultCard: React.FC<{ podcast: PodcastResult; onOpenUrl: (url: string) => void }> = ({ podcast, onOpenUrl }) => {
+const PodcastResultCard: React.FC<{ podcast: PodcastResult; }> = ({ podcast }) => {
     const [isCopied, setIsCopied] = useState(false);
 
     const handleCopyLink = () => {
@@ -28,7 +30,7 @@ const PodcastResultCard: React.FC<{ podcast: PodcastResult; onOpenUrl: (url: str
             <header>
                 <div className="flex justify-between items-start gap-4">
                     <h3 className="text-lg font-bold text-cyan-200 hover:text-white transition-colors">
-                        <button onClick={() => onOpenUrl(podcast.link)}>{podcast.title}</button>
+                        <a href={podcast.link} target="_blank" rel="noopener noreferrer">{podcast.title}</a>
                     </h3>
                     <span className="text-xs bg-purple-900/50 text-purple-300 px-2 py-1 rounded-full whitespace-nowrap">{podcast.topic}</span>
                 </div>
@@ -57,13 +59,15 @@ const PodcastResultCard: React.FC<{ podcast: PodcastResult; onOpenUrl: (url: str
             
             <footer className="pt-3 border-t border-gray-700/50 space-y-3">
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => onOpenUrl(podcast.link)}
+                    <a
+                        href={podcast.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-200 transition-colors bg-cyan-900/50 hover:bg-cyan-800/50 px-3 py-1.5 rounded-md text-sm"
                     >
                         <LinkIcon className="w-4 h-4" />
                         <span>صفحه اصلی پادکست</span>
-                    </button>
+                    </a>
                     <button
                         onClick={handleCopyLink}
                         className="p-2 rounded-md bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white"
@@ -96,7 +100,7 @@ const PodcastResultCard: React.FC<{ podcast: PodcastResult; onOpenUrl: (url: str
     );
 };
 
-const PodcastSearch: React.FC<{ settings: AppSettings; onOpenUrl: (url: string) => void }> = ({ settings, onOpenUrl }) => {
+const PodcastSearch: React.FC<{ settings: AppSettings; }> = ({ settings }) => {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<PodcastResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -151,7 +155,7 @@ const PodcastSearch: React.FC<{ settings: AppSettings; onOpenUrl: (url: string) 
                     {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
                     {!isLoading && !error && results.length === 0 && <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400"><p>نتایج جستجوی پادکست در اینجا نمایش داده خواهد شد.</p></div>}
                     {results.map((podcast, index) => (
-                        <PodcastResultCard key={index} podcast={podcast} onOpenUrl={onOpenUrl} />
+                        <PodcastResultCard key={index} podcast={podcast} />
                     ))}
                 </div>
             </div>
@@ -164,12 +168,12 @@ const PodcastSearch: React.FC<{ settings: AppSettings; onOpenUrl: (url: string) 
 
 interface AdvancedSearchProps {
     settings: AppSettings;
-    onOpenUrl: (url: string) => void;
     onSettingsChange: (settings: AppSettings) => void;
+    onOpenUrl: (url: string) => void;
 }
 
 
-const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, onSettingsChange }) => {
+const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onSettingsChange, onOpenUrl }) => {
   const [activeTab, setActiveTab] = useState<SearchTab>('news');
 
   // State for News Search
@@ -189,7 +193,6 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
     setNews([]);
     setSuggestions([]);
     try {
-      // FIX: Pass the correct instruction string from settings instead of the whole object.
       const results = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages);
       setNews(results.articles);
       setSuggestions(results.suggestions);
@@ -274,7 +277,6 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
                             isLoading={isLoadingNews} 
                             error={newsError} 
                             settings={settings}
-                            onOpenUrl={onOpenUrl}
                             onRemoveArticle={handleRemoveArticle}
                         />
                         <Suggestions 
@@ -288,15 +290,15 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
         case 'audio':
         case 'book':
         case 'music':
-        case 'dollar':
              return (
                 <WebSearch
                     searchType={activeTab}
                     settings={settings}
-                    onOpenUrl={onOpenUrl}
                     onSettingsChange={onSettingsChange}
                 />
             );
+        case 'dollar':
+            return <CryptoTracker settings={settings} />;
         case 'stats':
         case 'science':
         case 'religion':
@@ -304,14 +306,14 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
                 <StructuredSearch 
                     searchType={activeTab}
                     settings={settings}
-                    onOpenUrl={onOpenUrl}
                     onSettingsChange={onSettingsChange}
+                    onOpenUrl={onOpenUrl}
                 />
             );
         case 'podcast':
-            return <PodcastSearch settings={settings} onOpenUrl={onOpenUrl} />;
+            return <PodcastSearch settings={settings} />;
         case 'general_topics':
-            return <GeneralTopicsSearch settings={settings} onOpenUrl={onOpenUrl} onSettingsChange={onSettingsChange} />;
+            return <GeneralTopicsSearch settings={settings} onSettingsChange={onSettingsChange} onOpenUrl={onOpenUrl} />;
         default:
             return null;
     }
@@ -327,7 +329,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onOpenUrl, on
           {renderTabButton('audio', 'صدا')}
           {renderTabButton('book', 'کتاب و سایت')}
           {renderTabButton('music', 'موزیک و آهنگ')}
-          {renderTabButton('dollar', 'قیمت دلار')}
+          {renderTabButton('dollar', 'بازار ارز دیجیتال')}
           {renderTabButton('stats', 'آمار')}
           {renderTabButton('science', 'مقالات علمی')}
           {renderTabButton('religion', 'موضوعات دینی')}

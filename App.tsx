@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, BrowserIcon, BrainIcon, SparklesIcon, ToolsIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
@@ -11,13 +12,14 @@ import AdvancedSearch from './components/AdvancedSearch';
 import LiveNews from './components/LiveNews';
 import FactCheck from './components/FactCheck';
 import { INITIAL_SETTINGS } from './data/defaults';
-import DraggableDialog from './components/DraggableDialog';
 import Chatbot from './components/Chatbot';
 import PasswordPrompt from './components/PasswordPrompt';
 import BrowserUse from './components/BrowserUse';
 import Analyzer from './components/Analyzer';
 import OnlineTools from './components/OnlineTools';
 import ConnectionStatus from './components/ConnectionStatus';
+// FIX: Import DraggableDialog to handle opening URLs within the app.
+import DraggableDialog from './components/DraggableDialog';
 
 type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools';
 
@@ -44,8 +46,12 @@ const App: React.FC = () => {
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const [tickerHeadlines, setTickerHeadlines] = useState<any[]>([]);
-  const [dialogUrl, setDialogUrl] = useState<string | null>(null);
   const [isSettingsLocked, setIsSettingsLocked] = useState(false);
+  // FIX: Add state and a handler function to manage opening URLs in a draggable dialog.
+  const [dialogUrl, setDialogUrl] = useState<string | null>(null);
+  const handleOpenUrl = (url: string) => {
+    setDialogUrl(url);
+  };
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -152,12 +158,14 @@ const App: React.FC = () => {
       {tickerHeadlines.length > 0 && <NewsTicker headlines={tickerHeadlines} settings={settings.ticker} />}
 
       <main className="container mx-auto p-4 sm:p-6">
-        {activeView === 'live' && <LiveNews settings={settings} onOpenUrl={setDialogUrl} />}
-        {activeView === 'search' && <AdvancedSearch settings={settings} onOpenUrl={setDialogUrl} onSettingsChange={handleSettingsChange} />}
-        {activeView === 'factcheck' && <FactCheck settings={settings} onOpenUrl={setDialogUrl} />}
-        {activeView === 'analyzer' && <Analyzer settings={settings} onOpenUrl={setDialogUrl} />}
+        {activeView === 'live' && <LiveNews settings={settings} />}
+        {/* FIX: Pass the onOpenUrl prop to AdvancedSearch to resolve missing prop error. */}
+        {activeView === 'search' && <AdvancedSearch settings={settings} onSettingsChange={handleSettingsChange} onOpenUrl={handleOpenUrl} />}
+        {activeView === 'factcheck' && <FactCheck settings={settings} />}
+        {activeView === 'analyzer' && <Analyzer settings={settings} />}
         {activeView === 'browseruse' && <BrowserUse settings={settings} />}
-        {activeView === 'online-tools' && <OnlineTools settings={settings} onOpenUrl={setDialogUrl} />}
+        {/* FIX: (Line 158) Pass the onOpenUrl prop to OnlineTools to resolve missing prop error. */}
+        {activeView === 'online-tools' && <OnlineTools settings={settings} onOpenUrl={handleOpenUrl} />}
         {activeView === 'settings' && (
             isSettingsLocked ? 
             <PasswordPrompt password={settings.password!} onUnlock={() => setIsSettingsLocked(false)} /> :
@@ -166,6 +174,7 @@ const App: React.FC = () => {
         {activeView === 'chatbot' && <Chatbot settings={settings} />}
       </main>
 
+      {/* FIX: Render the DraggableDialog when a URL is set. */}
       {dialogUrl && <DraggableDialog url={dialogUrl} onClose={() => setDialogUrl(null)} />}
     </div>
     </>

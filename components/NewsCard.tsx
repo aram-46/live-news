@@ -8,7 +8,6 @@ import { sendToTelegram, sendToDiscord } from '../services/integrationService';
 
 interface NewsCardProps {
   article: NewsArticle;
-  onOpenUrl: (url: string) => void;
   settings: AppSettings;
   onRemove?: (link: string) => void;
   fontSettings?: FontSettings;
@@ -28,7 +27,7 @@ const getCredibilityClass = (credibility: Credibility | string) => {
   return { dot: 'bg-gray-400', text: 'text-gray-300', shadow: 'shadow-gray-500/50' };
 };
 
-const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRemove, fontSettings }) => {
+const NewsCard: React.FC<NewsCardProps> = ({ article, settings, onRemove, fontSettings }) => {
   const credibilityClasses = getCredibilityClass(article.credibility);
   const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState('');
@@ -90,7 +89,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRem
       <header className="mb-3">
         <div className="flex justify-between items-start gap-4">
           <h3 className="text-lg font-bold text-cyan-200 hover:text-white transition-colors">
-            <button onClick={() => onOpenUrl(article.link)}>{article.title}</button>
+            <a href={article.link} target="_blank" rel="noopener noreferrer">{article.title}</a>
           </h3>
           <span className="text-xs bg-cyan-900/50 text-cyan-300 px-2 py-1 rounded-full whitespace-nowrap">{article.category}</span>
         </div>
@@ -106,13 +105,15 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, onOpenUrl, settings, onRem
               <span className={`w-3 h-3 rounded-full ${credibilityClasses.dot} shadow-md ${credibilityClasses.shadow}`}></span>
               <span>{article.credibility}</span>
             </div>
-             <button
-              onClick={() => onOpenUrl(article.link)}
+             <a
+              href={article.link}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-200 transition-colors bg-cyan-900/50 hover:bg-cyan-800/50 px-3 py-1.5 rounded-md"
             >
               <LinkIcon className="w-4 h-4" />
               <span>مشاهده</span>
-            </button>
+            </a>
             <button onClick={handleCopyLink} className="p-1.5 rounded-md bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white" aria-label="کپی لینک">
                  {isCopied ? <CheckCircleIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
             </button>

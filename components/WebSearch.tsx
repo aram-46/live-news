@@ -10,10 +10,9 @@ import Suggestions from './Suggestions';
 
 interface WebResultCardProps {
     result: WebResult;
-    onOpenUrl: (url: string) => void;
 }
 
-const WebResultCard: React.FC<WebResultCardProps> = ({ result, onOpenUrl }) => {
+const WebResultCard: React.FC<WebResultCardProps> = ({ result }) => {
     const [isCopied, setIsCopied] = useState(false);
     const handleCopyLink = () => {
         navigator.clipboard.writeText(result.link);
@@ -32,18 +31,20 @@ const WebResultCard: React.FC<WebResultCardProps> = ({ result, onOpenUrl }) => {
             )}
             <div className="flex flex-col flex-grow">
                 <h3 className="text-base font-bold text-cyan-200 hover:text-white transition-colors">
-                    <button onClick={() => onOpenUrl(result.link)}>{result.title}</button>
+                    <a href={result.link} target="_blank" rel="noopener noreferrer">{result.title}</a>
                 </h3>
                 <span className="text-xs text-purple-300 mb-1">{result.source}</span>
                 <p className="text-sm text-gray-300 leading-relaxed flex-grow">{result.description}</p>
                 <div className="flex items-center gap-2 mt-2 self-start">
-                    <button
-                      onClick={() => onOpenUrl(result.link)}
+                    <a
+                      href={result.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-200 transition-colors text-xs"
                     >
                       <LinkIcon className="w-4 h-4" />
                       <span>مشاهده</span>
-                    </button>
+                    </a>
                      <button onClick={handleCopyLink} className="p-1 rounded-md bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white" aria-label="کپی لینک">
                          {isCopied ? <CheckCircleIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4" />}
                     </button>
@@ -70,11 +71,10 @@ const LoadingSkeleton: React.FC = () => (
 interface WebSearchProps {
     searchType: 'video' | 'audio' | 'book' | 'music' | 'dollar';
     settings: AppSettings;
-    onOpenUrl: (url: string) => void;
     onSettingsChange: (settings: AppSettings) => void;
 }
 
-const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onOpenUrl, onSettingsChange }) => {
+const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onSettingsChange }) => {
     const [results, setResults] = useState<WebResult[]>([]);
     const [sources, setSources] = useState<GroundingSource[]>([]);
     const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -153,7 +153,7 @@ const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onOpenUrl, 
                     )}
                     
                     {results.map((result, index) => (
-                        <WebResultCard key={`${result.link}-${index}`} result={result} onOpenUrl={onOpenUrl} />
+                        <WebResultCard key={`${result.link}-${index}`} result={result} />
                     ))}
                     
                     <Suggestions 

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef } from 'react';
 import { AnalysisResult, FallacyResult, AnalysisStance, AnalysisExample } from '../types';
 import { ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, LinkIcon, DocumentTextIcon, CheckCircleIcon } from './icons';
@@ -6,7 +7,6 @@ import ExportButton from './ExportButton';
 
 interface AnalysisResultDisplayProps {
     result: AnalysisResult | FallacyResult;
-    onOpenUrl: (url: string) => void;
 }
 
 const StanceView: React.FC<{ title: string; icon: React.ReactNode; stances: AnalysisStance[]; className: string }> = ({ title, icon, stances, className }) => (
@@ -29,7 +29,7 @@ const StanceView: React.FC<{ title: string; icon: React.ReactNode; stances: Anal
 );
 
 
-const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result, onOpenUrl }) => {
+const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result }) => {
     const resultRef = useRef<HTMLDivElement>(null);
     const [openExamples, setOpenExamples] = useState<Record<number, boolean>>({});
 
@@ -108,9 +108,9 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result, o
 
             {/* Footer sections */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700">
-                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع استفاده شده</h5><ul className="space-y-2">{analysisResult.sources.map((s, i) => <li key={i}><button onClick={() => onOpenUrl(s.url)} className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></button></li>)}</ul></div>
+                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع استفاده شده</h5><ul className="space-y-2">{analysisResult.sources.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
                 <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><DocumentTextIcon className="w-5 h-5"/>تکنیک‌های تحلیلی</h5><ul className="space-y-1 list-disc list-inside">{analysisResult.techniques.map((t, i) => <li key={i} className="text-sm">{t}</li>)}</ul></div>
-                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LightBulbIcon className="w-5 h-5"/>پیشنهادات مرتبط</h5><ul className="space-y-2">{analysisResult.suggestions.map((s, i) => <li key={i}><button onClick={() => onOpenUrl(s.url)} className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></button></li>)}</ul></div>
+                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LightBulbIcon className="w-5 h-5"/>پیشنهادات مرتبط</h5><ul className="space-y-2">{analysisResult.suggestions.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
             </div>
         </div>
     );

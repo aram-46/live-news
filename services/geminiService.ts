@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult, PageConfig, TranscriptionResult, PodcastResult, HostingSite } from '../types';
+// FIX: Add CryptoCoin and SimpleCoin to the type imports.
+import type { AppSettings, NewsArticle, Filters, FactCheckResult, Credibility, TickerArticle, TickerSettings, LiveNewsSpecificSettings, Source, SourceCategory, Sources, StatisticsResult, ScientificArticleResult, WebResult, GroundingSource, VideoFactCheckResult, VideoTimestampResult, ClarificationResponse, AnalysisResult, FallacyResult, AgentClarificationRequest, AgentExecutionResult, GeneralTopicResult, PageConfig, TranscriptionResult, PodcastResult, HostingSite, CryptoCoin, SimpleCoin, CryptoSearchResult, CryptoAnalysisResult } from '../types';
 
 // Helper function to get the API key and initialize the client.
 // Per guidelines, the API key MUST be obtained exclusively from the environment variable.
@@ -70,7 +71,7 @@ const newsArticleSchema = {
     source: { type: Type.STRING, description: "منبع اصلی خبر (مثال: خبرگزاری فارس)" },
     publicationTime: { type: Type.STRING, description: "زمان انتشار (مثال: ۲۵ مرداد ۱۴۰۴ - ۱۰:۳۰)" },
     credibility: { type: Type.STRING, description: "درجه اعتبار منبع (مثال: بسیار معتبر، معتبر، نیازمند بررسی)" },
-    link: { type: Type.STRING, description: "لینک مستقیم به مقاله خبر اصلی" },
+    link: { type: Type.STRING, description: "لینک مستقیم، معتبر و قابل دسترس به مقاله کامل خبر. از ارائه لینک به صفحات اصلی یا نیازمند عضویت خودداری شود. لینک باید حتماً بررسی شود که سالم باشد." },
     category: { type: Type.STRING, description: "دسته‌بندی خبر (سیاسی، اقتصادی و...)" },
     imageUrl: { type: Type.STRING, description: "یک URL مستقیم به یک عکس با کیفیت بالا که کاملاً مرتبط بوده و محتوای خبر را به درستی نمایش می‌دهد. تصویر باید مستقیماً در مورد موضوع مقاله باشد." },
   },
@@ -100,6 +101,7 @@ export async function fetchNews(filters: Filters, instructions: string, articles
     const prompt = `
       ${instructions}
       IMPORTANT: All output text (titles, summaries, etc.) MUST be in Persian. If a source is in another language, translate its content to natural-sounding Persian.
+      CRITICAL: Every 'link' must be a direct, valid, and publicly accessible URL to the full news article. Do not provide links to homepages, paywalled content, or incorrect pages. Triple-check that the link works before including it.
       Please find the top ${articlesPerColumn} recent news articles based on these criteria. The user is Persian-speaking.
       - Search Query: "${filters.query || `مهمترین اخبار روز در تاریخ ${new Date().toLocaleDateString('fa-IR')}`}"
       - Categories: "${filters.categories.length === 0 || filters.categories.includes('all') ? 'any' : filters.categories.join(', ')}"
@@ -142,7 +144,7 @@ export async function fetchTickerHeadlines(settings: TickerSettings, instruction
                         type: Type.OBJECT,
                         properties: {
                             title: { type: Type.STRING, description: "The headline text in Persian" },
-                            link: { type: Type.STRING, description: "A direct URL to the article" }
+                            link: { type: Type.STRING, description: "A direct and valid URL to the article. Verify the link works." }
                         },
                         required: ["title", "link"]
                     }
@@ -198,7 +200,7 @@ export async function factCheckNews(text: string, file: { data: string; mimeType
                             evidenceType: { type: Type.STRING, description: "Type of evidence used (e.g., 'عکس', 'سند')." },
                             evidenceCredibility: { type: Type.STRING, description: "Credibility assessment of the evidence." },
                             authorCredibility: { type: Type.STRING, description: "Credibility assessment of the author." },
-                            link: { type: Type.STRING, description: "Direct URL to the original source." },
+                            link: { type: Type.STRING, description: "Direct, valid, and verified URL to the original source." },
                         },
                         required: ["name", "credibility", "publicationDate", "author", "evidenceType", "evidenceCredibility", "authorCredibility", "link"],
                     },
@@ -231,7 +233,7 @@ export async function factCheckNews(text: string, file: { data: string; mimeType
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                url: { type: Type.STRING },
+                                url: { type: Type.STRING, description: "A valid, direct URL to the related source." },
                                 title: { type: Type.STRING }
                             },
                             required: ["url", "title"]
@@ -288,7 +290,7 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
             - Credibility: Prioritize sources with ${options.credibility === 'any' ? 'any level of' : options.credibility} credibility.
             
             Do not include any of the following existing sources: ${existingSources.map(s => s.name).join(', ')}.
-            For each new source, provide its name, primary field/topic, official URL, a brief description of its activity, its general credibility rating, and its country/region. All output must be in Persian where applicable.
+            For each new source, provide its name, primary field/topic, official URL, a brief description of its activity, its general credibility rating, and its country/region. The URL must be a valid, working link. All output must be in Persian where applicable.
         `;
 
         const response = await ai.models.generateContent({
@@ -303,7 +305,7 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
                         properties: {
                             name: { type: Type.STRING },
                             field: { type: Type.STRING },
-                            url: { type: Type.STRING },
+                            url: { type: Type.STRING, description: "The direct, valid homepage URL of the source." },
                             activity: { type: Type.STRING },
                             credibility: { type: Type.STRING },
                             region: { type: Type.STRING }
@@ -338,6 +340,7 @@ export async function fetchLiveNews(tab: string, allSources: Sources, instructio
         const prompt = `
             ${instructions}
             IMPORTANT: All output text (titles, summaries, etc.) MUST be in Persian. If a source is in another language, translate its content to natural-sounding Persian.
+            CRITICAL: Every 'link' must be a direct, valid, and publicly accessible URL to the full news article. Do not provide links to homepages, paywalled content, or incorrect pages. Triple-check that the link works before including it.
             Find the 8 latest and most important news articles based on the following criteria for a Persian-speaking user.
             ${filters}
             Prioritize results from the following user-provided sources if possible: ${sourceNames}.
@@ -379,7 +382,7 @@ const hostingSiteSchema = {
     type: Type.OBJECT,
     properties: {
         name: { type: Type.STRING, description: "The name of the website or platform hosting the podcast (e.g., 'Apple Podcasts', 'Castbox')." },
-        url: { type: Type.STRING, description: "The direct URL to the podcast on that specific website." },
+        url: { type: Type.STRING, description: "The direct and valid URL to the podcast on that specific website." },
     },
     required: ["name", "url"]
 };
@@ -392,8 +395,8 @@ const podcastResultSchema = {
         publisher: { type: Type.STRING },
         topic: { type: Type.STRING },
         publicationYear: { type: Type.STRING },
-        link: { type: Type.STRING },
-        audioUrl: { type: Type.STRING, description: "A direct, streamable audio URL (e.g., .mp3). If not available, provide the page link again." },
+        link: { type: Type.STRING, description: "The primary, valid URL to the podcast's main page." },
+        audioUrl: { type: Type.STRING, description: "A direct, streamable, and valid audio URL (e.g., .mp3). If not available, provide the page link again." },
         proponents: { type: Type.ARRAY, items: stanceHolderSchema },
         opponents: { type: Type.ARRAY, items: stanceHolderSchema },
         hostingSites: {
@@ -410,6 +413,7 @@ export async function fetchPodcasts(query: string, instructions: string): Promis
     try {
         const prompt = `${instructions}
 The user is searching for podcasts. The query might contain a podcast name, a speaker's name, or topics discussed in the podcast. Find up to 5 relevant podcasts based on this query.
+CRITICAL: All provided links ('link', 'audioUrl', 'hostingSites.url') MUST be valid, working URLs. Verify them before responding.
 For each podcast, also find and list at least 2-3 other websites or platforms (like Apple Podcasts, Spotify, Castbox, etc.) where it is hosted, including their names and direct links.
 **User Query:** "${query}"
 `;
@@ -618,7 +622,7 @@ export async function fetchWebResults(searchType: 'video' | 'audio' | 'book' | '
             IMPORTANT: Format each result clearly. Start each result with "--- RESULT ---".
             For each result, provide the following information on separate lines, each prefixed with the key and a colon (e.g., "title: The Title"):
             - title: [The title]
-            - link: [The direct URL]
+            - link: [The direct, valid, and working URL. Must be checked.]
             - source: [The source name, e.g., "YouTube"]
             - description: [A brief summary in Persian]
             - imageUrl: [A direct link to a relevant thumbnail image]
@@ -709,7 +713,7 @@ const structuredSourceSchema = {
     type: Type.OBJECT,
     properties: {
         name: { type: Type.STRING },
-        link: { type: Type.STRING },
+        link: { type: Type.STRING, description: "Direct, valid, and working URL to the source." },
         publicationDate: { type: Type.STRING },
         author: { type: Type.STRING },
         credibility: { type: Type.STRING, enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'] },
@@ -785,7 +789,7 @@ const statisticsResultSchema = {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
-                properties: { title: { type: Type.STRING }, url: { type: Type.STRING } },
+                properties: { title: { type: Type.STRING }, url: { type: Type.STRING, description: "Valid and direct link to the reference." } },
                 required: ["title", "url"]
             }
         }
@@ -805,10 +809,10 @@ export async function fetchStatistics(query: string, instructions: string): Prom
         - \`summary\`: A brief, easy-to-understand summary of the main finding.
         - \`keywords\`: Generate 3-5 relevant keywords.
         - \`chart\`: Create data for a visual chart. Choose the best type ('bar', 'pie', 'line', 'table'). Use 'line' for data that changes over time (e.g., yearly statistics). Use 'table' for detailed comparisons across multiple categories. Provide a title, labels for each data point/column, and the dataset(s) itself.
-        - \`sourceDetails\`: Find the original, primary source of the data. Include its name, link, author, publication date, credibility, the methodology used, and the sample size.
+        - \`sourceDetails\`: Find the original, primary source of the data. Include its name, link, author, publication date, credibility, the methodology used, and the sample size. The link must be a valid, working URL.
         - \`analysis\`: Provide a balanced view with proponents and opponents, the public acceptance rate, and the current validity of the data.
         - \`relatedSuggestions\`: Offer 3 suggestions for further reading.
-        - \`references\`: Provide up to 3 links to other articles or studies that reference this data.
+        - \`references\`: Provide up to 3 links to other articles or studies that reference this data. All links must be valid.
         `;
         
         const response = await ai.models.generateContent({
@@ -847,7 +851,7 @@ const scientificArticleResultSchema = {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
-                properties: { title: { type: Type.STRING }, url: { type: Type.STRING } },
+                properties: { title: { type: Type.STRING }, url: { type: Type.STRING, description: "Valid and direct link to the reference." } },
                 required: ["title", "url"]
             }
         }
@@ -867,10 +871,10 @@ export async function fetchScientificArticle(query: string, instructions: string
         - \`title\`: The official title of the paper/article.
         - \`summary\`: A summary of the abstract and key findings.
         - \`keywords\`: Extract the main keywords.
-        - \`sourceDetails\`: The primary source. Include name (e.g., 'Journal of Science'), link (to the article page or DOI), author(s), publication date, credibility, the type of research (e.g., 'Peer-reviewed study'), and the target audience.
+        - \`sourceDetails\`: The primary source. Include name (e.g., 'Journal of Science'), link (to the article page or DOI), author(s), publication date, credibility, the type of research (e.g., 'Peer-reviewed study'), and the target audience. The link MUST be a valid, working URL.
         - \`analysis\`: Provide a balanced view with proponents and opponents, its acceptance in the scientific community, and its current validity.
         - \`relatedSuggestions\`: Offer 3 suggestions for related fields of study.
-        - \`references\`: Provide up to 3 links to other academic works that cite or are cited by this paper.
+        - \`references\`: Provide up to 3 links to other academic works that cite or are cited by this paper. All links must be valid.
         `;
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -899,10 +903,10 @@ export async function fetchReligiousText(query: string, instructions: string): P
         - \`title\`: The title of the text, chapter, or article.
         - \`summary\`: A summary of the content and its significance.
         - \`keywords\`: Extract the main keywords or concepts.
-        - \`sourceDetails\`: The primary source. Include name (e.g., 'Quran, Surah Al-Baqarah', 'Tafsir al-Mizan'), link (if available), author(s), and its credibility/importance.
+        - \`sourceDetails\`: The primary source. Include name (e.g., 'Quran, Surah Al-Baqarah', 'Tafsir al-Mizan'), link (if available and must be valid), author(s), and its credibility/importance.
         - \`analysis\`: Provide a balanced view of different interpretations or schools of thought (proponents/opponents), its acceptance, and its current relevance.
         - \`relatedSuggestions\`: Offer 3 suggestions for related topics or texts.
-        - \`references\`: Provide up to 3 links to commentaries or related studies.
+        - \`references\`: Provide up to 3 links to commentaries or related studies. All links must be valid.
         `;
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -961,7 +965,7 @@ export async function analyzeVideoFromUrl(url: string, analysisType: 'summary' |
                                             isReal: { type: Type.BOOLEAN },
                                             isCredible: { type: Type.BOOLEAN },
                                             isRelevant: { type: Type.BOOLEAN },
-                                            sourceLink: { type: Type.STRING }
+                                            sourceLink: { type: Type.STRING, description: "A valid, direct URL to the evidence source." }
                                         }
                                     }
                                 }
@@ -1381,14 +1385,14 @@ export async function performAnalysis(
                 sources: {
                     type: Type.ARRAY,
                     items: {
-                        type: Type.OBJECT, properties: { title: { type: Type.STRING }, url: { type: Type.STRING } }, required: ["title", "url"]
+                        type: Type.OBJECT, properties: { title: { type: Type.STRING }, url: { type: Type.STRING, description: "Valid and direct link." } }, required: ["title", "url"]
                     }
                 },
                 techniques: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'A list of analytical techniques used (e.g., "Historical Analysis", "Logical Reasoning").' },
                 suggestions: {
                     type: Type.ARRAY,
                     items: {
-                        type: Type.OBJECT, properties: { title: { type: Type.STRING }, url: { type: Type.STRING } }, required: ["title", "url"]
+                        type: Type.OBJECT, properties: { title: { type: Type.STRING }, url: { type: Type.STRING, description: "Valid and direct link." } }, required: ["title", "url"]
                     }
                 },
                 examples: {
@@ -1684,5 +1688,242 @@ export async function generateAboutMePage(
         return text;
     } catch (error) {
         throw handleGeminiError(error, "generating 'About Me' page");
+    }
+}
+// FIX: Add new functions for crypto tracker.
+// --- NEW CRYPTO TRACKER FUNCTIONS ---
+
+const cryptoCoinSchema = {
+    type: Type.OBJECT,
+    properties: {
+        id: { type: Type.STRING, description: "Unique identifier for the coin (e.g., 'bitcoin')." },
+        symbol: { type: Type.STRING, description: "The coin's trading symbol (e.g., 'BTC')." },
+        name: { type: Type.STRING, description: "Full name of the coin (e.g., 'Bitcoin')." },
+        price_usd: { type: Type.NUMBER, description: "Current price in US Dollars." },
+        price_toman: { type: Type.NUMBER, description: "Current price in Iranian Tomans." },
+        price_change_percentage_24h: { type: Type.NUMBER, description: "The price change percentage over the last 24 hours." },
+        image: { type: Type.STRING, description: "A direct URL to the coin's logo image." }
+    },
+    required: ["id", "symbol", "name", "price_usd", "price_toman", "price_change_percentage_24h"]
+};
+
+const simpleCoinSchema = {
+    type: Type.OBJECT,
+    properties: {
+        id: { type: Type.STRING, description: "Unique identifier for the coin (e.g., 'bitcoin')." },
+        symbol: { type: Type.STRING, description: "The coin's trading symbol (e.g., 'BTC')." },
+        name: { type: Type.STRING, description: "Full name of the coin (e.g., 'Bitcoin')." }
+    },
+    required: ["id", "symbol", "name"]
+};
+
+// FIX: Update fetchCryptoData to handle fetching specific favorite coins.
+export async function fetchCryptoData(
+    type: 'live' | 'gainers' | 'losers' | 'newest' | 'favorites',
+    timeframe: '1h' | '24h' | '7d' | '30d' | '1y',
+    count: number,
+    instructions: string,
+    coinIds?: string[]
+): Promise<CryptoCoin[]> {
+    const ai = getAiClient();
+    let taskDescription = '';
+
+    switch(type) {
+        case 'live':
+            taskDescription = `Task: Find ${count} of a list of popular and important cryptocurrencies.`;
+            break;
+        case 'gainers':
+            taskDescription = `Task: Find ${count} of the top gaining cryptocurrencies. Use the timeframe: ${timeframe}.`;
+            break;
+        case 'losers':
+            taskDescription = `Task: Find ${count} of the top losing cryptocurrencies. Use the timeframe: ${timeframe}.`;
+            break;
+        case 'newest':
+            taskDescription = `Task: Find ${count} of the newest listed cryptocurrencies.`;
+            break;
+        case 'favorites':
+            if (coinIds && coinIds.length > 0) {
+                taskDescription = `Task: Find live price data for the following specific cryptocurrencies by their IDs: ${coinIds.join(', ')}.`;
+            } else {
+                return []; // No IDs provided for favorites, so nothing to fetch.
+            }
+            break;
+    }
+
+    const prompt = `
+        ${instructions}
+        ${taskDescription}
+        For each coin, provide its ID, symbol, name, current price in USD, current price in Iranian Toman, and the 24-hour price change percentage. Also, provide an image URL for the coin's logo.
+        The final output must be a JSON array.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: cryptoCoinSchema
+                }
+            }
+        });
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        throw handleGeminiError(error, "fetching crypto data");
+    }
+}
+
+export async function fetchCoinList(instructions: string): Promise<SimpleCoin[]> {
+    const ai = getAiClient();
+    const prompt = `
+        ${instructions}
+        Task: Generate a list of the top 200 most popular cryptocurrencies.
+        For each coin, provide only its ID (e.g., 'bitcoin'), symbol (e.g., 'BTC'), and full name (e.g., 'Bitcoin').
+        The final output must be a JSON array.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: simpleCoinSchema
+                }
+            }
+        });
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        throw handleGeminiError(error, "fetching coin list");
+    }
+}
+
+const cryptoSourceSchema = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING },
+    link: { type: Type.STRING },
+    credibility: { type: Type.STRING, enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'] },
+  },
+  required: ['name', 'link', 'credibility'],
+};
+
+const cryptoSearchResultSchema = {
+  type: Type.OBJECT,
+  properties: {
+    coin: cryptoCoinSchema,
+    sources: { type: Type.ARRAY, items: cryptoSourceSchema },
+    summary: { type: Type.STRING, description: "A brief summary of the coin's current market status in Persian." }
+  },
+  required: ['coin', 'sources', 'summary'],
+};
+
+export async function searchCryptoCoin(query: string, instructions: string): Promise<CryptoSearchResult> {
+  const ai = getAiClient();
+  const prompt = `${instructions}\n\nCryptocurrency to search for: "${query}"`;
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: cryptoSearchResultSchema,
+      },
+    });
+    const jsonString = response.text.trim();
+    return JSON.parse(jsonString);
+  } catch (error) {
+    throw handleGeminiError(error, `searching for crypto coin: ${query}`);
+  }
+}
+
+const cryptoAnalysisResultSchema = {
+  type: Type.OBJECT,
+  properties: {
+    coinName: { type: Type.STRING },
+    symbol: { type: Type.STRING },
+    summary: { type: Type.STRING },
+    technicalAnalysis: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        content: { type: Type.STRING },
+        keyLevels: {
+          type: Type.OBJECT,
+          properties: {
+            support: { type: Type.ARRAY, items: { type: Type.STRING } },
+            resistance: { type: Type.ARRAY, items: { type: Type.STRING } },
+          },
+           required: ['support', 'resistance'],
+        },
+      },
+       required: ['title', 'content', 'keyLevels'],
+    },
+    fundamentalAnalysis: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        content: { type: Type.STRING },
+        keyMetrics: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              value: { type: Type.STRING },
+            },
+             required: ['name', 'value'],
+          },
+        },
+      },
+       required: ['title', 'content', 'keyMetrics'],
+    },
+    sentimentAnalysis: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        content: { type: Type.STRING },
+        score: { type: Type.NUMBER, description: 'A score from 0 (very bearish) to 100 (very bullish).' },
+      },
+      required: ['title', 'content', 'score'],
+    },
+    futureOutlook: { type: Type.STRING },
+    keyFactors: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          description: { type: Type.STRING },
+        },
+         required: ['title', 'description'],
+      },
+    },
+  },
+  required: ['coinName', 'symbol', 'summary', 'technicalAnalysis', 'fundamentalAnalysis', 'sentimentAnalysis', 'futureOutlook', 'keyFactors'],
+};
+
+export async function fetchCryptoAnalysis(coinName: string, instructions: string): Promise<CryptoAnalysisResult> {
+    const ai = getAiClient();
+    const prompt = `${instructions}\n\nCryptocurrency to analyze: "${coinName}"`;
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: cryptoAnalysisResultSchema,
+            },
+        });
+        const jsonString = response.text.trim();
+        return JSON.parse(jsonString);
+    } catch (error) {
+        throw handleGeminiError(error, `fetching analysis for ${coinName}`);
     }
 }
