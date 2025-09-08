@@ -6,7 +6,7 @@ import SourcesManager from './SourcesManager';
 import AIInstructionsSettings from './AIInstructions';
 import IntegrationSettings from './IntegrationSettings';
 import CustomCssSettings from './CustomCssSettings';
-import AIModelSettings from './AIModelSettings';
+import AIModelSettings from './settings/AIModelSettings';
 import ContentSettings from './ContentSettings';
 import BackendSettings from './settings/BackendSettings';
 import CloudflareSettings from './settings/CloudflareSettings';

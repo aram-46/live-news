@@ -45,7 +45,6 @@ const VideoToTextConverter: React.FC<VideoToTextConverterProps> = ({ settings, o
         setResult(null);
 
         try {
-            // FIX: Pass the correct instruction string from settings instead of the whole object.
             const apiResult = await analyzeVideoFromUrl(videoUrl, analysisType, keywords, settings.aiInstructions['video-converter']);
             setResult(apiResult);
         } catch (err) {

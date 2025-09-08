@@ -79,11 +79,8 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setSeoLoading(type);
         try {
             let result: string[] = [];
-            // FIX: Pass the correct instruction string from settings instead of the whole object.
             if (type === 'keywords') result = await generateSeoKeywords(seoTopic, settings.aiInstructions['seo-keywords']);
-            // FIX: Pass the correct instruction string from settings instead of the whole object.
             if (type === 'names') result = await suggestWebsiteNames(seoTopic, settings.aiInstructions['website-names']);
-            // FIX: Pass the correct instruction string from settings instead of the whole object.
             if (type === 'domains') result = await suggestDomainNames(seoTopic, settings.aiInstructions['domain-names']);
             
             if (type === 'keywords') setSeoKeywords(result);
@@ -98,11 +95,9 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setArticleText('');
         setArticleKeywords([]);
         try {
-            // FIX: Pass the correct instruction string from settings instead of the whole object.
             const article = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation']);
             setArticleText(article);
             // Also generate keywords for the article
-            // FIX: Pass the correct instruction string from settings instead of the whole object.
             const keywords = await generateSeoKeywords(articleTopic, settings.aiInstructions['seo-keywords']);
             setArticleKeywords(keywords);
         } catch (err) { console.error(err); } finally { setArticleLoading(null); }

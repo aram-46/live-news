@@ -27,7 +27,6 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
   const handleGenerateWithAI = async (type: AIInstructionType) => {
     setLoadingInstruction(type);
     try {
-      // FIX: Removed extra 'settings' argument.
       const generatedInstruction = await generateAIInstruction(aiInstructionLabels[type]);
       handleChange(type, generatedInstruction);
     } catch (error) {
@@ -40,7 +39,6 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
 
   const handleTestInstruction = async (type: AIInstructionType) => {
       setTestStatus(prev => ({...prev, [type]: 'testing'}));
-      // FIX: Removed extra 'settings' argument.
       const success = await testAIInstruction(instructions[type]);
       setTestStatus(prev => ({...prev, [type]: success ? 'success' : 'error'}));
       setTimeout(() => setTestStatus(prev => ({...prev, [type]: 'idle'})), 4000);

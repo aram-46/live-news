@@ -66,7 +66,6 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
         setVisibleStep(-1);
 
         try {
-// FIX: Pass the correct instruction string from settings.
             const clarificationResponse = await analyzeAgentRequest(topic, request, settings.aiInstructions['browser-agent']);
             
             if (!clarificationResponse.isClear && clarificationResponse.questions) {
@@ -100,7 +99,6 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
     const handleExecute = async () => {
         setState('executing');
         try {
-// FIX: Pass the correct instruction string from settings.
             const executionResult = await executeAgentTask(finalPrompt, settings.aiInstructions['browser-agent']);
             setResult(executionResult);
             setState('done');
@@ -219,7 +217,7 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
                     </button>
                     {isGuideOpen && (
                         <div className="text-xs text-gray-400 mt-2 space-y-2 bg-gray-900/50 p-3 rounded-lg">
-                            <p><strong>عامل هوشمند وب چیست؟</strong> این یک دستیار پیشرفته است که می‌تواند وب را برای شما جستجو کرده و وظایfف مختلفی را بر اساس درخواست شما انجام دهد.</p>
+                            <p><strong>عامل هوشمند وب چیست؟</strong> این یک دستیار پیشرفته است که می‌تواند وب را برای شما جستجو کرده و وظایف مختلفی را بر اساس درخواست شما انجام دهد.</p>
                             <p><strong>چگونه استفاده کنیم؟</strong></p>
                             <ul className="list-disc list-inside pr-4">
                                 <li><strong>موضوع:</strong> یک عبارت کلی، سوال، یا یک آدرس URL خاص وارد کنید.</li>

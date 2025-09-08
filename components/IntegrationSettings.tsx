@@ -60,8 +60,6 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
     const [status, setStatus] = useState<Record<string, TestStatus>>({});
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     
-    // FIX: Correctly handle updates for nested setting objects and fix spread type errors.
-    // The subfield logic was flawed and unused. This version correctly updates 2-level deep settings.
     const handleChange = (platform: keyof IntegrationSettings, field: string, value: any) => {
         setStatus(prev => ({...prev, [platform]: 'idle'}));
         const platformValue = settings[platform];

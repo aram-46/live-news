@@ -30,7 +30,6 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
     setError(prev => ({ ...prev, [tabId]: null }));
     setUpdateAvailable(false);
     try {
-      // FIX: Pass all required arguments to the fetchLiveNews function.
       const results = await fetchLiveNews(tabId, settings.sources, settings.aiInstructions['news-display'], settings.display.showImages, settings.liveNewsSpecifics);
       setNews(prev => ({ ...prev, [tabId]: results }));
       setLastUpdated(new Date());

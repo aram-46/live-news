@@ -40,7 +40,6 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
         }
         setIsKeywordsLoading(true);
         try {
-            // FIX: Removed extra 'settings' argument from the function call.
             const newKeywords = await generateKeywordsForTopic(mainTopic, comparisonTopic);
             setKeywords(prev => [...new Set([...prev, ...newKeywords])]);
         } catch (err) {
@@ -135,7 +134,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
 
                             <div className="space-y-3">
                                 <h3 className="text-lg font-semibold text-cyan-200 border-b border-cyan-400/20 pb-2">نکات کلیدی</h3>
-                                {result.keyPoints.map((point, i) => (
+                                {(result.keyPoints || []).map((point, i) => (
                                     <div key={i} className="p-3 bg-gray-800/50 rounded-lg">
                                         <h4 className="font-bold text-cyan-300">{point.title}</h4>
                                         <p className="text-sm text-gray-300 mt-1">{point.description}</p>
@@ -172,7 +171,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
                             <div>
                                 <h3 className="text-lg font-semibold text-cyan-200 border-b border-cyan-400/20 pb-2">منابع</h3>
                                 <ul className="list-disc list-inside space-y-1 mt-2">
-                                    {result.sources.map((s, i) => <li key={i}><a href={s.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-sm hover:underline">{s.title || s.uri}</a></li>)}
+                                    {(result.sources || []).map((s, i) => <li key={i}><a href={s.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-sm hover:underline">{s.title || s.uri}</a></li>)}
                                 </ul>
                             </div>
                         </div>

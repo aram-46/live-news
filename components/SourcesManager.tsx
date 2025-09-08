@@ -3,8 +3,15 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings } from '../types';
-import { findSourcesWithAI, FindSourcesOptions } from '../services/geminiService';
+import { findSourcesWithAI } from '../services/geminiService';
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
+
+export interface FindSourcesOptions {
+  region: 'any' | 'internal' | 'external';
+  language: 'any' | 'persian' | 'non-persian';
+  count: number;
+  credibility: 'any' | 'high' | 'medium';
+}
 
 interface SourcesManagerProps {
   sources: Sources;
@@ -71,7 +78,6 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
     setAiLoading(true);
     try {
         const existingSources = sources[activeAiCategory];
-        // FIX: Removed extra 'settings' argument from the function call.
         const newFoundSources = await findSourcesWithAI(activeAiCategory, existingSources, aiOptions);
         
         if(newFoundSources.length === 0) {
@@ -84,10 +90,10 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
         const existingUrls = new Set(sources[activeAiCategory].map(s => s.url.toLowerCase().trim()));
 
         newFoundSources.forEach(s => {
-            if(existingUrls.has(s.url.toLowerCase().trim())) {
+            if(s.url && existingUrls.has(s.url.toLowerCase().trim())) {
                 skippedCount++;
-            } else {
-                sourcesToAdd.push({...s, id: generateUUID()});
+            } else if (s.url) {
+                sourcesToAdd.push({...s, id: generateUUID()} as Source);
                 existingUrls.add(s.url.toLowerCase().trim()); // Add to set to prevent duplicates within the same AI response
             }
         });

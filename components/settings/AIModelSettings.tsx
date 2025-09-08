@@ -1,25 +1,30 @@
 
-
-import React, { useState } from 'react';
-import { AppAIModelSettings, AIInstructionType, aiInstructionLabels, AIModelProvider } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { AppAIModelSettings } from '../../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from '../icons';
-import { testGeminiConnection } from '../../services/geminiService';
+import { testGeminiConnection, checkApiKeyStatus, ApiKeyStatus } from '../../services/geminiService';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../../services/integrationService';
 
 interface AIModelSettingsProps {
   settings: AppAIModelSettings;
-  assignments: Partial<Record<AIInstructionType, AIModelProvider>>;
   onSettingsChange: (settings: AppAIModelSettings) => void;
-  onAssignmentsChange: (assignments: Partial<Record<AIInstructionType, AIModelProvider>>) => void;
 }
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
-const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments, onSettingsChange, onAssignmentsChange }) => {
-    const [geminiStatus, setGeminiStatus] = useState<TestStatus>('idle');
+const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsChange }) => {
+    const [geminiRealStatus, setGeminiRealStatus] = useState<ApiKeyStatus | 'checking'>('checking');
     const [openaiStatus, setOpenaiStatus] = useState<TestStatus>('idle');
     const [openrouterStatus, setOpenrouterStatus] = useState<TestStatus>('idle');
     const [groqStatus, setGroqStatus] = useState<TestStatus>('idle');
+
+    useEffect(() => {
+        const checkStatus = async () => {
+            const status = await checkApiKeyStatus();
+            setGeminiRealStatus(status);
+        };
+        checkStatus();
+    }, []);
 
     const handleApiKeyChange = (
         provider: keyof AppAIModelSettings, 
@@ -38,18 +43,10 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
         });
     };
 
-    const handleAssignmentChange = (task: AIInstructionType, provider: AIModelProvider) => {
-        onAssignmentsChange({
-            ...assignments,
-            [task]: provider
-        });
-    };
-
     const handleTestGemini = async () => {
-        setGeminiStatus('testing');
-        const success = await testGeminiConnection();
-        setGeminiStatus(success ? 'success' : 'error');
-        setTimeout(() => setGeminiStatus('idle'), 4000);
+        setGeminiRealStatus('checking');
+        const status = await checkApiKeyStatus();
+        setGeminiRealStatus(status);
     };
 
     const handleTestOpenAI = async () => {
@@ -74,14 +71,27 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
     };
     
     const renderStatusIcon = (status: TestStatus) => {
-        if (status === 'testing') return <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+        if (status === 'testing') return <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>;
         if (status === 'success') return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
         if (status === 'error') return <CloseIcon className="w-5 h-5 text-red-400" />;
         return null;
     }
+
+    const renderGeminiStatusBadge = () => {
+        switch (geminiRealStatus) {
+            case 'valid':
+                return <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full">متصل</span>;
+            case 'invalid_key':
+            case 'not_set':
+                return <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded-full">پیکربندی نشده</span>;
+            case 'network_error':
+                 return <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">خطای شبکه</span>;
+            case 'checking':
+                 return <span className="text-xs bg-gray-500/20 text-gray-300 px-2 py-1 rounded-full">در حال بررسی...</span>;
+        }
+    }
     
     return (
-        <>
         <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
             <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -92,15 +102,15 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
                             <BrainIcon className="w-6 h-6"/>
                             <span>Google Gemini (اصلی)</span>
                         </div>
-                        <span className="text-xs bg-cyan-500/20 text-cyan-200 px-2 py-1 rounded-full">فعال</span>
+                        {renderGeminiStatusBadge()}
                     </h3>
                     <div>
                         <label className="block text-sm font-medium text-cyan-300 mb-2">وضعیت کلید API</label>
                         <div className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 text-sm">
-                            {process.env.API_KEY ? (
-                                <span className="text-green-400">کلید API از طریق متغیر محیطی برنامه تنظیم شده است.</span>
-                            ) : (
+                            {geminiRealStatus === 'not_set' ? (
                                 <span className="text-red-400">کلید API برای Gemini تنظیم نشده است. برای راهنمایی، فایل README.md را مطالعه کنید.</span>
+                            ) : (
+                                <span className="text-green-400">کلید API از طریق متغیر محیطی برنامه تنظیم شده است.</span>
                             )}
                         </div>
                         <p className="text-xs text-amber-400 mt-2">
@@ -108,8 +118,7 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
                         </p>
                     </div>
                      <div className="flex items-center gap-2">
-                        <button onClick={handleTestGemini} disabled={geminiStatus === 'testing'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
-                        <div className="w-5 h-5">{renderStatusIcon(geminiStatus)}</div>
+                        <button onClick={handleTestGemini} disabled={geminiRealStatus === 'checking'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست مجدد اتصال</button>
                     </div>
                 </div>
 
@@ -127,6 +136,9 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
                         <button onClick={handleTestOpenAI} disabled={!settings.openai.apiKey || openaiStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
                         <div className="w-5 h-5">{renderStatusIcon(openaiStatus)}</div>
                     </div>
+                    <p className="text-xs text-gray-400 pt-2 border-t border-gray-700/50">
+                        پس از تست موفق، می‌توانید این مدل را در تب <strong className="text-cyan-300">'تخصیص مدل‌ها'</strong> به قابلیت‌های مختلف اختصاص دهید.
+                    </p>
                 </div>
                 
                 {/* OpenRouter Settings */}
@@ -150,6 +162,9 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
                         <button onClick={handleTestOpenRouter} disabled={!settings.openrouter.apiKey || openrouterStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
                         <div className="w-5 h-5">{renderStatusIcon(openrouterStatus)}</div>
                     </div>
+                     <p className="text-xs text-gray-400 pt-2 border-t border-gray-700/50">
+                        پس از تست موفق، می‌توانید این مدل را در تب <strong className="text-cyan-300">'تخصیص مدل‌ها'</strong> به قابلیت‌های مختلف اختصاص دهید.
+                    </p>
                 </div>
 
                 {/* Groq Settings */}
@@ -166,38 +181,15 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, assignments
                         <button onClick={handleTestGroq} disabled={!settings.groq.apiKey || groqStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
                         <div className="w-5 h-5">{renderStatusIcon(groqStatus)}</div>
                     </div>
+                     <p className="text-xs text-gray-400 pt-2 border-t border-gray-700/50">
+                        پس از تست موفق، می‌توانید این مدل را در تب <strong className="text-cyan-300">'تخصیص مدل‌ها'</strong> به قابلیت‌های مختلف اختصاص دهید.
+                    </p>
                 </div>
             </div>
             <p className="text-xs text-gray-500 pt-4 mt-4 border-t border-gray-700/50">
                 توجه: برای استفاده از مدل‌های غیر از Gemini، پیاده‌سازی منطق مربوط به هر سرویس‌دهنده در فایل `geminiService.ts` ضروری است.
             </p>
         </div>
-
-        {/* Model Assignments */}
-        <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
-            <h2 className="text-xl font-bold mb-6 text-cyan-300">تخصیص مدل به قابلیت‌ها</h2>
-            <div className="space-y-4">
-                 {(Object.keys(aiInstructionLabels) as AIInstructionType[]).map(taskKey => (
-                    <div key={taskKey} className="grid grid-cols-2 gap-4 items-center p-2 rounded-lg hover:bg-gray-800/50">
-                        <label htmlFor={`assign-${taskKey}`} className="text-sm font-medium text-cyan-300 justify-self-start">
-                           {aiInstructionLabels[taskKey]}
-                        </label>
-                        <select
-                            id={`assign-${taskKey}`}
-                            value={assignments[taskKey] || 'gemini'}
-                            onChange={(e) => handleAssignmentChange(taskKey, e.target.value as AIModelProvider)}
-                             className="w-full max-w-xs bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm justify-self-end"
-                        >
-                            <option value="gemini">Google Gemini</option>
-                            <option value="openai" disabled={!settings.openai.apiKey}>OpenAI</option>
-                            <option value="openrouter" disabled={!settings.openrouter.apiKey}>OpenRouter</option>
-                            <option value="groq" disabled={!settings.groq.apiKey}>Groq</option>
-                        </select>
-                    </div>
-                 ))}
-            </div>
-        </div>
-        </>
     );
 };
 

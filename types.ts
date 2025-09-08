@@ -1,4 +1,3 @@
-
 /**
  * Generates a universally unique identifier (UUID).
  * Uses the standard `crypto.randomUUID` if available in a secure context,
@@ -48,17 +47,6 @@ export interface FactCheckSource {
     title: string;
 }
 
-export interface OriginalSourceInfo {
-    name: string;
-    credibility: string;
-    publicationDate: string;
-    author: string;
-    evidenceType: string;
-    evidenceCredibility: string;
-    authorCredibility: string;
-    link: string;
-}
-
 export interface StanceHolder {
     name: string;
     argument: string;
@@ -67,10 +55,11 @@ export interface StanceHolder {
 export interface FactCheckResult {
     overallCredibility: Credibility;
     summary: string;
-    originalSource: OriginalSourceInfo;
-    acceptancePercentage: number;
-    proponents: StanceHolder[];
-    opponents: StanceHolder[];
+    identifiedSources: {
+        name: string;
+        url: string;
+        credibility: string;
+    }[];
     relatedSuggestions?: string[];
     relatedSources: FactCheckSource[];
 }
@@ -261,6 +250,19 @@ export interface CryptoAnalysisResult {
   keyFactors: { title: string; description: string }[];
 }
 
+// --- NEW DEEP ANALYSIS TYPES ---
+export interface DeepAnalysisSource {
+    sourceName: string;
+    link: string; // Direct link to the source page
+    credibilityPercentage: number; // 0-100
+    collectionMethod: string; // e.g., "Investigative Journalism", "Academic Study"
+    proponentPercentage: number; // 0-100
+    opponentPercentage: number; // 0-100
+    proponentSummary: string;
+    opponentSummary: string;
+    proponentCredibility: string; // e.g., "High", "Based on emotion"
+    opponentCredibility: string; // e.g., "Well-sourced", "Lacks evidence"
+}
 
 // --- SETTINGS ---
 
@@ -286,10 +288,11 @@ export interface Source {
 
 export type Sources = Record<SourceCategory, Source[]>;
 
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder' | 'podcast-search' | 'crypto-data' | 'crypto-search' | 'crypto-analysis';
+export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder' | 'podcast-search' | 'crypto-data' | 'crypto-search' | 'crypto-analysis' | 'deep-analysis' | 'wordpress-theme';
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
-  'fact-check': 'فکت چک و ردیابی شایعه',
+  'fact-check': 'بررسی سریع (فکت چک)',
+  'deep-analysis': 'تحلیل عمیق موضوع',
   'news-search': 'جستجوی خبر',
   'video-search': 'جستجوی ویدئو',
   'audio-search': 'جستجوی صدا',
@@ -322,6 +325,7 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'domain-names': 'پیشنهاد نام دامنه',
   'article-generation': 'تولید محتوای مقاله',
   'page-builder': 'صفحه ساز (تولید درباره من)',
+  'wordpress-theme': 'تولید کننده قالب وردپرس',
   'podcast-search': 'جستجوی پادکست',
   'crypto-data': 'داده‌های ارز دیجیتال',
   'crypto-search': 'جستجوی ارز دیجیتال',
@@ -505,6 +509,8 @@ export interface ChatMessage {
 
 export type AnalyzerTabId = 'political' | 'religious' | 'logical' | 'philosophical' | 'philosophy-of-science' | 'historical' | 'physics' | 'theological' | 'fallacy-finder';
 
+export type Stance = 'proponent' | 'opponent' | 'neutral';
+
 export const analyzerTabLabels: Record<AnalyzerTabId, string> = {
   'political': 'تحلیل سیاسی',
   'religious': 'تحلیل دینی',
@@ -644,4 +650,28 @@ export interface PageConfig {
     menu: MenuOptions;
     slideshow: SlideshowOptions;
     marquee: MarqueeOptions;
+}
+
+// --- NEW: WORDPRESS THEME GENERATOR ---
+export interface WordPressThemePlan {
+    understanding: string;
+    themeName: string;
+    featureBreakdown: {
+        header: string;
+        footer: string;
+        mainContent: string;
+        sidebar: string;
+        adminPanel: string;
+    };
+    colorPalette: {
+        primary: string;
+        secondary: string;
+        background: string;
+        text: string;
+        accent: string;
+    };
+    typography: {
+        fontFamily: string;
+        baseSize: string;
+    };
 }

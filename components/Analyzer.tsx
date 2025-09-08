@@ -1,214 +1,123 @@
-
-
-import React, { useState, useRef, useCallback } from 'react';
-import { AppSettings, MediaFile, AnalyzerTabId, analyzerTabLabels, ClarificationResponse, AnalysisResult, FallacyResult, AIInstructionType } from '../types';
-import { BrainIcon, UploadIcon, LinkIcon, VideoIcon, AudioIcon, MicrophoneIcon, CloseIcon, SearchIcon, PaperClipIcon } from './icons';
-import { askForClarification, performAnalysis, findFallacies } from '../services/geminiService';
-import AnalysisResultDisplay from './AnalysisResult';
-import EditableList from './settings/EditableList';
+import React, { useState, useRef, useEffect } from 'react';
+import { GoogleGenAI, Chat } from "@google/genai";
+import { AppSettings, AnalyzerTabId, analyzerTabLabels, Stance, ChatMessage, AIInstructionType, generateUUID } from '../types';
+import { BrainIcon, ThumbsUpIcon, ThumbsDownIcon } from './icons';
 
 interface AnalyzerProps {
     settings: AppSettings;
 }
 
-const FALLACY_LIST = [
-    'حمله شخصی (Ad Hominem)', 'پهلوان‌پنبه (Straw Man)', 'شیب لغزنده (Slippery Slope)',
-    'توسل به مرجعیت (Appeal to Authority)', 'توسل به جهل (Argument from Ignorance)',
-    'دوراهی کاذب (False Dilemma)', 'نتیجه‌گیری شتاب‌زده (Hasty Generalization)',
-    'علت شمردن هم‌رویدادی (Post Hoc Ergo Propter Hoc)', 'مسموم کردن سرچشمه (Poisoning the Well)'
-];
-
 const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
     const [activeTab, setActiveTab] = useState<AnalyzerTabId>('political');
-    
-    // Inputs
     const [topic, setTopic] = useState('');
-    const [comparisonTopic, setComparisonTopic] = useState('');
-    const [keywords, setKeywords] = useState<string[]>([]);
-    const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
-    const [webUrls, setWebUrls] = useState<string[]>([]);
-    const [currentUrl, setCurrentUrl] = useState('');
-
-    // State for analysis process
+    const [stance, setStance] = useState<Stance>('neutral');
+    const [analyzerChat, setAnalyzerChat] = useState<Chat | null>(null);
+    const [dialogueHistory, setDialogueHistory] = useState<ChatMessage[]>([]);
+    const [isDialogueActive, setIsDialogueActive] = useState(false);
+    const [userInput, setUserInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState('');
     const [error, setError] = useState<string | null>(null);
-    const [result, setResult] = useState<AnalysisResult | FallacyResult | null>(null);
-    const [clarification, setClarification] = useState<ClarificationResponse | null>(null);
-    const [clarificationAnswer, setClarificationAnswer] = useState('');
-    
-    // Refs and recording state
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const [isRecording, setIsRecording] = useState(false);
+    const dialogueEndRef = useRef<HTMLDivElement>(null);
 
-    const resetState = () => {
+    const resetDebate = () => {
+        setTopic('');
+        setUserInput('');
+        setDialogueHistory([]);
+        setIsDialogueActive(false);
         setIsLoading(false);
-        setLoadingMessage('');
         setError(null);
-        setResult(null);
-        setClarification(null);
-        setClarificationAnswer('');
     };
-    
+
     const handleTabChange = (tabId: AnalyzerTabId) => {
         setActiveTab(tabId);
-        resetState();
-        // Optionally reset inputs as well
-        setTopic('');
-        setComparisonTopic('');
-        setMediaFiles([]);
-        setWebUrls([]);
+        resetDebate();
     };
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (!files) return;
+    // Effect to manage chat session for ANY active tab
+    useEffect(() => {
+        const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+        if (apiKey) {
+            const ai = new GoogleGenAI({ apiKey });
+            const instructionKey = `analyzer-${activeTab}` as AIInstructionType;
+            const systemInstruction = settings.aiInstructions[instructionKey] || `You are an expert ${analyzerTabLabels[activeTab]} analyst.`;
 
-        Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const base64Data = (e.target?.result as string).split(',')[1];
-                setMediaFiles(prev => [...prev, {
-                    name: file.name,
-                    type: file.type,
-                    data: base64Data,
-                    url: URL.createObjectURL(file)
-                }]);
-            };
-            reader.readAsDataURL(file);
-        });
-    };
-    
-    const handleAddUrl = () => {
-        if (currentUrl.trim() && !webUrls.includes(currentUrl.trim())) {
-            try {
-                new URL(currentUrl); // Validate URL
-                setWebUrls(prev => [...prev, currentUrl.trim()]);
-                setCurrentUrl('');
-            } catch (_) {
-                alert('لطفا یک آدرس اینترنتی معتبر وارد کنید.');
-            }
+            const newChat = ai.chats.create({
+                model: 'gemini-2.5-flash',
+                config: { systemInstruction }
+            });
+            setAnalyzerChat(newChat);
         }
-    };
-    
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
-            mediaRecorderRef.current = mediaRecorder;
-            const audioChunks: Blob[] = [];
+        resetDebate();
+    }, [activeTab, settings.aiInstructions, settings.aiModelSettings.gemini.apiKey]);
 
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
+    useEffect(() => {
+        dialogueEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [dialogueHistory]);
 
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const base64Data = (e.target?.result as string).split(',')[1];
-                    setMediaFiles(prev => [...prev, {
-                        name: `recording-${Date.now()}.webm`,
-                        type: audioBlob.type,
-                        data: base64Data,
-                        url: URL.createObjectURL(audioBlob)
-                    }]);
-                };
-                reader.readAsDataURL(audioBlob);
-                stream.getTracks().forEach(track => track.stop()); // Stop microphone
-            };
+    const handleStartDebate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!topic.trim() || !analyzerChat || isLoading) return;
 
-            mediaRecorder.start();
-            setIsRecording(true);
-        } catch (err) {
-            console.error("Error starting recording:", err);
-            alert("خطا در دسترسی به میکروفن. لطفا دسترسی لازم را به مرورگر بدهید.");
-        }
-    };
+        setIsLoading(true);
+        setError(null);
+        setDialogueHistory([]);
 
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-            setIsRecording(false);
-        }
-    };
+        const stanceMap = { proponent: 'موافق', opponent: 'مخالف', neutral: 'بی‌طرف' };
+        const userVisiblePrompt = `موضوع مناظره (${analyzerTabLabels[activeTab]}): ${topic}\nموضع درخواستی از شما: ${stanceMap[stance]}`;
+        const modelInstructionPrompt = `Start a ${analyzerTabLabels[activeTab]} debate. The topic is: "${topic}". My assigned stance is "${stanceMap[stance]}". Provide your opening statement based on this stance.`;
 
-    const handleAnalyze = async (finalPrompt: string) => {
-        setLoadingMessage('در حال انجام تحلیل جامع...');
-        
-        const filesForApi = mediaFiles.map(mf => ({
-            inlineData: { data: mf.data, mimeType: mf.type }
-        }));
-
-        const instructionKey = `analyzer-${activeTab}` as AIInstructionType;
+        const userMessage: ChatMessage = { id: generateUUID(), role: 'user', text: userVisiblePrompt, timestamp: Date.now() };
+        setDialogueHistory([userMessage]);
 
         try {
-            if (activeTab === 'fallacy-finder') {
-                const fallacyResult = await findFallacies(finalPrompt, settings.aiInstructions['analyzer-fallacy-finder'], FALLACY_LIST);
-                setResult(fallacyResult);
-            } else {
-                const analysisResult = await performAnalysis(finalPrompt, filesForApi, settings.aiInstructions[instructionKey]);
-                setResult(analysisResult);
-            }
+            const result = await analyzerChat.sendMessage({ message: modelInstructionPrompt });
+            const modelMessage: ChatMessage = { id: generateUUID(), role: 'model', text: result.text, timestamp: Date.now() };
+            setDialogueHistory(prev => [...prev, modelMessage]);
+            setIsDialogueActive(true);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'یک خطای ناشناخته رخ داد.');
+            console.error(err);
+            setError('خطا در شروع مناظره. لطفاً دوباره تلاش کنید.');
+            setDialogueHistory([]);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleSubmit = async (e?: React.FormEvent) => {
-        e?.preventDefault();
-        resetState();
-        if (!topic.trim()) {
-            setError("لطفاً موضوع اصلی را برای تحلیل وارد کنید.");
-            return;
-        }
+    const handleSendDialogueMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!userInput.trim() || !analyzerChat || isLoading) return;
 
+        const userMessage: ChatMessage = { id: generateUUID(), role: 'user', text: userInput, timestamp: Date.now() };
+        setDialogueHistory(prev => [...prev, userMessage]);
+        const currentInput = userInput;
+        setUserInput('');
         setIsLoading(true);
-        setLoadingMessage('در حال بررسی و شفاف‌سازی درخواست...');
 
-        let prompt = `موضوع اصلی: ${topic}`;
-        if (comparisonTopic.trim()) prompt += `\nمقایسه با: ${comparisonTopic}`;
-        if (webUrls.length > 0) prompt += `\nلینک‌های مرتبط: ${webUrls.join(', ')}`;
-        
-        if (activeTab === 'fallacy-finder') {
-             await handleAnalyze(prompt);
-             return;
-        }
-
-        const filesForApi = mediaFiles.map(mf => ({
-            inlineData: { data: mf.data, mimeType: mf.type }
-        }));
-        
         try {
-            const clarificationRes = await askForClarification(prompt, filesForApi);
-            if (clarificationRes.clarificationNeeded) {
-                setClarification(clarificationRes);
-                setLoadingMessage(''); // No longer loading, waiting for user
-                setIsLoading(false);
-            } else {
-                await handleAnalyze(prompt);
+            const resultStream = await analyzerChat.sendMessageStream({ message: currentInput });
+            let modelResponse = '';
+            const thinkingMessage: ChatMessage = { id: generateUUID(), role: 'model', text: '...', timestamp: Date.now() };
+            setDialogueHistory(prev => [...prev, thinkingMessage]);
+
+            for await (const chunk of resultStream) {
+                modelResponse += chunk.text;
+                setDialogueHistory(prev => {
+                    const newMessages = [...prev];
+                    if (newMessages.length > 0) {
+                       newMessages[newMessages.length - 1].text = modelResponse;
+                    }
+                    return newMessages;
+                });
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'یک خطای ناشناخته رخ داد.');
+            console.error(err);
+            setError('خطا در ارسال پیام.');
+            const errorMessage: ChatMessage = { id: generateUUID(), role: 'model', text: 'متاسفانه خطایی در پاسخگویی رخ داد.', timestamp: Date.now() };
+            setDialogueHistory(prev => [...prev, errorMessage]);
+        } finally {
             setIsLoading(false);
         }
     };
-
-    const handleClarificationSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        let fullPrompt = `موضوع اصلی: ${topic}`;
-        if (comparisonTopic.trim()) fullPrompt += `\nمقایسه با: ${comparisonTopic}`;
-        if (webUrls.length > 0) fullPrompt += `\nلینک‌های مرتبط: ${webUrls.join(', ')}`;
-        fullPrompt += `\nپاسخ به سوال شفاف‌سازی: ${clarificationAnswer}`;
-        
-        setIsLoading(true);
-        setClarification(null);
-        handleAnalyze(fullPrompt);
-    };
-
 
     const renderTabButton = (tabId: AnalyzerTabId, label: string) => (
         <button
@@ -222,6 +131,24 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
             {label}
         </button>
     );
+    
+    const renderDialogueMessage = (msg: ChatMessage, index: number) => {
+        const isUser = msg.role === 'user';
+        const bubbleClasses = isUser
+          ? 'bg-cyan-600/50 self-end rounded-br-none'
+          : 'bg-gray-700/50 self-start rounded-bl-none';
+        
+        const formattedText = msg.text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/`([^`]+)`/g, '<code class="bg-gray-800/80 px-1 py-0.5 rounded text-xs text-amber-300">$1</code>')
+            .replace(/\n/g, '<br />');
+
+        return (
+            <div key={index} className={`max-w-xl w-fit p-3 rounded-xl ${bubbleClasses}`}>
+                <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: formattedText }} />
+            </div>
+        );
+    };
 
     return (
         <div className="space-y-6">
@@ -230,63 +157,51 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Input Panel */}
                 <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
-                    <h2 className="text-xl font-bold text-cyan-300 flex items-center gap-3">
-                        <BrainIcon className="w-6 h-6" />
-                        ورودی تحلیلگر
-                    </h2>
-                    <form onSubmit={clarification ? handleClarificationSubmit : handleSubmit} className="space-y-4">
-                        <textarea value={topic} onChange={e => setTopic(e.target.value)} rows={4} placeholder="موضوع اصلی یا متن مورد نظر برای تحلیل را اینجا وارد کنید..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
-                        {activeTab !== 'fallacy-finder' && <textarea value={comparisonTopic} onChange={e => setComparisonTopic(e.target.value)} rows={2} placeholder="موضوع مقایسه‌ای (اختیاری)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>}
-                        <div className="flex gap-2">
-                             <input value={currentUrl} onChange={e => setCurrentUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddUrl())} placeholder="افزودن لینک مرتبط..." className="flex-grow bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 text-sm"/>
-                             <button type="button" onClick={handleAddUrl} className="p-2.5 bg-cyan-600 rounded-lg"><LinkIcon className="w-5 h-5"/></button>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs">
-                            {webUrls.map(url => <div key={url} className="flex items-center gap-1 bg-gray-700 p-1 rounded-full">{url}<button type="button" onClick={() => setWebUrls(u => u.filter(x => x !== url))}><CloseIcon className="w-3 h-3 text-red-400"/></button></div>)}
-                        </div>
-                         {/* File inputs */}
-                        <div className="grid grid-cols-2 gap-2">
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple className="hidden"/>
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"><PaperClipIcon className="w-4 h-4"/>فایل</button>
-                            {isRecording ? (
-                                <button type="button" onClick={stopRecording} className="flex items-center justify-center gap-2 p-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm animate-pulse"><MicrophoneIcon className="w-4 h-4"/>توقف ضبط</button>
-                            ) : (
-                                <button type="button" onClick={startRecording} className="flex items-center justify-center gap-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm"><MicrophoneIcon className="w-4 h-4"/>ضبط صدا</button>
-                            )}
-                        </div>
-                        {mediaFiles.length > 0 && (
-                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                                {mediaFiles.map((file, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs p-1 bg-gray-900/50 rounded">
-                                        {file.type.startsWith('image/') && <img src={file.url} className="w-8 h-8 rounded-sm"/>}
-                                        {file.type.startsWith('audio/') && <AudioIcon className="w-6 h-6 text-cyan-400"/>}
-                                        <span className="truncate mx-2">{file.name}</span>
-                                        <button type="button" onClick={() => setMediaFiles(f => f.filter((_, idx) => idx !== i))}><CloseIcon className="w-4 h-4 text-red-400"/></button>
-                                    </div>
-                                ))}
+                    <h2 className="text-xl font-bold text-cyan-300 flex items-center gap-3"><BrainIcon className="w-6 h-6" /> تحلیل و مناظره ({analyzerTabLabels[activeTab]})</h2>
+                    {!isDialogueActive ? (
+                        <form onSubmit={handleStartDebate} className="space-y-4">
+                            <textarea value={topic} onChange={e => setTopic(e.target.value)} rows={4} placeholder={`موضوع اصلی مناظره (${analyzerTabLabels[activeTab]}) را اینجا وارد کنید...`} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
+                            <div>
+                                <label className="block text-sm font-medium text-cyan-300 mb-2">موضع هوش مصنوعی را انتخاب کنید</label>
+                                <div className="flex gap-2 rounded-lg bg-gray-700/50 p-1">
+                                    <button type="button" onClick={() => setStance('proponent')} className={`w-full py-1 rounded transition-colors text-sm flex items-center justify-center gap-2 ${stance === 'proponent' ? 'bg-green-500 text-black' : 'hover:bg-gray-600'}`}><ThumbsUpIcon className="w-4 h-4" /> موافق</button>
+                                    <button type="button" onClick={() => setStance('opponent')} className={`w-full py-1 rounded transition-colors text-sm flex items-center justify-center gap-2 ${stance === 'opponent' ? 'bg-red-500 text-white' : 'hover:bg-gray-600'}`}><ThumbsDownIcon className="w-4 h-4" /> مخالف</button>
+                                    <button type="button" onClick={() => setStance('neutral')} className={`w-full py-1 rounded transition-colors text-sm ${stance === 'neutral' ? 'bg-cyan-500 text-black' : 'hover:bg-gray-600'}`}>بی‌طرف</button>
+                                </div>
                             </div>
-                        )}
-
-                        <button type="submit" disabled={isLoading} className="w-full flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black font-bold py-3 px-4 rounded-lg transition"><SearchIcon className="w-5 h-5"/> {clarification ? 'ارسال پاسخ و ادامه' : 'شروع تحلیل'}</button>
-                    </form>
-                </div>
-                {/* Output Panel */}
-                <div className="lg:col-span-2 space-y-4">
-                    {isLoading && <div className="text-center p-6"><svg className="animate-spin h-8 w-8 text-cyan-300 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><p className="mt-2 text-sm text-cyan-300">{loadingMessage}</p></div>}
-                    {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
-                    {clarification && (
-                        <div className="p-6 bg-amber-900/30 border border-amber-500/50 rounded-2xl space-y-4">
-                            <h3 className="font-bold text-amber-300">نیاز به شفاف‌سازی</h3>
-                            <p className="text-sm text-amber-200">{clarification.question}</p>
-                            <form onSubmit={handleClarificationSubmit} className="flex gap-2">
-                                <input value={clarificationAnswer} onChange={e => setClarificationAnswer(e.target.value)} autoFocus className="flex-grow bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
-                                <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg">ارسال</button>
-                            </form>
+                            <button type="submit" disabled={isLoading || !topic.trim()} className="w-full flex items-center justify-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-cyan-700 text-black font-bold py-3 px-4 rounded-lg transition">شروع مناظره</button>
+                        </form>
+                    ) : (
+                        <div className="text-center">
+                            <button onClick={resetDebate} className="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">
+                                شروع مناظره جدید
+                            </button>
+                            <p className="text-xs text-gray-500 mt-2">با این کار تاریخچه فعلی پاک می‌شود.</p>
                         </div>
                     )}
-                    {result && <AnalysisResultDisplay result={result} />}
+                </div>
+                <div className="lg:col-span-2 p-4 bg-gray-800/30 border border-gray-600/30 rounded-lg min-h-[60vh] flex flex-col">
+                    <div className="flex-grow space-y-4 overflow-y-auto pr-2">
+                        {dialogueHistory.map(renderDialogueMessage)}
+                        {isLoading && dialogueHistory.length > 0 && dialogueHistory[dialogueHistory.length - 1]?.role === 'user' && 
+                            <div className="max-w-xl w-fit p-3 rounded-xl bg-gray-700/50 self-start rounded-bl-none">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+                                    <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse delay-150"></span>
+                                    <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse delay-300"></span>
+                                </div>
+                            </div>
+                        }
+                        <div ref={dialogueEndRef} />
+                        {!isDialogueActive && <div className="flex items-center justify-center h-full text-gray-500">پنجره گفتگو</div>}
+                    </div>
+                    {isDialogueActive && (
+                        <form onSubmit={handleSendDialogueMessage} className="flex gap-2 mt-4 pt-4 border-t border-gray-700/50">
+                            <input value={userInput} onChange={e => setUserInput(e.target.value)} placeholder="پاسخ خود را بنویسید..." className="flex-grow bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" disabled={isLoading}/>
+                            <button type="submit" disabled={isLoading || !userInput.trim()} className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-800 text-black font-bold p-2 px-4 rounded-lg">ارسال</button>
+                        </form>
+                    )}
                 </div>
             </div>
         </div>

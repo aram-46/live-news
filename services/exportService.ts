@@ -160,34 +160,29 @@ const generateGeneralTopicHtml = (data: GeneralTopicResult): string => {
 
 const generateFactCheckHtml = (data: FactCheckResult): string => {
     let html = `<div class="card">`;
-    html += `<h2>نتیجه کلی: ${escapeHtml(String(data.overallCredibility))} (${escapeHtml(String(data.acceptancePercentage))}% پذیرش)</h2>`;
+    html += `<h2>نتیجه کلی: ${escapeHtml(String(data.overallCredibility))}</h2>`;
     html += `<p>${escapeHtml(data.summary)}</p>`;
-    
-    html += `<div class="structured-section"><h3>منبع اولیه</h3>`;
-    html += `<p><strong>نام:</strong> <a href="${escapeHtml(data.originalSource.link)}" target="_blank">${escapeHtml(data.originalSource.name)}</a></p>`;
-    html += `<p><strong>نویسنده:</strong> ${escapeHtml(data.originalSource.author)}</p>`;
-    html += `<p><strong>تاریخ انتشار:</strong> ${escapeHtml(data.originalSource.publicationDate)}</p>`;
-    html += `<p><strong>اعتبار منبع:</strong> ${escapeHtml(data.originalSource.credibility)}</p>`;
-    html += `</div>`;
 
-    html += `<div class="structured-section"><h3>استدلال‌ها</h3><table>`;
-    html += `<thead><tr><th>موافقین</th><th>مخالفین</th></tr></thead><tbody>`;
-    const rows = Math.max(data.proponents.length, data.opponents.length);
-    for (let i = 0; i < rows; i++) {
-        const proponent = data.proponents[i];
-        const opponent = data.opponents[i];
-        html += `<tr>`;
-        html += `<td>${proponent ? `<strong>${escapeHtml(proponent.name)}:</strong> ${escapeHtml(proponent.argument)}` : ''}</td>`;
-        html += `<td>${opponent ? `<strong>${escapeHtml(opponent.name)}:</strong> ${escapeHtml(opponent.argument)}` : ''}</td>`;
-        html += `</tr>`;
+    if (data.identifiedSources && data.identifiedSources.length > 0) {
+        html += `<div class="structured-section"><h3>منابع شناسایی شده</h3>`;
+        html += `<table><thead><tr><th>نام</th><th>اعتبار</th><th>لینک</th></tr></thead><tbody>`;
+        data.identifiedSources.forEach(source => {
+            html += `<tr>`;
+            html += `<td>${escapeHtml(source.name)}</td>`;
+            html += `<td>${escapeHtml(source.credibility)}</td>`;
+            html += `<td><a href="${escapeHtml(source.url)}" target="_blank">مشاهده</a></td>`;
+            html += `</tr>`;
+        });
+        html += `</tbody></table></div>`;
     }
-    html += `</tbody></table></div>`;
     
-    html += `<div class="structured-section"><h3>منابع مرتبط</h3><ul>`;
-    data.relatedSources.forEach(source => {
-        html += `<li><a href="${escapeHtml(source.url)}" target="_blank">${escapeHtml(source.title)}</a></li>`;
-    });
-    html += `</ul></div>`;
+    if (data.relatedSuggestions && data.relatedSuggestions.length > 0) {
+        html += `<div class="structured-section"><h3>پیشنهادات مرتبط</h3><ul>`;
+        data.relatedSuggestions.forEach(suggestion => {
+            html += `<li>${escapeHtml(suggestion)}</li>`;
+        });
+        html += `</ul></div>`;
+    }
 
     html += `</div>`;
     return html;

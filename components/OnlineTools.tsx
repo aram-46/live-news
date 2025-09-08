@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import WebsiteBuilder from './WebsiteBuilder';
-import { SparklesIcon, DocumentTextIcon, VideoIcon } from './icons';
+import { SparklesIcon, DocumentTextIcon, VideoIcon, WordPressIcon } from './icons';
 import TextFormatter from './TextFormatter';
 import Converter from './Converter';
+import WordPressThemeGenerator from './WordPressThemeGenerator';
 
-type ToolTab = 'website-builder' | 'text-formatter' | 'converter';
+type ToolTab = 'website-builder' | 'text-formatter' | 'converter' | 'wordpress-theme';
 
 interface OnlineToolsProps {
     settings: AppSettings;
@@ -13,7 +14,7 @@ interface OnlineToolsProps {
 }
 
 const OnlineTools: React.FC<OnlineToolsProps> = ({ settings, onOpenUrl }) => {
-    const [activeTab, setActiveTab] = useState<ToolTab>('website-builder');
+    const [activeTab, setActiveTab] = useState<ToolTab>('wordpress-theme');
     
     const renderTabButton = (tabId: ToolTab, label: string, icon: React.ReactNode) => (
         <button
@@ -33,11 +34,13 @@ const OnlineTools: React.FC<OnlineToolsProps> = ({ settings, onOpenUrl }) => {
         <div className="space-y-6">
             <div className="flex border-b border-cyan-400/20 overflow-x-auto">
                 {renderTabButton('website-builder', 'سایت ساز', <SparklesIcon className="w-5 h-5" />)}
+                {renderTabButton('wordpress-theme', 'قالب وردپرس', <WordPressIcon className="w-5 h-5" />)}
                 {renderTabButton('text-formatter', 'متن ساز', <DocumentTextIcon className="w-5 h-5" />)}
                 {renderTabButton('converter', 'تبدیل کننده', <VideoIcon className="w-5 h-5" />)}
             </div>
             <div>
                 {activeTab === 'website-builder' && <WebsiteBuilder settings={settings} />}
+                {activeTab === 'wordpress-theme' && <WordPressThemeGenerator settings={settings} />}
                 {activeTab === 'text-formatter' && <TextFormatter settings={settings} />}
                 {activeTab === 'converter' && <Converter settings={settings} onOpenUrl={onOpenUrl} />}
             </div>
