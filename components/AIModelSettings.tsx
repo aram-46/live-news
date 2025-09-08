@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppAIModelSettings } from '../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from './icons';
@@ -91,6 +90,7 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
         }
     }
     
+    // FIX: Completed the component by adding the return statement and JSX.
     return (
         <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
             <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>

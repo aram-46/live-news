@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { NewsArticle, AppSettings, FontSettings } from '../types';
 import NewsCard from './NewsCard';

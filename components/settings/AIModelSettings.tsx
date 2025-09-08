@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppAIModelSettings } from '../../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from '../icons';
@@ -107,7 +106,7 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
                     <div>
                         <label className="block text-sm font-medium text-cyan-300 mb-2">وضعیت کلید API</label>
                         <div className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 text-sm">
-                            {geminiRealStatus === 'not_set' ? (
+                            {geminiRealStatus === 'not_set' || geminiRealStatus === 'invalid_key' ? (
                                 <span className="text-red-400">کلید API برای Gemini تنظیم نشده است. برای راهنمایی، فایل README.md را مطالعه کنید.</span>
                             ) : (
                                 <span className="text-green-400">کلید API از طریق متغیر محیطی برنامه تنظیم شده است.</span>

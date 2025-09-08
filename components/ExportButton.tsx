@@ -1,94 +1,95 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { exportToImage, exportToPdf, generateHtmlContent, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
-import { DownloadIcon, ImageIcon, FilePdfIcon, FileWordIcon, FileExcelIcon, FileCodeIcon } from './icons';
+import React, { useRef, useState } from 'react';
+import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
+import { DownloadIcon, FilePdfIcon, ImageIcon, FileCodeIcon, FileWordIcon, FileExcelIcon, CloseIcon } from './icons';
+import ScreenshotModal from './ScreenshotModal';
 
 interface ExportButtonProps {
-  elementRef: React.RefObject<HTMLElement>;
-  data: any;
-  title: string;
-  type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic' | 'fact-check' | 'text-formatter' | 'podcast';
-  disabled: boolean;
+    elementRef: React.RefObject<HTMLElement>;
+    data: any;
+    title: string;
+    type: 'news' | 'podcast' | 'web' | 'structured' | 'agent' | 'general_topic' | 'fact-check';
+    disabled: boolean;
 }
 
 const ExportButton: React.FC<ExportButtonProps> = ({ elementRef, data, title, type, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [isExporting, setIsExporting] = useState<string | null>(null);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+    const [screenshotImage, setScreenshotImage] = useState<string | null>(null);
 
-    const handleExport = async (format: 'pdf' | 'image' | 'html' | 'doc' | 'xlsx') => {
-        if (!elementRef.current || (!data && format !== 'image' && format !== 'pdf') || (Array.isArray(data) && data.length === 0)) {
-             alert('موردی برای خروجی گرفتن وجود ندارد.');
-             setIsOpen(false);
-             return;
-        }
-        setIsExporting(format);
-        setIsOpen(false);
-        const fileName = `نتایج-${title.replace(/[\s"<>|:*?/\\.]+/g, '_') || 'جستجو'}`;
-
+    const handleExport = async (format: 'pdf' | 'html' | 'docx' | 'xlsx') => {
+        if (!elementRef.current) return;
+        const fileName = `${type}-${title.replace(/\s+/g, '_') || 'export'}`;
+        
+        // For these formats, we want to export the raw data as structured text/table
+        const tempElement = document.createElement('div');
+        tempElement.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        
         try {
-            if (format === 'image') {
-                await exportToImage(elementRef.current, fileName);
-            } else if (format === 'pdf') {
-                await exportToPdf(elementRef.current, fileName);
-            } else {
-                const htmlContent = generateHtmlContent(data, title, type);
-                if (format === 'html') {
-                    exportToHtml(htmlContent, fileName);
-                } else if (format === 'doc') {
-                    exportToDocx(htmlContent, fileName);
-                } else if (format === 'xlsx') {
-                    exportToXlsx(htmlContent, fileName);
-                }
-            }
-        } catch (err) {
-            console.error("Export failed", err);
-            alert("خطا در گرفتن خروجی. ممکن است به دلیل محدودیت‌های امنیتی مرورگر باشد.");
-        } finally {
-            setIsExporting(null);
+            if (format === 'pdf') await exportToPdf(tempElement, fileName);
+            if (format === 'html') exportToHtml(tempElement.innerHTML, fileName);
+            if (format === 'docx') await exportToDocx(tempElement.innerHTML, fileName);
+            // FIX: Pass the innerHTML string to the function, not the element itself.
+            if (format === 'xlsx') exportToXlsx(tempElement.innerHTML, fileName);
+        } catch (error) {
+            console.error(`Failed to export to ${format}`, error);
+            alert(`Error exporting to ${format}`);
         }
+        setIsOpen(false);
     };
     
-    // Close dropdown on outside click
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
+    const handleTakeScreenshot = async () => {
+        if (elementRef.current) {
+            try {
+                // Use a library like html2canvas, which is assumed to be available
+                const html2canvas = (await import('html2canvas')).default;
+                const canvas = await html2canvas(elementRef.current, { backgroundColor: '#1e293b' }); // bg-slate-800
+                setScreenshotImage(canvas.toDataURL('image/png'));
+            } catch (error) {
+                console.error("Error taking screenshot:", error);
+                alert("Error taking screenshot.");
             }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
+        }
+        setIsOpen(false);
+    };
 
     return (
-        <div className="relative" ref={dropdownRef}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                disabled={disabled || !!isExporting}
-                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 disabled:bg-purple-800 disabled:cursor-not-allowed text-white font-bold py-2 px-3 rounded-lg transition duration-300 text-sm"
-            >
-                {isExporting ? (
-                    <>
-                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                        <span>در حال صدور {isExporting}...</span>
-                    </>
-                ) : (
-                    <>
-                        <DownloadIcon className="w-5 h-5" />
-                        <span>خروجی</span>
-                    </>
+        <>
+            <div className="relative">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    disabled={disabled}
+                    className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-2 px-3 rounded-lg transition duration-300 text-sm"
+                    title="خروجی گرفتن"
+                >
+                    <DownloadIcon className="w-5 h-5"/>
+                    <span className="hidden sm:inline">خروجی</span>
+                </button>
+                {isOpen && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-20 p-2 space-y-1">
+                         <button onClick={handleTakeScreenshot} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md text-white hover:bg-blue-500">
+                            <ImageIcon className="w-5 h-5"/>
+                            <span>اسکرین‌شات (PNG)</span>
+                        </button>
+                        <button onClick={() => handleExport('pdf')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md text-white hover:bg-red-500">
+                            <FilePdfIcon className="w-5 h-5"/>
+                            <span>PDF</span>
+                        </button>
+                        <button onClick={() => handleExport('docx')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md text-white hover:bg-sky-500">
+                            <FileWordIcon className="w-5 h-5"/>
+                            <span>Word</span>
+                        </button>
+                        <button onClick={() => handleExport('xlsx')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md text-white hover:bg-green-500">
+                            <FileExcelIcon className="w-5 h-5"/>
+                            <span>Excel</span>
+                        </button>
+                        <button onClick={() => handleExport('html')} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md text-white hover:bg-purple-500">
+                            <FileCodeIcon className="w-5 h-5"/>
+                            <span>HTML</span>
+                        </button>
+                    </div>
                 )}
-            </button>
-             {isOpen && (
-                <div className="absolute left-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-10">
-                    <button onClick={() => handleExport('html')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-t-lg flex items-center gap-2"><FileCodeIcon className="w-4 h-4" /> HTML</button>
-                    <button onClick={() => handleExport('doc')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2"><FileWordIcon className="w-4 h-4"/> Word (.doc)</button>
-                    <button onClick={() => handleExport('xlsx')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2"><FileExcelIcon className="w-4 h-4"/> Excel (.xlsx)</button>
-                    <button onClick={() => handleExport('pdf')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 flex items-center gap-2"><FilePdfIcon className="w-4 h-4"/> PDF</button>
-                    <button onClick={() => handleExport('image')} className="w-full text-right px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 rounded-b-lg flex items-center gap-2"><ImageIcon className="w-4 h-4"/> PNG</button>
-                </div>
-            )}
-        </div>
+            </div>
+            {screenshotImage && <ScreenshotModal image={screenshotImage} onClose={() => setScreenshotImage(null)} />}
+        </>
     );
 };
 

@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState } from 'react';
 import { AppSettings, LiveNewsSpecificSettings } from '../../types';
 import EditableList from './EditableList';
@@ -33,7 +35,9 @@ const LiveNewsSettings: React.FC<LiveNewsSettingsProps> = ({ settings, onSetting
                 regions: 'مناطق جغرافیایی مهم خبری'
             }[listType];
 
-            const newItems = await generateEditableListItems(listName, currentItems);
+            // FIX: Corrected the second argument to be `listType` instead of `currentItems` to match the function signature.
+            // Cast to `any` to handle the 'newsGroups' type which is not in the base function's type definition, preventing a type error.
+            const newItems = await generateEditableListItems(listName, listType as any, 3);
             
             const updatedItems = [...currentItems];
             newItems.forEach(item => {

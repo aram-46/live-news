@@ -1,8 +1,11 @@
 
 
 
+
+
+
 import React, { useState } from 'react';
-import { IntegrationSettings, WebsiteSettings } from '../types';
+import { IntegrationSettings, WebsiteSettings, AppwriteSettings, SupabaseSettings, TelegramSettings, DiscordSettings, TwitterSettings } from '../types';
 import { TelegramIcon, DiscordIcon, CheckCircleIcon, CloseIcon, WebsiteIcon, TwitterIcon, AppwriteIcon, SupabaseIcon, PlusIcon, TrashIcon } from './icons';
 import { testTelegramConnection, testDiscordConnection, testWebsiteConnection, testTwitterConnection, testAppwriteConnection, testSupabaseConnection } from '../services/integrationService';
 import HelpModal from './HelpModal';
@@ -37,7 +40,7 @@ const RoomIdInput: React.FC<{ roomIds: string[]; onRoomIdsChange: (ids: string[]
                     className="flex-grow bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 text-sm"
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); }}}
                 />
-                <button onClick={handleAdd} className="bg-cyan-600 hover:bg-cyan-500 text-black font-bold p-2.5 rounded-lg">
+                <button type="button" onClick={handleAdd} className="bg-cyan-600 hover:bg-cyan-500 text-black font-bold p-2.5 rounded-lg">
                     <PlusIcon className="w-5 h-5"/>
                 </button>
             </div>
@@ -45,7 +48,7 @@ const RoomIdInput: React.FC<{ roomIds: string[]; onRoomIdsChange: (ids: string[]
                 {roomIds.map(id => (
                     <div key={id} className="flex items-center gap-1.5 bg-gray-700 rounded-full px-2 py-1 text-xs">
                         <span>{id}</span>
-                        <button onClick={() => handleRemove(id)} className="text-gray-400 hover:text-red-400">
+                        <button type="button" onClick={() => handleRemove(id)} className="text-gray-400 hover:text-red-400">
                             <TrashIcon className="w-3.5 h-3.5" />
                         </button>
                     </div>
@@ -61,7 +64,8 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     
     const handleChange = (platform: keyof IntegrationSettings, field: string, value: any) => {
-        setStatus(prev => ({...prev, [platform]: 'idle'}));
+        // FIX: Explicitly cast 'idle' to TestStatus to resolve TypeScript inference issue.
+        setStatus(prev => ({...prev, [platform]: 'idle' as TestStatus}));
         const platformValue = settings[platform];
 
         if (typeof platformValue === 'object' && platformValue !== null) {
@@ -107,13 +111,13 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
                     <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><TelegramIcon className="w-6 h-6"/><span>تلگرام</span></h4>
                     <input type="password" value={settings.telegram.botToken} onChange={(e) => handleChange('telegram', 'botToken', e.target.value)} placeholder="توکن ربات (Bot Token)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <input type="text" value={settings.telegram.chatId} onChange={(e) => handleChange('telegram', 'chatId', e.target.value)} placeholder="شناسه چت (Chat ID)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    <div className="flex items-center gap-2"><button onClick={() => runTest('telegram', () => testTelegramConnection(settings.telegram))} disabled={!settings.telegram.botToken || status['telegram'] === 'testing'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['telegram'])}</div></div>
+                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('telegram', () => testTelegramConnection(settings.telegram))} disabled={!settings.telegram.botToken || status['telegram'] === 'testing'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['telegram'])}</div></div>
                 </div>
                  {/* Discord */}
                 <div className="space-y-4">
                     <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><DiscordIcon className="w-6 h-6"/><span>دیسکورد</span></h4>
                     <input type="password" value={settings.discord.webhookUrl} onChange={(e) => handleChange('discord', 'webhookUrl', e.target.value)} placeholder="آدرس وبهوک (Webhook URL)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    <div className="flex items-center gap-2"><button onClick={() => runTest('discord', () => testDiscordConnection(settings.discord))} disabled={!settings.discord.webhookUrl || status['discord'] === 'testing'} className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['discord'])}</div></div>
+                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('discord', () => testDiscordConnection(settings.discord))} disabled={!settings.discord.webhookUrl || status['discord'] === 'testing'} className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['discord'])}</div></div>
                 </div>
                  {/* Website */}
                 <div className="space-y-4 md:col-span-2">
@@ -127,7 +131,7 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
                              <RoomIdInput roomIds={settings.website.roomIds} onRoomIdsChange={(ids) => handleChange('website', 'roomIds', ids)} />
                          </div>
                     </div>
-                    <div className="flex items-center gap-2"><button onClick={() => runTest('website', () => testWebsiteConnection(settings.website))} disabled={!settings.website.apiUrl || !settings.website.apiKey || status['website'] === 'testing'} className="text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['website'])}</div></div>
+                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('website', () => testWebsiteConnection(settings.website))} disabled={!settings.website.apiUrl || !settings.website.apiKey || status['website'] === 'testing'} className="text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['website'])}</div></div>
                 </div>
                 {/* Twitter */}
                 <div className="space-y-4 md:col-span-2">
@@ -138,7 +142,7 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
                         <input type="password" value={settings.twitter.accessToken} onChange={(e) => handleChange('twitter', 'accessToken', e.target.value)} placeholder="Access Token" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                         <input type="password" value={settings.twitter.accessTokenSecret} onChange={(e) => handleChange('twitter', 'accessTokenSecret', e.target.value)} placeholder="Access Token Secret" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     </div>
-                    <div className="flex items-center gap-2"><button onClick={() => runTest('twitter', () => testTwitterConnection(settings.twitter))} disabled={!settings.twitter.apiKey || status['twitter'] === 'testing'} className="text-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['twitter'])}</div></div>
+                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('twitter', () => testTwitterConnection(settings.twitter))} disabled={!settings.twitter.apiKey || status['twitter'] === 'testing'} className="text-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['twitter'])}</div></div>
                 </div>
              </div>
         </div>
@@ -153,14 +157,14 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
                     <input type="text" value={settings.appwrite.endpoint} onChange={(e) => handleChange('appwrite', 'endpoint', e.target.value)} placeholder="Endpoint URL" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <input type="text" value={settings.appwrite.projectId} onChange={(e) => handleChange('appwrite', 'projectId', e.target.value)} placeholder="Project ID" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <input type="password" value={settings.appwrite.apiKey} onChange={(e) => handleChange('appwrite', 'apiKey', e.target.value)} placeholder="API Key" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    <div className="flex items-center gap-2"><button onClick={() => runTest('appwrite', () => testAppwriteConnection(settings.appwrite))} disabled={!settings.appwrite.projectId || status['appwrite'] === 'testing'} className="text-sm bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['appwrite'])}</div></div>
+                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('appwrite', () => testAppwriteConnection(settings.appwrite))} disabled={!settings.appwrite.projectId || status['appwrite'] === 'testing'} className="text-sm bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['appwrite'])}</div></div>
                 </div>
                 {/* Supabase */}
                 <div className="space-y-4">
                     <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><SupabaseIcon className="w-6 h-6"/><span>Supabase</span></h4>
                     <input type="text" value={settings.supabase.projectUrl} onChange={(e) => handleChange('supabase', 'projectUrl', e.target.value)} placeholder="Project URL" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <input type="password" value={settings.supabase.anonKey} onChange={(e) => handleChange('supabase', 'anonKey', e.target.value)} placeholder="Anon (Public) Key" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    <div className="flex items-center gap-2"><button onClick={() => runTest('supabase', () => testSupabaseConnection(settings.supabase))} disabled={!settings.supabase.projectUrl || status['supabase'] === 'testing'} className="text-sm bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['supabase'])}</div></div>
+                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('supabase', () => testSupabaseConnection(settings.supabase))} disabled={!settings.supabase.projectUrl || status['supabase'] === 'testing'} className="text-sm bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['supabase'])}</div></div>
                 </div>
              </div>
         </div>

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef, useCallback } from 'react';
 import { AppSettings, MediaFile, generateUUID, PageConfig, MenuItem, Slide } from '../types';
 import { generateAboutMePage } from '../services/geminiService';
@@ -91,7 +92,8 @@ const PageBuilder: React.FC<{ settings: AppSettings }> = ({ settings }) => {
      const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files) return;
-        Array.from(files).forEach(file => {
+        // FIX: Explicitly typed the 'file' parameter to 'File' to avoid it being inferred as 'unknown'.
+        Array.from(files).forEach((file: File) => {
             if (!file.type.startsWith('image/')) return;
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -114,9 +116,10 @@ const PageBuilder: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setResultHtml('');
         setResultText('');
         try {
+            // FIX: Explicitly typed the 's' and 'img' parameters to 'Slide' to avoid them being inferred as 'unknown'.
             const imagePayload = pageConfig.slideshow.slides
-                .filter(s => s.type === 'upload')
-                .map(img => ({ data: img.content, mimeType: 'image/png' })); // Simplification for mime type
+                .filter((s: Slide) => s.type === 'upload')
+                .map((img: Slide) => ({ data: img.content, mimeType: 'image/png' })); // Simplification for mime type
             
             const html = await generateAboutMePage(description, siteUrl, platform, imagePayload, pageConfig, settings.aiInstructions['page-builder']);
             setResultHtml(html);

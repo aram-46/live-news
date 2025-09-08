@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { FactCheckResult, Credibility, AppSettings, MediaFile, ChatMessage, generateUUID } from '../types';
-import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon } from './icons';
+import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon, NewsIcon, VideoIcon, AudioIcon, ImageIcon, FilePdfIcon, LinkIcon, ScaleIcon } from './icons';
 import { factCheckNews } from '../services/geminiService';
 import DeepAnalysis from './DeepAnalysis';
 import ExportButton from './ExportButton';
@@ -169,7 +169,7 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             
             <div className="flex flex-col sm:flex-row gap-2">
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,video/*,audio/*,.pdf" className="hidden" />
-                <button onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-cyan-400 hover:text-cyan-300 transition-colors"><PaperClipIcon className="w-5 h-5"/> ضمیمه فایل (شامل PDF)</button>
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-cyan-400 hover:text-cyan-300 transition-colors"><PaperClipIcon className="w-5 h-5"/> ضمیمه فایل (شامل PDF)</button>
                 {isRecording ? 
                     <button onClick={handleStopRecording} className="flex-1 flex items-center justify-center gap-2 p-3 bg-red-500/20 border-2 border-red-500/50 rounded-lg text-red-300 animate-pulse"><StopIcon className="w-5 h-5"/> توقف ضبط</button> :
                     <button onClick={handleStartRecording} className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-cyan-400 hover:text-cyan-300 transition-colors"><MicrophoneIcon className="w-5 h-5"/> ضبط صدا</button>
@@ -210,11 +210,157 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     );
 }
 
+const SpecializedFactCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
+    type SubTab = 'political' | 'news' | 'video' | 'audio' | 'image' | 'pdf' | 'url';
+    const [activeSubTab, setActiveSubTab] = useState<SubTab>('political');
+
+    const [text, setText] = useState('');
+    const [url, setUrl] = useState('');
+    const [mediaFile, setMediaFile] = useState<MediaFile | null>(null);
+
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [result, setResult] = useState<FactCheckResult | null>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const resultRef = useRef<HTMLDivElement>(null);
+
+    const subTabs: { id: SubTab; label: string; icon: React.ReactNode; inputType: 'text' | 'file' | 'url'; fileAccept?: string }[] = [
+        { id: 'political', label: 'سیاسی', icon: <ScaleIcon className="w-5 h-5" />, inputType: 'text' },
+        { id: 'news', label: 'اخبار', icon: <NewsIcon className="w-5 h-5" />, inputType: 'text' },
+        { id: 'video', label: 'ویدئو', icon: <VideoIcon className="w-5 h-5" />, inputType: 'file', fileAccept: 'video/*' },
+        { id: 'audio', label: 'صدا', icon: <AudioIcon className="w-5 h-5" />, inputType: 'file', fileAccept: 'audio/*' },
+        { id: 'image', label: 'عکس', icon: <ImageIcon className="w-5 h-5" />, inputType: 'file', fileAccept: 'image/*' },
+        { id: 'pdf', label: 'PDF', icon: <FilePdfIcon className="w-5 h-5" />, inputType: 'file', fileAccept: '.pdf' },
+        { id: 'url', label: 'لینک سایت', icon: <LinkIcon className="w-5 h-5" />, inputType: 'url' },
+    ];
+    
+    const activeSubTabInfo = subTabs.find(t => t.id === activeSubTab)!;
+
+    const resetInputs = useCallback(() => {
+        setText('');
+        setUrl('');
+        setMediaFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        setResult(null);
+        setError(null);
+    }, []);
+
+    const handleTabChange = (tabId: SubTab) => {
+        setActiveSubTab(tabId);
+        resetInputs();
+    };
+    
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64Data = (e.target?.result as string).split(',')[1];
+            setMediaFile({ name: file.name, type: file.type, data: base64Data, url: URL.createObjectURL(file) });
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleFactCheck = async () => {
+        const hasText = text.trim() !== '';
+        const hasUrl = url.trim() !== '';
+        const hasFile = mediaFile !== null;
+        if (!hasText && !hasUrl && !hasFile) {
+            setError('لطفاً محتوایی برای بررسی وارد کنید.');
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+        setResult(null);
+
+        try {
+            const fileData = mediaFile ? { data: mediaFile.data, mimeType: mediaFile.type } : null;
+            const promptPrefix = `Fact-check the following ${activeSubTabInfo.label} content:`;
+            const mainContent = activeSubTabInfo.inputType === 'text' ? text : activeSubTabInfo.inputType === 'url' ? '' : 'Attached file';
+            const fullPrompt = `${promptPrefix}\n${mainContent}`;
+
+            const apiResult = await factCheckNews(fullPrompt, fileData, url || undefined, settings.aiInstructions['fact-check']);
+            setResult(apiResult);
+        } catch (err) {
+            console.error(err);
+            setError('خطا در انجام راستی‌آزمایی. لطفاً دوباره تلاش کنید.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const renderInput = () => {
+        switch (activeSubTabInfo.inputType) {
+            case 'text':
+                return <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={`متن ${activeSubTabInfo.label} را برای بررسی وارد کنید...`} rows={8} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>;
+            case 'url':
+                return <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="آدرس لینک سایت را برای بررسی وارد کنید..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />;
+            case 'file':
+                return (
+                    <div>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept={activeSubTabInfo.fileAccept} className="hidden" />
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-cyan-400 hover:text-cyan-300 transition-colors">
+                            <UploadIcon className="w-5 h-5"/> آپلود {activeSubTabInfo.label}
+                        </button>
+                         {mediaFile && (
+                            <div className="mt-2 p-2 bg-gray-900/50 rounded-lg flex items-center justify-between gap-2">
+                                <p className="text-xs text-gray-400 truncate">فایل: {mediaFile.name}</p>
+                                <button onClick={resetInputs}><CloseIcon className="w-4 h-4 text-gray-500 hover:text-white"/></button>
+                            </div>
+                        )}
+                    </div>
+                );
+        }
+    };
+    
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-4">
+                 <div className="flex flex-wrap gap-1 p-1 bg-gray-900/30 rounded-lg">
+                    {subTabs.map(tab => (
+                        <button key={tab.id} onClick={() => handleTabChange(tab.id)} className={`flex-1 flex items-center justify-center gap-2 px-2 py-2 text-xs rounded-md transition-colors ${activeSubTab === tab.id ? 'bg-cyan-500/20 text-cyan-300' : 'text-gray-400 hover:bg-gray-700/50'}`}>
+                           {tab.icon} <span>{tab.label}</span>
+                        </button>
+                    ))}
+                </div>
+                <div className="p-4 bg-black/20 rounded-lg space-y-4">
+                    {renderInput()}
+                    <button onClick={handleFactCheck} disabled={isLoading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold py-3 rounded-lg transition">
+                        {isLoading ? <svg className="animate-spin h-5 w-5"/> : <CheckCircleIcon className="w-5 h-5"/>}
+                        {isLoading ? 'در حال بررسی...' : 'بررسی اعتبار'}
+                    </button>
+                </div>
+            </div>
+            <div className="lg:col-span-2">
+                 {isLoading && <div className="p-6 bg-black/20 rounded-2xl border border-cyan-400/10 animate-pulse h-64"></div>}
+                 {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
+                 {!isLoading && !result && <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400"><p>نتیجه راستی‌آزمایی در اینجا نمایش داده خواهد شد.</p></div>}
+                 {result && (
+                     <div ref={resultRef} className="p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20 space-y-3 animate-fade-in">
+                        <div className="flex justify-between items-center">
+                             <h3 className="text-lg font-bold text-cyan-200">نتیجه بررسی</h3>
+                             <ExportButton elementRef={resultRef} data={result} title={`fact-check-${activeSubTab}`} type="fact-check" disabled={false} />
+                        </div>
+                        <p><strong>نتیجه کلی:</strong> <span className={result.overallCredibility === Credibility.High ? 'text-green-400' : result.overallCredibility === Credibility.Medium ? 'text-yellow-400' : 'text-red-400'}>{result.overallCredibility}</span></p>
+                        <p className="text-sm text-gray-300 leading-relaxed">{result.summary}</p>
+                        <div className="text-xs text-gray-400 pt-2 border-t border-gray-700">
+                            <p><strong>منبع اصلی یافت شده:</strong> <a href={result.originalSource.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{result.originalSource.name}</a></p>
+                            <p><strong>تاریخ انتشار:</strong> {result.originalSource.publicationDate}</p>
+                        </div>
+                     </div>
+                 )}
+            </div>
+        </div>
+    );
+};
+
 
 const FactCheck: React.FC<FactCheckProps> = ({ settings }) => {
-    const [activeMainTab, setActiveMainTab] = useState<'quick' | 'deep'>('quick');
+    const [activeMainTab, setActiveMainTab] = useState<'quick' | 'deep' | 'specialized'>('quick');
 
-    const renderTabButton = (tabId: 'quick' | 'deep', label: string) => (
+    const renderTabButton = (tabId: 'quick' | 'deep' | 'specialized', label: string) => (
         <button
             onClick={() => setActiveMainTab(tabId)}
             className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 ${
@@ -236,11 +382,13 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings }) => {
                 </div>
                 <div className="flex border-b border-cyan-400/20">
                     {renderTabButton('quick', 'بررسی سریع')}
+                    {renderTabButton('specialized', 'بررسی تخصصی')}
                     {renderTabButton('deep', 'تحلیل عمیق')}
                 </div>
             </div>
             
             {activeMainTab === 'quick' && <QuickCheck settings={settings} />}
+            {activeMainTab === 'specialized' && <SpecializedFactCheck settings={settings} />}
             {activeMainTab === 'deep' && <DeepAnalysis settings={settings} />}
         </div>
     );

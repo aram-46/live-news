@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { NewsArticle, Credibility, AppSettings, FontSettings } from '../types';
 import { LinkIcon, ShareIcon, TelegramIcon, DiscordIcon, CloseIcon, ClipboardIcon, CheckCircleIcon } from './icons';

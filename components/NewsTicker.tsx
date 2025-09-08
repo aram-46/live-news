@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { TickerArticle, TickerSettings } from '../types';
 import { LinkIcon } from './icons';

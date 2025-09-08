@@ -1,17 +1,14 @@
 
 
+
+
+
+
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings } from '../types';
+import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings, FindSourcesOptions } from '../types';
 import { findSourcesWithAI } from '../services/geminiService';
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
-
-export interface FindSourcesOptions {
-  region: 'any' | 'internal' | 'external';
-  language: 'any' | 'persian' | 'non-persian';
-  count: number;
-  credibility: 'any' | 'high' | 'medium';
-}
 
 interface SourcesManagerProps {
   sources: Sources;
@@ -88,8 +85,8 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
         const sourcesToAdd: Source[] = [];
         let skippedCount = 0;
         const existingUrls = new Set(sources[activeAiCategory].map(s => s.url.toLowerCase().trim()));
-
-        newFoundSources.forEach(s => {
+        
+        newFoundSources.forEach((s: Partial<Source>) => {
             if(s.url && existingUrls.has(s.url.toLowerCase().trim())) {
                 skippedCount++;
             } else if (s.url) {
@@ -172,7 +169,8 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
             const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet, { header: ["نام سایت", "حوزه", "آدرس سایت", "فعالیت", "درجه اعتبار", "کشور یا منطقه", "دسته بندی"] });
 
             const newSources: Sources = JSON.parse(JSON.stringify(sources));
-            const existingUrls = new Set(Object.values(sources).flat().map(s => s.url.toLowerCase().trim()));
+            // FIX: Explicitly typed the 's' parameter to 'Source' to avoid it being inferred as 'unknown'.
+            const existingUrls = new Set(Object.values(sources).flat().map((s: Source) => s.url.toLowerCase().trim()));
             let addedCount = 0;
             let skippedCount = 0;
             

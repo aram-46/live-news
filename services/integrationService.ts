@@ -1,17 +1,9 @@
-import { AppSettings, IntegrationSettings, NewsArticle, AppwriteSettings } from '../types';
+import { AppSettings, IntegrationSettings, NewsArticle, AppwriteSettings, TelegramSettings, DiscordSettings, TwitterSettings, SupabaseSettings } from '../types';
 import { INITIAL_SETTINGS } from '../data/defaults';
 import { Client, Databases, ID, Query } from 'appwrite';
 
 const SETTINGS_DOCUMENT_ID = "main-settings";
 
-interface TelegramSettings {
-    botToken: string;
-    chatId: string;
-}
-
-interface DiscordSettings {
-    webhookUrl: string;
-}
 
 // --- Appwrite Helper ---
 function getAppwriteClient(settings: AppwriteSettings): { client: Client, databases: Databases } | null {
@@ -40,8 +32,8 @@ async function getSettingsFromAppwrite(settings: AppwriteSettings): Promise<AppS
             SETTINGS_DOCUMENT_ID
         );
         // Assuming the settings are stored in a field named 'content' as a stringified JSON
-        if (document && typeof document.content === 'string') {
-            return JSON.parse(document.content);
+        if (document && typeof (document as any).content === 'string') {
+            return JSON.parse((document as any).content);
         }
     } catch (error: any) {
         // Appwrite throws an error with code 404 if the document is not found.
@@ -245,7 +237,7 @@ export async function testWebsiteConnection(settings: IntegrationSettings['websi
     }
 }
 
-export async function testTwitterConnection(settings: IntegrationSettings['twitter']): Promise<boolean> {
+export async function testTwitterConnection(settings: TwitterSettings): Promise<boolean> {
     if (!settings.apiKey || !settings.apiSecretKey || !settings.accessToken || !settings.accessTokenSecret) return false;
     console.log("Testing Twitter connection (placeholder)...");
     await new Promise(resolve => setTimeout(resolve, 1500));
@@ -294,7 +286,7 @@ export async function testAppwriteConnection(settings: AppwriteSettings): Promis
     return allSuccessful;
 }
 
-export async function testSupabaseConnection(settings: IntegrationSettings['supabase']): Promise<boolean> {
+export async function testSupabaseConnection(settings: SupabaseSettings): Promise<boolean> {
     if (!settings.projectUrl || !settings.anonKey) return false;
     console.log("Testing Supabase connection (placeholder)...");
      try {

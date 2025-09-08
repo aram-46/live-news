@@ -1,327 +1,104 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import saveAs from 'file-saver';
+import { Packer, Document, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
-import { NewsArticle, WebResult, StatisticsResult, ScientificArticleResult, AgentExecutionResult, GeneralTopicResult, FactCheckResult, PodcastResult } from '../types';
 
-// Helper to sanitize text for HTML
-const escapeHtml = (unsafe: string | undefined | null) => {
-    if(!unsafe) return '';
-    return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+// --- Helper Functions ---
+function getElementHtml(element: HTMLElement): string {
+    // A simplified clone to avoid modifying the original element
+    const clonedElement = element.cloneNode(true) as HTMLElement;
+    // You might add more cleanup here (e.g., removing buttons)
+    return clonedElement.innerHTML;
 }
 
-// --- HTML Generation ---
+// --- Export Functions ---
 
-const generateHtmlStyles = () => `
-<style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0a0a0a; color: #e5e7eb; padding: 20px; direction: rtl; }
-    h1 { color: #67e8f9; border-bottom: 2px solid #06b6d4; padding-bottom: 10px; }
-    .container { max-width: 800px; margin: auto; }
-    .card { background-color: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-bottom: 15px; overflow: hidden; }
-    .card h2 { margin-top: 0; color: #93c5fd; font-size: 1.2em; }
-    .card p { margin: 5px 0; }
-    .card a { color: #67e8f9; text-decoration: none; }
-    .card a:hover { text-decoration: underline; }
-    .meta { font-size: 0.8em; color: #9ca3af; margin-top: 10px; }
-    .meta span { margin-left: 15px; }
-    img { max-width: 100px; float: right; margin-right: 15px; border-radius: 4px; }
-    .structured-section { border-top: 1px solid #4b5563; margin-top: 10px; padding-top: 10px; }
-    .structured-section h3 { color: #a5b4fc; font-size: 1.1em; }
-    ul { list-style-type: disc; padding-right: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #4b5563; padding: 8px; text-align: right; }
-    th { background-color: #374151; color: #d1d5db; }
-</style>
-`;
-
-const generateNewsHtml = (data: NewsArticle[]): string => {
-    return data.map(article => `
-        <div class="card">
-            ${article.imageUrl ? `<img src="${escapeHtml(article.imageUrl)}" alt="Image for ${escapeHtml(article.title)}">` : ''}
-            <h2><a href="${escapeHtml(article.link)}" target="_blank">${escapeHtml(article.title)}</a></h2>
-            <p>${escapeHtml(article.summary)}</p>
-            <div class="meta">
-                <span><strong>منبع:</strong> ${escapeHtml(article.source)}</span>
-                <span><strong>اعتبار:</strong> ${escapeHtml(String(article.credibility))}</span>
-                <span><strong>دسته:</strong> ${escapeHtml(article.category)}</span>
-            </div>
-        </div>
-    `).join('');
-};
-
-const generateWebHtml = (data: WebResult[]): string => {
-    return data.map(result => `
-        <div class="card">
-             ${result.imageUrl ? `<img src="${escapeHtml(result.imageUrl)}" alt="Image for ${escapeHtml(result.title)}">` : ''}
-            <h2><a href="${escapeHtml(result.link)}" target="_blank">${escapeHtml(result.title)}</a></h2>
-            <p>${escapeHtml(result.description)}</p>
-            <div class="meta">
-                <span><strong>منبع:</strong> ${escapeHtml(result.source)}</span>
-            </div>
-        </div>
-    `).join('');
-};
-
-const generatePodcastHtml = (data: PodcastResult[]): string => {
-    return data.map(podcast => `
-        <div class="card">
-            <h2><a href="${escapeHtml(podcast.link)}" target="_blank">${escapeHtml(podcast.title)}</a></h2>
-            <p>${escapeHtml(podcast.summary)}</p>
-            <div class="meta">
-                <span><strong>ناشر:</strong> ${escapeHtml(podcast.publisher)}</span>
-                <span><strong>موضوع:</strong> ${escapeHtml(podcast.topic)}</span>
-                <span><strong>سال:</strong> ${escapeHtml(podcast.publicationYear)}</span>
-            </div>
-            <div class="structured-section">
-                <h3>دیدگاه‌ها</h3>
-                <table>
-                    <thead><tr><th>موافقین</th><th>مخالفین</th></tr></thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <ul>${podcast.proponents.map(p => `<li><strong>${escapeHtml(p.name)}:</strong> ${escapeHtml(p.argument)}</li>`).join('')}</ul>
-                            </td>
-                            <td>
-                                <ul>${podcast.opponents.map(o => `<li><strong>${escapeHtml(o.name)}:</strong> ${escapeHtml(o.argument)}</li>`).join('')}</ul>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `).join('');
-};
-
-const generateStructuredHtml = (data: StatisticsResult | ScientificArticleResult): string => {
-    let html = `<div class="card">`;
-    html += `<h2>${escapeHtml(data.title)}</h2>`;
-    html += `<p>${escapeHtml(data.summary)}</p>`;
-    // Source details
-    html += `<div class="structured-section"><h3>جزئیات منبع</h3><p><strong>نام:</strong> <a href="${escapeHtml(data.sourceDetails.link)}" target="_blank">${escapeHtml(data.sourceDetails.name)}</a></p><p><strong>نویسنده:</strong> ${escapeHtml(data.sourceDetails.author)}</p><p><strong>تاریخ:</strong> ${escapeHtml(data.sourceDetails.publicationDate)}</p></div>`;
-    // Analysis
-    html += `<div class="structured-section"><h3>تحلیل</h3><p><strong>اعتبار فعلی:</strong> ${escapeHtml(data.analysis.currentValidity)}</p></div>`;
-    html += `</div>`;
-    return html;
-};
-
-const generateAgentHtml = (data: AgentExecutionResult): string => {
-    let html = `<div class="card">`;
-    html += `<h2>خلاصه نتایج</h2><p>${escapeHtml(data.summary)}</p>`;
-
-    html += `<div class="structured-section"><h3>مراحل انجام شده</h3>`;
-    data.steps.forEach(step => {
-        html += `<p><strong>${escapeHtml(step.title)}:</strong> ${escapeHtml(step.description)}</p>`;
+export async function exportToImage(element: HTMLElement, fileName: string): Promise<void> {
+    const canvas = await html2canvas(element, { 
+        backgroundColor: '#111827', // A dark background similar to the theme
+        useCORS: true,
+        scale: 2 // Higher resolution
     });
-    html += `</div>`;
-
-    html += `<div class="structured-section"><h3>منابع اصلی</h3><ul>`;
-    data.sources.forEach(source => {
-        html += `<li><a href="${escapeHtml(source.uri)}" target="_blank">${escapeHtml(source.title)}</a></li>`;
-    });
-    html += `</ul></div>`;
-    
-    html += `</div>`;
-    return html;
-};
-
-const generateGeneralTopicHtml = (data: GeneralTopicResult): string => {
-    let html = `<div class="card">`;
-    html += `<h2>${escapeHtml(data.title)}</h2><p>${escapeHtml(data.summary)}</p>`;
-    
-    html += `<div class="structured-section"><h3>نکات کلیدی</h3>`;
-    data.keyPoints.forEach(point => {
-        html += `<h4>${escapeHtml(point.title)}</h4><p>${escapeHtml(point.description)}</p>`;
-    });
-    html += `</div>`;
-
-    if (data.comparison) {
-        html += `<div class="structured-section"><h3>تحلیل مقایسه‌ای</h3><table>`;
-        html += `<thead><tr><th>جنبه مقایسه</th><th>${escapeHtml(data.comparison.topicA)}</th><th>${escapeHtml(data.comparison.topicB)}</th></tr></thead>`;
-        html += `<tbody>`;
-        data.comparison.points.forEach(p => {
-            html += `<tr><td>${escapeHtml(p.aspect)}</td><td>${escapeHtml(p.analysisA)}</td><td>${escapeHtml(p.analysisB)}</td></tr>`;
-        });
-        html += `</tbody></table></div>`;
-    }
-
-    html += `<div class="structured-section"><h3>منابع</h3><ul>`;
-    data.sources.forEach(source => {
-        html += `<li><a href="${escapeHtml(source.uri)}" target="_blank">${escapeHtml(source.title)}</a></li>`;
-    });
-    html += `</ul></div>`;
-    
-    html += `</div>`;
-    return html;
-};
-
-const generateFactCheckHtml = (data: FactCheckResult): string => {
-    let html = `<div class="card">`;
-    html += `<h2>نتیجه کلی: ${escapeHtml(String(data.overallCredibility))}</h2>`;
-    html += `<p>${escapeHtml(data.summary)}</p>`;
-
-    if (data.identifiedSources && data.identifiedSources.length > 0) {
-        html += `<div class="structured-section"><h3>منابع شناسایی شده</h3>`;
-        html += `<table><thead><tr><th>نام</th><th>اعتبار</th><th>لینک</th></tr></thead><tbody>`;
-        data.identifiedSources.forEach(source => {
-            html += `<tr>`;
-            html += `<td>${escapeHtml(source.name)}</td>`;
-            html += `<td>${escapeHtml(source.credibility)}</td>`;
-            html += `<td><a href="${escapeHtml(source.url)}" target="_blank">مشاهده</a></td>`;
-            html += `</tr>`;
-        });
-        html += `</tbody></table></div>`;
-    }
-    
-    if (data.relatedSuggestions && data.relatedSuggestions.length > 0) {
-        html += `<div class="structured-section"><h3>پیشنهادات مرتبط</h3><ul>`;
-        data.relatedSuggestions.forEach(suggestion => {
-            html += `<li>${escapeHtml(suggestion)}</li>`;
-        });
-        html += `</ul></div>`;
-    }
-
-    html += `</div>`;
-    return html;
-};
-
-export const generateHtmlContent = (data: any, title: string, type: 'news' | 'web' | 'structured' | 'agent' | 'general_topic' | 'fact-check' | 'text-formatter' | 'podcast'): string => {
-    let contentHtml = '';
-    if (!data || (Array.isArray(data) && data.length === 0)) {
-        contentHtml = '<p>No data to display.</p>';
-    } else if (type === 'news') {
-        contentHtml = generateNewsHtml(data as NewsArticle[]);
-    } else if (type === 'web') {
-        contentHtml = generateWebHtml(data as WebResult[]);
-    } else if (type === 'podcast') {
-        contentHtml = generatePodcastHtml(data as PodcastResult[]);
-    } else if (type === 'structured') {
-        contentHtml = generateStructuredHtml(data as StatisticsResult | ScientificArticleResult);
-    } else if (type === 'agent') {
-        contentHtml = generateAgentHtml(data as AgentExecutionResult);
-    } else if (type === 'general_topic') {
-        contentHtml = generateGeneralTopicHtml(data as GeneralTopicResult);
-    } else if (type === 'fact-check') {
-        contentHtml = generateFactCheckHtml(data as FactCheckResult);
-    } else if (type === 'text-formatter') {
-        contentHtml = data; // For text formatter, the data is already the HTML content
-    }
-    
-    return `
-        <!DOCTYPE html>
-        <html lang="fa" dir="rtl">
-        <head>
-            <meta charset="UTF-8">
-            <title>خروجی نتایج برای: ${escapeHtml(title)}</title>
-            ${generateHtmlStyles()}
-        </head>
-        <body>
-            <div class="container">
-                <h1>نتایج برای: "${escapeHtml(title)}"</h1>
-                ${contentHtml}
-            </div>
-        </body>
-        </html>
-    `;
+    const dataUrl = canvas.toDataURL('image/png');
+    saveAs(dataUrl, `${fileName}.png`);
 }
 
-export const exportToHtml = (htmlContent: string, fileName: string) => {
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${fileName}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-};
-
-export const exportToDocx = (htmlContent: string, fileName: string) => {
-    const bodyContent = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-    const content = bodyContent ? bodyContent[1] : htmlContent;
-
-    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word</title></head><body>";
-    const footer = "</body></html>";
-    const sourceHTML = header + content + footer;
-
-    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
-    const fileDownload = document.createElement("a");
-    document.body.appendChild(fileDownload);
-    fileDownload.href = source;
-    fileDownload.download = `${fileName}.doc`;
-    fileDownload.click();
-    document.body.removeChild(fileDownload);
-};
-
-export const exportToXlsx = (htmlContent: string, fileName: string) => {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-    
-    const data: { Content: string }[] = [];
-    const elements = tempDiv.querySelectorAll('h1, h2, h3, p, li, th, td');
-    
-    elements.forEach(el => {
-        if (el.textContent && el.textContent.trim() !== '') {
-            data.push({ "Content": el.textContent.trim() });
-        }
+export async function exportToPdf(element: HTMLElement, fileName:string): Promise<void> {
+    const canvas = await html2canvas(element, { 
+        backgroundColor: '#111827',
+        useCORS: true,
+        scale: 2
     });
-
-    if (data.length === 0) {
-        alert("محتوایی برای خروجی اکسل یافت نشد.");
-        return;
-    }
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Formatted Text");
-    XLSX.writeFile(workbook, `${fileName}.xlsx`);
-};
-
-
-// --- Image & PDF Export ---
-
-export const exportToImage = async (element: HTMLElement, fileName: string) => {
-    const canvas = await html2canvas(element, { backgroundColor: '#0a0a0a', useCORS: true });
-    const link = document.createElement('a');
-    link.download = `${fileName}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-};
-
-
-export const exportToPdf = async (element: HTMLElement, fileName: string) => {
-    const canvas = await html2canvas(element, { backgroundColor: '#0a0a0a', useCORS: true, scale: 2 });
-    const imgData = canvas.toDataURL('image/jpeg', 0.9);
-    
+    const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({
         orientation: 'p',
         unit: 'px',
-        format: 'a4',
+        format: [canvas.width, canvas.height]
+    });
+    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+    pdf.save(`${fileName}.pdf`);
+}
+
+export function exportToHtml(htmlContent: string, fileName: string): void {
+    const styledHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <title>${fileName}</title>
+            <style>
+                body { font-family: sans-serif; background-color: #111827; color: #d1d5db; padding: 20px; }
+                /* Add more styles here to match the app's look and feel */
+            </style>
+        </head>
+        <body>
+            ${htmlContent}
+        </body>
+        </html>
+    `;
+    const blob = new Blob([styledHtml], { type: 'text/html;charset=utf-8' });
+    saveAs(blob, `${fileName}.html`);
+}
+
+
+export async function exportToDocx(htmlContent: string, fileName: string): Promise<void> {
+    // This is a simplified conversion. For complex HTML, a library like html-to-docx is needed.
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    const paragraphs = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, li')).map(el => {
+        return new Paragraph({
+            children: [new TextRun(el.textContent || '')],
+            style: el.tagName.startsWith('H') ? 'heading' + el.tagName.substring(1) : undefined
+        });
     });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-    
-    const ratio = canvasWidth / canvasHeight;
-    const newCanvasWidth = pdfWidth;
-    const newCanvasHeight = newCanvasWidth / ratio;
-    
-    let heightLeft = newCanvasHeight;
-    let position = 0;
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: paragraphs,
+        }],
+    });
 
-    pdf.addImage(imgData, 'JPEG', 0, position, newCanvasWidth, newCanvasHeight);
-    heightLeft -= pdfHeight;
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `${fileName}.docx`);
+}
 
-    while (heightLeft > 0) {
-        position = -newCanvasHeight + heightLeft; // Adjust position for the next part of the image
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, newCanvasWidth, newCanvasHeight);
-        heightLeft -= pdfHeight;
+export function exportToXlsx(htmlContent: string, fileName: string): void {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    // This creates a basic XLSX from a table if one exists in the HTML
+    const table = tempDiv.querySelector('table');
+    if (table) {
+        const wb = XLSX.utils.table_to_book(table);
+        XLSX.writeFile(wb, `${fileName}.xlsx`);
+    } else {
+        // Fallback for non-tabular content
+        const data = Array.from(tempDiv.querySelectorAll('p, h3')).map(el => [el.tagName, el.textContent]);
+        const ws = XLSX.utils.aoa_to_sheet([['Element', 'Content'], ...data]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Content');
+        XLSX.writeFile(wb, `${fileName}.xlsx`);
     }
-    
-    pdf.save(`${fileName}.pdf`);
-};
+}

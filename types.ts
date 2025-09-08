@@ -1,17 +1,17 @@
-/**
- * Generates a universally unique identifier (UUID).
- * Uses the standard `crypto.randomUUID` if available in a secure context,
- * otherwise falls back to a simple pseudo-random string to ensure
- * functionality in non-secure contexts (like HTTP) or older browsers.
- */
-export function generateUUID(): string {
-  if (self.crypto && self.crypto.randomUUID) {
-    return self.crypto.randomUUID();
-  }
-  // Basic fallback for insecure contexts (http) or older browsers
-  return Date.now().toString(36) + Math.random().toString(36).substring(2);
-}
+// This utility function is used to generate unique IDs for sources, articles, etc.
+export const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0,
+      v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
+export interface Theme {
+  id: string;
+  name: string;
+  className: string;
+}
 
 export enum Credibility {
   High = 'بسیار معتبر',
@@ -19,20 +19,238 @@ export enum Credibility {
   Low = 'نیازمند بررسی',
 }
 
-export interface Filters {
-  query: string;
+export interface Source {
+  id: string;
+  name: string;
+  field: string;
+  url: string;
+  activity: string;
+  credibility: string;
+  region: string;
+}
+
+export type SourceCategory = 'fact-check' | 'news-agencies' | 'social-media' | 'financial' | 'analytical';
+
+export const sourceCategoryLabels: Record<SourceCategory, string> = {
+  'fact-check': 'فکت-چک و راستی‌آزمایی',
+  'news-agencies': 'خبرگزاری‌ها و رسانه‌ها',
+  'social-media': 'شبکه‌های اجتماعی و وبلاگ‌ها',
+  'financial': 'منابع مالی و اقتصادی',
+  'analytical': 'منابع تحلیلی و تحقیقاتی',
+};
+
+export type Sources = Record<SourceCategory, Source[]>;
+
+// FIX: Moved FindSourcesOptions from SourcesManager.tsx to here to be globally accessible.
+export interface FindSourcesOptions {
+  region: 'any' | 'internal' | 'external';
+  language: 'any' | 'persian' | 'non-persian';
+  count: number;
+  credibility: 'any' | 'high' | 'medium';
+}
+
+export type AIInstructionType = 
+    | 'fact-check' | 'deep-analysis' | 'news-search' | 'video-search' 
+    | 'audio-search' | 'book-search' | 'news-display' | 'news-ticker' 
+    | 'statistics-search' | 'science-search' | 'religion-search'
+    | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot'
+    | 'music-search' | 'dollar-search' | 'video-converter'
+    | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical'
+    | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical'
+    | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder'
+    | 'browser-agent' | 'general-topics'
+    | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation'
+    | 'page-builder' | 'podcast-search' | 'crypto-data' | 'crypto-search' | 'crypto-analysis'
+    | 'wordpress-theme';
+
+
+export const aiInstructionLabels: Record<AIInstructionType, string> = {
+  'fact-check': 'دستورالعمل‌های فکت-چک',
+  'deep-analysis': 'دستورالعمل‌های تحلیل عمیق',
+  'news-search': 'دستورالعمل‌های جستجوی اخبار',
+  'video-search': 'دستورالعمل‌های جستجوی ویدئو',
+  'audio-search': 'دستورالعمل‌های جستجوی صدا',
+  'book-search': 'دستورالعمل‌های جستجوی کتاب و سایت',
+  'news-display': 'دستورالعمل‌های نمایش اخبار',
+  'news-ticker': 'دستورالعمل‌های نوار اخبار',
+  'statistics-search': 'دستورالعمل‌های جستجوی آمار',
+  'science-search': 'دستورالعمل‌های جستجوی علمی',
+  'religion-search': 'دستورالعمل‌های جستجوی دینی',
+  'telegram-bot': 'دستورالعمل‌های ربات تلگرام',
+  'discord-bot': 'دستورالعمل‌های ربات دیسکورد',
+  'website-bot': 'دستورالعمل‌های ربات وب‌سایت',
+  'twitter-bot': 'دستورالعمل‌های ربات توییتر',
+  'music-search': 'دستورالعمل‌های جستجوی موسیقی',
+  'dollar-search': 'دستورالعمل‌های جستجوی ارز',
+  'video-converter': 'دستورالعمل‌های تبدیل‌گر ویدئو',
+  'analyzer-political': 'تحلیل‌گر سیاسی',
+  'analyzer-religious': 'تحلیل‌گر دینی',
+  'analyzer-logical': 'تحلیل‌گر منطق',
+  'analyzer-philosophical': 'تحلیل‌گر فلسفی',
+  'analyzer-philosophy-of-science': 'تحلیل‌گر فلسفه علم',
+  'analyzer-historical': 'تحلیل‌گر تاریخی',
+  'analyzer-physics': 'تحلیل‌گر فیزیک',
+  'analyzer-theological': 'تحلیل‌گر کلامی',
+  'analyzer-fallacy-finder': 'مغالطه‌یاب',
+  'browser-agent': 'عامل هوشمند وب',
+  'general-topics': 'موضوعات عمومی',
+  'seo-keywords': 'کلمات کلیدی سئو',
+  'website-names': 'نام وب‌سایت',
+  'domain-names': 'نام دامنه',
+  'article-generation': 'تولید مقاله',
+  'page-builder': 'صفحه‌ساز',
+  'podcast-search': 'جستجوی پادکست',
+  'crypto-data': 'داده‌های ارز دیجیتال',
+  'crypto-search': 'جستجوی ارز دیجیتال',
+  'crypto-analysis': 'تحلیل ارز دیجیتال',
+  'wordpress-theme': 'قالب وردپرس',
+};
+
+export type AIInstructions = Record<AIInstructionType, string>;
+
+export interface DisplaySettings {
+  columns: number;
+  articlesPerColumn: number;
+  showImages: boolean;
+  slideshow: {
+    enabled: boolean;
+    delay: number;
+  };
+  allowedCategories: string[];
+}
+
+export interface TickerSettings {
   categories: string[];
+  speed: number;
+  direction: 'left' | 'right';
+  textColor: string;
+  hoverColor: string;
+  linkColor: string;
+  borderColor: string;
+  pauseOnHover: boolean;
+  effect: 'none' | 'glow';
+}
+
+export interface FontSettings {
+  family: string;
+  size: number;
+  color: {
+    from: string;
+    to: string;
+  };
+}
+
+export interface LiveNewsSpecificSettings {
+  categories: string[];
+  newsGroups: string[];
   regions: string[];
-  sources: string[];
+  selectedSources: Record<string, string[]>;
+  font: FontSettings;
+  updates: {
+    autoCheck: boolean;
+    interval: number; // in minutes
+  };
+  autoSend: boolean;
+}
+
+export interface TelegramSettings {
+  botToken: string;
+  chatId: string;
+}
+export interface DiscordSettings {
+  webhookUrl: string;
+}
+export interface WebsiteSettings {
+  apiUrl: string;
+  apiKey: string;
+  botUserId: string;
+  roomIds: string[];
+}
+export interface TwitterSettings {
+  apiKey: string;
+  apiSecretKey: string;
+  accessToken: string;
+  accessTokenSecret: string;
+}
+export interface AppwriteSettings {
+    endpoint: string;
+    projectId: string;
+    apiKey: string;
+    databaseId: string;
+    settingsCollectionId: string;
+    newsArticlesCollectionId: string;
+    chatHistoryCollectionId: string;
+}
+export interface SupabaseSettings {
+    projectUrl: string;
+    anonKey: string;
+}
+
+export interface IntegrationSettings {
+  telegram: TelegramSettings;
+  discord: DiscordSettings;
+  website: WebsiteSettings;
+  twitter: TwitterSettings;
+  appwrite: AppwriteSettings;
+  supabase: SupabaseSettings;
+  cloudflareWorkerUrl: string;
+  cloudflareWorkerToken: string;
+}
+
+export type AIModelProvider = 'gemini' | 'openai' | 'openrouter' | 'groq';
+
+export interface AppAIModelSettings {
+    gemini: { apiKey: string };
+    openai: { apiKey: string };
+    openrouter: { apiKey: string; modelName: string; };
+    groq: { apiKey: string; };
+}
+
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'podcast' | 'music' | 'dollar' | 'general_topics';
+
+export interface SearchOptions {
+    news: { categories: string[]; regions: string[]; sources: string[]; };
+    video: { categories: string[]; regions: string[]; sources: string[]; };
+    audio: { categories: string[]; regions: string[]; sources: string[]; };
+    book: { categories: string[]; regions: string[]; sources: string[]; };
+    podcast: { categories: string[]; regions: string[]; sources: string[]; };
+    music: { categories: string[]; regions: string[]; sources: string[]; };
+    dollar: { categories: string[]; regions: string[]; sources: string[]; };
+    stats: { categories: string[]; regions: string[]; sources: string[]; };
+    science: { categories: string[]; regions: string[]; sources: string[]; };
+    religion: { categories: string[]; regions: string[]; sources: string[]; };
+    general_topics: { categories: string[]; regions: string[]; sources: string[]; };
+}
+
+
+export interface AppSettings {
+  theme: Theme;
+  sources: Sources;
+  aiInstructions: AIInstructions;
+  display: DisplaySettings;
+  ticker: TickerSettings;
+  liveNewsSpecifics: LiveNewsSpecificSettings;
+  integrations: IntegrationSettings;
+  database: { name: string; host: string; password: string };
+  aiModelSettings: AppAIModelSettings;
+  customCss: string;
+  searchOptions: SearchOptions;
+  allTickerCategories: string[];
+  password?: string;
+  structuredSearchDomains: string[];
+  structuredSearchRegions: string[];
+  structuredSearchSources: string[];
+  generalTopicDomains: string[];
+  modelAssignments: Partial<Record<AIInstructionType, AIModelProvider>>;
 }
 
 export interface NewsArticle {
   title: string;
   summary: string;
+  link: string;
   source: string;
   publicationTime: string;
   credibility: Credibility | string;
-  link: string;
   category: string;
   imageUrl?: string;
 }
@@ -42,8 +260,48 @@ export interface TickerArticle {
   link: string;
 }
 
-export interface FactCheckSource {
-    url: string;
+export interface Filters {
+  query: string;
+  categories: string[];
+  regions: string[];
+  sources: string[];
+}
+
+export interface FactCheckResult {
+  overallCredibility: Credibility | string;
+  summary: string;
+  originalSource: {
+    name: string;
+    link: string;
+    publicationDate: string;
+  };
+}
+
+export interface MediaFile {
+  name: string;
+  type: string;
+  data: string; // Base64 encoded
+  url: string; // Object URL for preview
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: number;
+}
+
+
+export interface WebResult {
+  title: string;
+  link: string;
+  description: string;
+  source: string;
+  imageUrl?: string;
+}
+
+export interface GroundingSource {
+    uri: string;
     title: string;
 }
 
@@ -52,94 +310,6 @@ export interface StanceHolder {
     argument: string;
 }
 
-export interface FactCheckResult {
-    overallCredibility: Credibility;
-    summary: string;
-    identifiedSources: {
-        name: string;
-        url: string;
-        credibility: string;
-    }[];
-    relatedSuggestions?: string[];
-    relatedSources: FactCheckSource[];
-}
-
-export interface ChartData {
-    type: 'bar' | 'pie' | 'line' | 'table';
-    title: string;
-    labels: string[];
-    datasets: {
-        label: string;
-        data: number[];
-        color?: string; // Optional: for multi-color charts
-    }[];
-}
-
-export interface StructuredSource {
-    name: string;
-    link: string;
-    publicationDate: string;
-    author: string;
-    credibility: string;
-}
-
-export interface StructuredAnalysis {
-    proponents: StanceHolder[];
-    opponents: StanceHolder[];
-    acceptancePercentage: number;
-    currentValidity: string;
-    alternativeResults?: string;
-}
-
-export interface StatisticsResult {
-    title: string;
-    summary: string;
-    keywords: string[];
-    chart: ChartData;
-    sourceDetails: StructuredSource & {
-        methodology: string;
-        sampleSize: string;
-    };
-    analysis: StructuredAnalysis;
-    relatedSuggestions: string[];
-    references: FactCheckSource[];
-}
-
-export interface ScientificArticleResult {
-    title:string;
-    summary: string;
-    keywords: string[];
-    sourceDetails: StructuredSource & {
-        researchType: string;
-        targetAudience: string;
-    };
-    analysis: StructuredAnalysis;
-    relatedSuggestions: string[];
-    references: FactCheckSource[];
-}
-
-export type MediaFile = {
-    name: string;
-    type: string; // Mime type
-    data: string; // Base64 data
-    url: string; // Object URL for preview
-};
-
-// --- New Web Search Result Types ---
-export interface WebResult {
-    title: string;
-    link: string;
-    source: string;
-    description: string;
-    imageUrl?: string;
-}
-
-export interface GroundingSource {
-    uri: string;
-    title: string;
-}
-
-// --- New Podcast Search Result Type ---
 export interface HostingSite {
     name: string;
     url: string;
@@ -155,47 +325,219 @@ export interface PodcastResult {
     audioUrl: string;
     proponents: StanceHolder[];
     opponents: StanceHolder[];
-    hostingSites: HostingSite[];
+    hostingSites?: HostingSite[];
+}
+
+export interface ChartData {
+  type: 'bar' | 'pie' | 'line' | 'table';
+  title: string;
+  labels: string[];
+  datasets: {
+    label: string;
+    data: number[];
+    color?: string;
+  }[];
+}
+
+export interface StatisticsResult {
+  title: string;
+  summary: string;
+  keywords: string[];
+  chart: ChartData;
+  sourceDetails: {
+    name: string;
+    link: string;
+    publicationDate: string;
+    author: string;
+    credibility: string;
+  };
+  analysis: {
+    acceptancePercentage: number;
+    currentValidity: string;
+    alternativeResults: string;
+  };
+  relatedSuggestions: string[];
+}
+export interface ScientificArticleResult extends Omit<StatisticsResult, 'chart'> {}
+
+export interface AgentClarificationRequest {
+  isClear: boolean;
+  refinedPrompt?: string;
+  questions?: {
+    questionText: string;
+    questionType: 'multiple-choice' | 'text-input';
+    options?: string[];
+  }[];
+}
+
+export interface AgentExecutionResult {
+  summary: string;
+  steps: {
+    title: string;
+    description: string;
+  }[];
+  sources: GroundingSource[];
+}
+
+export type MenuItem = {
+  id: string;
+  label: string;
+  link: string;
+  parentId?: string;
+  children?: MenuItem[];
+};
+export type Slide = {
+    id: string;
+    type: 'upload' | 'url';
+    content: string; // base64 data or url
+    name: string;
+    caption: string;
+};
+export interface PageConfig {
+    template: 'Minimalist Dark' | 'Professional Light' | 'Creative Portfolio';
+    layoutColumns: 1 | 2;
+    header: boolean;
+    footer: boolean;
+    menu: {
+        enabled: boolean;
+        items: MenuItem[];
+        fontFamily: string;
+        fontSize: number;
+        textColor: string;
+        bgColor: string;
+        borderColor: string;
+        borderRadius: number;
+        gradientFrom: string;
+        gradientTo: string;
+        iconColor: string;
+    };
+    slideshow: {
+        enabled: boolean;
+        slides: Slide[];
+        style: 'Carousel' | 'Grid';
+        animation: 'Slide' | 'Fade';
+        direction: 'Horizontal' | 'Vertical';
+        delay: number;
+        speed: number;
+        width: string;
+        height: string;
+        captionFontFamily: string;
+        captionFontSize: number;
+        captionColor: string;
+        captionBgColor: string;
+    };
+    marquee: {
+        enabled: boolean;
+        text: string;
+        fontFamily: string;
+        fontSize: number;
+        textColor: string;
+        bgColor: string;
+        speed: number;
+        direction: 'left' | 'right';
+        border: string;
+        padding: string;
+    };
 }
 
 
-// --- Video Converter Result Types ---
-export interface VideoAnalysisEvidence {
-    evidenceText: string;
-    isReal: boolean;
-    isCredible: boolean;
-
-    isRelevant: boolean;
-    sourceLink: string;
+export interface WordPressThemePlan {
+    understanding: string;
+    themeName: string;
+    features: string[];
+    colorPalette: {
+        primary: string;
+        secondary: string;
+        accent: string;
+        background: string;
+        text: string;
+    };
+    typography: {
+        headings: {
+            fontFamily: string;
+            fontWeight: number;
+        };
+        body: {
+            fontFamily: string;
+            fontSize: string;
+        };
+    };
+}
+export interface AnalysisStance {
+  name: string;
+  argument: string;
+  scientificLevel: number; // 1-5
 }
 
-export interface VideoAnalysisClaim {
+export interface AnalysisExample {
+    title: string;
+    content: string;
+}
+
+export interface AnalysisResult {
+    understanding: string;
+    analysis: string;
+    proponentPercentage: number;
+    proponents: AnalysisStance[];
+    opponents: AnalysisStance[];
+    examples: AnalysisExample[];
+    sources: { title: string; url: string; }[];
+    techniques: string[];
+    suggestions: { title: string; url: string; }[];
+}
+
+export interface FallacyResult {
+    identifiedFallacies: {
+        type: string;
+        quote: string;
+        explanation: string;
+        correctedStatement: string;
+    }[];
+}
+
+export type AnalyzerTabId = 'political' | 'religious' | 'logical' | 'philosophical' | 'philosophy-of-science' | 'historical' | 'physics' | 'theological' | 'fallacy-finder';
+export const analyzerTabLabels: Record<AnalyzerTabId, string> = {
+    'political': 'سیاسی',
+    'religious': 'دینی',
+    'logical': 'منطقی',
+    'philosophical': 'فلسفی',
+    'philosophy-of-science': 'فلسفه علم',
+    'historical': 'تاریخی',
+    'physics': 'فیزیک',
+    'theological': 'کلامی',
+    'fallacy-finder': 'مغالطه‌یاب'
+};
+export type Stance = 'proponent' | 'opponent' | 'neutral';
+
+export interface VideoFactCheckClaim {
     claimText: string;
     analysis: string;
-    evidence: VideoAnalysisEvidence[];
+    evidence: {
+        evidenceText: string;
+        isReal: boolean;
+        isCredible: boolean;
+        isRelevant: boolean;
+        sourceLink?: string;
+    }[];
 }
 
 export interface VideoFactCheckResult {
     overallVerdict: string;
-    claims: VideoAnalysisClaim[];
-}
-
-export interface VideoTimestamp {
-    keyword: string;
-    sentence: string;
-    timestamp: string; // HH:MM:SS
+    claims: VideoFactCheckClaim[];
 }
 
 export interface VideoTimestampResult {
     found: boolean;
-    timestamps: VideoTimestamp[];
+    timestamps: {
+        timestamp: string;
+        sentence: string;
+    }[];
 }
 
 export interface TranscriptionResult {
     transcription: string;
 }
 
-// --- NEW CRYPTO TRACKER TYPES ---
 export interface CryptoCoin {
     id: string;
     symbol: string;
@@ -212,466 +554,53 @@ export interface SimpleCoin {
     name: string;
 }
 
-export interface CryptoSource {
-  name: string;
-  link: string;
-  credibility: Credibility | string;
-}
-
 export interface CryptoSearchResult {
-  coin: CryptoCoin;
-  sources: CryptoSource[];
-  summary: string;
+    coin: CryptoCoin;
+    summary: string;
+    sources: {
+        name: string;
+        link: string;
+        credibility: Credibility | string;
+    }[];
 }
 
 export interface CryptoAnalysisResult {
-  coinName: string;
-  symbol: string;
-  summary: string;
-  technicalAnalysis: {
-    title: string;
-    content: string;
-    keyLevels: {
-      support: string[];
-      resistance: string[];
+    coinName: string;
+    symbol: string;
+    summary: string;
+    technicalAnalysis: {
+        title: string;
+        content: string;
+        keyLevels: {
+            support: string[];
+            resistance: string[];
+        };
     };
-  };
-  fundamentalAnalysis: {
-    title: string;
-    content: string;
-    keyMetrics: { name: string; value: string }[];
-  };
-  sentimentAnalysis: {
-    title: string;
-    content: string;
-    score: number; // e.g., 0-100 (bearish to bullish)
-  };
-  futureOutlook: string;
-  keyFactors: { title: string; description: string }[];
-}
-
-// --- NEW DEEP ANALYSIS TYPES ---
-export interface DeepAnalysisSource {
-    sourceName: string;
-    link: string; // Direct link to the source page
-    credibilityPercentage: number; // 0-100
-    collectionMethod: string; // e.g., "Investigative Journalism", "Academic Study"
-    proponentPercentage: number; // 0-100
-    opponentPercentage: number; // 0-100
-    proponentSummary: string;
-    opponentSummary: string;
-    proponentCredibility: string; // e.g., "High", "Based on emotion"
-    opponentCredibility: string; // e.g., "Well-sourced", "Lacks evidence"
-}
-
-// --- SETTINGS ---
-
-export type SourceCategory = 'fact-check' | 'news-agencies' | 'social-media' | 'financial' | 'analytical';
-
-export const sourceCategoryLabels: Record<SourceCategory, string> = {
-  'fact-check': 'منابع فکت چک',
-  'news-agencies': 'خبرگزاری‌ها',
-  'social-media': 'شبکه‌های اجتماعی',
-  'financial': 'بازار مالی',
-  'analytical': 'تحلیلی'
-};
-
-export interface Source {
-  id: string;
-  name: string;
-  field: string;
-  url: string;
-  activity: string;
-  credibility: string;
-  region: string;
-}
-
-export type Sources = Record<SourceCategory, Source[]>;
-
-export type AIInstructionType = 'fact-check' | 'news-search' | 'news-display' | 'news-ticker' | 'statistics-search' | 'science-search' | 'religion-search' | 'video-search' | 'audio-search' | 'book-search' | 'telegram-bot' | 'discord-bot' | 'website-bot' | 'twitter-bot' | 'music-search' | 'dollar-search' | 'video-converter' | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical' | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical' | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder' | 'browser-agent' | 'general-topics' | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation' | 'page-builder' | 'podcast-search' | 'crypto-data' | 'crypto-search' | 'crypto-analysis' | 'deep-analysis' | 'wordpress-theme';
-
-export const aiInstructionLabels: Record<AIInstructionType, string> = {
-  'fact-check': 'بررسی سریع (فکت چک)',
-  'deep-analysis': 'تحلیل عمیق موضوع',
-  'news-search': 'جستجوی خبر',
-  'video-search': 'جستجوی ویدئو',
-  'audio-search': 'جستجوی صدا',
-  'book-search': 'جستجوی کتاب و سایت',
-  'news-display': 'نمایش اخبار زنده',
-  'news-ticker': 'نوار اخبار متحرک',
-  'statistics-search': 'جستجوی آمار',
-  'science-search': 'جستجوی علمی',
-  'religion-search': 'جستجوی دینی',
-  'telegram-bot': 'رفتار ربات تلگرام',
-  'discord-bot': 'رفتار ربات دیسکورد',
-  'website-bot': 'رفتار ربات وب‌سایت',
-  'twitter-bot': 'رفتار ربات توییتر',
-  'music-search': 'جستجوی موزیک و آهنگ',
-  'dollar-search': 'جستجوی قیمت دلار',
-  'video-converter': 'تحلیل و تبدیل ویدئو',
-  'analyzer-political': 'تحلیل سیاسی',
-  'analyzer-religious': 'تحلیل دینی',
-  'analyzer-logical': 'تحلیل منطقی',
-  'analyzer-philosophical': 'تحلیل فلسفی',
-  'analyzer-philosophy-of-science': 'تحلیل فلسفه علم',
-  'analyzer-historical': 'تحلیل تاریخی',
-  'analyzer-physics': 'تحلیل فیزیک',
-  'analyzer-theological': 'تحلیل کلامی',
-  'analyzer-fallacy-finder': 'مغلطه یاب',
-  'browser-agent': 'عامل هوشمند وب',
-  'general-topics': 'جستجوی موضوعات عمومی',
-  'seo-keywords': 'تولید کلمات کلیدی سئو',
-  'website-names': 'پیشنهاد نام سایت',
-  'domain-names': 'پیشنهاد نام دامنه',
-  'article-generation': 'تولید محتوای مقاله',
-  'page-builder': 'صفحه ساز (تولید درباره من)',
-  'wordpress-theme': 'تولید کننده قالب وردپرس',
-  'podcast-search': 'جستجوی پادکست',
-  'crypto-data': 'داده‌های ارز دیجیتال',
-  'crypto-search': 'جستجوی ارز دیجیتال',
-  'crypto-analysis': 'تحلیل ارز دیجیتال',
-};
-
-export type AIInstructions = Record<AIInstructionType, string>;
-
-export interface Theme {
-  id: string;
-  name: string;
-  className: string;
-}
-
-export interface DisplaySettings {
-    columns: number;
-    articlesPerColumn: number;
-    showImages: boolean;
-    slideshow: {
-        enabled: boolean;
-        delay: number; // in seconds
+    fundamentalAnalysis: {
+        title: string;
+        content: string;
+        keyMetrics: { name: string; value: string }[];
     };
-    allowedCategories: string[];
-}
-
-export interface TickerSettings {
-    categories: string[];
-    speed: number; // seconds for full marquee
-    direction: 'left' | 'right';
-    textColor: string;
-    hoverColor: string;
-    linkColor: string;
-    borderColor: string;
-    pauseOnHover: boolean;
-    effect: 'none' | 'glow';
-}
-
-export interface WebsiteSettings {
-    apiUrl: string;
-    apiKey: string;
-    botUserId: string;
-    roomIds: string[];
-}
-
-export interface TwitterSettings {
-    apiKey: string;
-    apiSecretKey: string;
-    accessToken: string;
-    accessTokenSecret: string;
-}
-
-export interface AppwriteSettings {
-    endpoint: string;
-    projectId: string;
-    apiKey: string; // Used for server-side operations, not client-side db.
-    databaseId: string;
-    settingsCollectionId: string;
-    newsArticlesCollectionId: string;
-    chatHistoryCollectionId: string;
-}
-
-export interface SupabaseSettings {
-    projectUrl: string;
-    anonKey: string;
-}
-
-export interface IntegrationSettings {
-    telegram: {
-        botToken: string;
-        chatId: string;
+    sentimentAnalysis: {
+        title: string;
+        content: string;
+        score: number;
     };
-    discord: {
-        webhookUrl: string;
-    };
-    website: WebsiteSettings;
-    twitter: TwitterSettings;
-    appwrite: AppwriteSettings;
-    supabase: SupabaseSettings;
-    // New settings for Cloudflare D1 backend
-    cloudflareWorkerUrl: string;
-    cloudflareWorkerToken: string;
+    futureOutlook: string;
 }
 
-export interface DatabaseSettings {
-    name: string;
-    host: string;
-    password: string
-}
-
-export interface AIProviderSettings {
-    apiKey: string;
-}
-
-export interface AppAIModelSettings {
-    gemini: AIProviderSettings;
-    openai: AIProviderSettings;
-    openrouter: AIProviderSettings & {
-      modelName?: string;
-    };
-    groq: AIProviderSettings;
-}
-
-export interface FontSettings {
-  family: string;
-  size: number;
-  color: {
-    from: string;
-    to: string;
-  };
-}
-
-export interface UpdateSettings {
-  autoCheck: boolean;
-  interval: number; // in minutes
-}
-
-export interface LiveNewsSpecificSettings {
-  categories: string[];
-  newsGroups: string[];
-  regions: string[];
-  selectedSources: Record<string, string[]>;
-  font: FontSettings;
-  updates: UpdateSettings;
-  autoSend: boolean;
-}
-
-export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'stats' | 'science' | 'religion' | 'music' | 'dollar' | 'general_topics' | 'podcast';
-
-export interface SearchOptions {
-    categories: string[];
-    regions: string[];
-    sources: string[];
-}
-
-export type AIModelProvider = 'gemini' | 'openai' | 'openrouter' | 'groq';
-
-export interface AppSettings {
-    theme: Theme;
-    sources: Sources;
-    aiInstructions: AIInstructions;
-    display: DisplaySettings;
-    ticker: TickerSettings;
-    liveNewsSpecifics: LiveNewsSpecificSettings;
-    integrations: IntegrationSettings;
-    database: DatabaseSettings;
-    aiModelSettings: AppAIModelSettings;
-    customCss: string;
-    searchOptions: Record<SearchTab, SearchOptions>;
-    allTickerCategories: string[];
-    password?: string;
-    structuredSearchDomains: string[];
-    structuredSearchRegions: string[];
-    structuredSearchSources: string[];
-    generalTopicDomains: string[];
-    modelAssignments: Partial<Record<AIInstructionType, AIModelProvider>>;
-}
-
-// --- New General Topics Search Result Type ---
 export interface GeneralTopicResult {
     title: string;
     summary: string;
-    keyPoints: { title: string; description: string }[];
-    comparison: {
+    keyPoints: { title: string; description: string; }[];
+    comparison?: {
         topicA: string;
         topicB: string;
-        points: { aspect: string; analysisA: string; analysisB: string }[];
-    } | null;
+        points: {
+            aspect: string;
+            analysisA: string;
+            analysisB: string;
+        }[];
+    };
     sources: GroundingSource[];
-}
-
-// --- CHAT ---
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'model';
-  text: string;
-  timestamp: number;
-}
-
-
-// --- ANALYZER ---
-
-export type AnalyzerTabId = 'political' | 'religious' | 'logical' | 'philosophical' | 'philosophy-of-science' | 'historical' | 'physics' | 'theological' | 'fallacy-finder';
-
-export type Stance = 'proponent' | 'opponent' | 'neutral';
-
-export const analyzerTabLabels: Record<AnalyzerTabId, string> = {
-  'political': 'تحلیل سیاسی',
-  'religious': 'تحلیل دینی',
-  'logical': 'تحلیل منطقی',
-  'philosophical': 'تحلیل فلسفی',
-  'philosophy-of-science': 'فلسفه علم',
-  'historical': 'تحلیل تاریخی',
-  'physics': 'تحلیل فیزیک',
-  'theological': 'تحلیل کلامی',
-  'fallacy-finder': 'مغلطه یاب',
-};
-
-export interface ClarificationResponse {
-    clarificationNeeded: boolean;
-    question: string;
-}
-
-export interface AnalysisStance {
-    name: string;
-    argument: string;
-    scientificLevel: number; // A rating from 1 to 5
-}
-
-export interface AnalysisExample {
-    title: string;
-    content: string;
-}
-
-export interface AnalysisResult {
-    understanding: string;
-    analysis: string;
-    proponents: AnalysisStance[];
-    opponents: AnalysisStance[];
-    proponentPercentage: number; // 0-100
-    sources: { title: string; url: string; }[];
-    techniques: string[];
-    suggestions: { title: string; url: string; }[];
-    examples: AnalysisExample[];
-}
-
-export interface Fallacy {
-    type: string;
-    quote: string;
-    explanation: string;
-    correctedStatement: string;
-}
-
-export interface FallacyResult {
-    identifiedFallacies: Fallacy[];
-}
-
-// --- WEB AGENT ---
-export interface AgentQuestion {
-    questionText: string;
-    questionType: 'multiple-choice' | 'text-input';
-    options?: string[]; // For multiple-choice
-}
-export interface AgentClarificationRequest {
-    isClear: boolean;
-    questions: AgentQuestion[];
-    refinedPrompt: string; // AI might refine it in one go
-}
-
-export interface AgentExecutionResult {
-    summary: string;
-    steps: { title: string; description: string; }[];
-    sources: GroundingSource[];
-}
-
-// --- PAGE BUILDER (Enhanced) ---
-export interface MenuItem {
-    id: string;
-    label: string;
-    link: string;
-    children?: MenuItem[];
-}
-
-export interface MenuOptions {
-    enabled: boolean;
-    items: MenuItem[];
-    // Styling
-    fontFamily: string;
-    fontSize: number;
-    textColor: string;
-    bgColor: string;
-    borderColor: string;
-    borderRadius: number;
-    gradientFrom: string;
-    gradientTo: string;
-    iconColor: string;
-}
-
-export interface Slide {
-    id: string;
-    type: 'url' | 'upload';
-    content: string; // URL or Base64 data
-    name: string; // File name or label for URL
-    caption: string;
-}
-
-export interface SlideshowOptions {
-    enabled: boolean;
-    slides: Slide[];
-    style: 'Carousel' | 'Grid' | 'Fade Gallery';
-    animation: 'Slide' | 'Fade' | 'Zoom';
-    direction: 'Horizontal' | 'Vertical';
-    delay: number; // in seconds
-    speed: number; // in milliseconds
-    width: string; // e.g., '100%', '800px'
-    height: string; // e.g., '400px'
-    // Caption styling
-    captionFontFamily: string;
-    captionFontSize: number;
-    captionColor: string;
-    captionBgColor: string;
-}
-
-export interface MarqueeOptions {
-    enabled: boolean;
-    text: string;
-    // Styling
-    fontFamily: string;
-    fontSize: number;
-    textColor: string;
-    bgColor: string;
-    speed: number; // seconds
-    direction: 'left' | 'right';
-    border: string; // e.g., '1px solid #FFFFFF'
-    padding: string; // e.g., '10px'
-}
-
-export interface PageConfig {
-    template: 'Minimalist Dark' | 'Professional Light' | 'Creative Portfolio';
-    layoutColumns: 1 | 2;
-    header: boolean;
-    footer: boolean;
-    menu: MenuOptions;
-    slideshow: SlideshowOptions;
-    marquee: MarqueeOptions;
-}
-
-// --- NEW: WORDPRESS THEME GENERATOR ---
-export interface WordPressThemePlan {
-    understanding: string;
-    themeName: string;
-    featureBreakdown: {
-        header: string;
-        footer: string;
-        mainContent: string;
-        sidebar: string;
-        adminPanel: string;
-    };
-    colorPalette: {
-        primary: string;
-        secondary: string;
-        background: string;
-        text: string;
-        accent: string;
-    };
-    typography: {
-        fontFamily: string;
-        baseSize: string;
-    };
 }

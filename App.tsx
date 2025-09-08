@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Add missing icon imports that will be added to the icons.tsx file
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon } from './components/icons';

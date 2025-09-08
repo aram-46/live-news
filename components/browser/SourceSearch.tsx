@@ -35,9 +35,11 @@ const SourceSearch: React.FC<SourceSearchProps> = ({ settings }) => {
         e.preventDefault();
         if (!query.trim() || selectedSourceIds.length === 0) return;
 
-        const selectedSources = allSources.filter(source => selectedSourceIds.includes(source.id));
+        // FIX: Explicitly typed the 'source' parameter to 'Source' to avoid it being inferred as 'unknown'.
+        const selectedSources = allSources.filter((source: Source) => selectedSourceIds.includes(source.id));
 
-        selectedSources.forEach(source => {
+        // FIX: Explicitly typed the 'source' parameter to 'Source' to avoid it being inferred as 'unknown'.
+        selectedSources.forEach((source: Source) => {
             const searchUrl = `https://www.google.com/search?q=site:${encodeURIComponent(source.url)}+${encodeURIComponent(query)}`;
             window.open(searchUrl, '_blank', 'noopener,noreferrer');
         });
@@ -79,7 +81,8 @@ const SourceSearch: React.FC<SourceSearchProps> = ({ settings }) => {
                     <div className="flex justify-between items-center mb-3">
                         <label className="block text-sm font-medium text-cyan-300">انتخاب منابع</label>
                         <div className="flex gap-4">
-                            <button type="button" onClick={() => setSelectedSourceIds(allSources.map(s => s.id))} className="text-xs text-blue-400 hover:underline">انتخاب همه</button>
+                            {/* FIX: Explicitly typed the 's' parameter to 'Source' to avoid it being inferred as 'unknown'. */}
+                            <button type="button" onClick={() => setSelectedSourceIds(allSources.map((s: Source) => s.id))} className="text-xs text-blue-400 hover:underline">انتخاب همه</button>
                             <button type="button" onClick={() => setSelectedSourceIds([])} className="text-xs text-red-400 hover:underline">لغو انتخاب همه</button>
                         </div>
                     </div>
@@ -92,7 +95,8 @@ const SourceSearch: React.FC<SourceSearchProps> = ({ settings }) => {
                                 </button>
                                 {openCategories[category] && (
                                     <div className="p-3 border-t border-gray-700/50 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {settings.sources[category].map(source => (
+                                        {/* FIX: Explicitly typed the 'source' parameter to 'Source' to avoid it being inferred as 'unknown'. */}
+                                        {settings.sources[category].map((source: Source) => (
                                             <label key={source.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-700/50 cursor-pointer">
                                                 <input
                                                     type="checkbox"
