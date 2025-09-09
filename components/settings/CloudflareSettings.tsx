@@ -36,7 +36,7 @@ const CloudflareSettings: React.FC = () => {
     const [dbWorkerUrl, setDbWorkerUrl] = React.useState('');
     const [dbWorkerToken, setDbWorkerToken] = React.useState('');
     const [dbStatus, setDbStatus] = React.useState<TestStatus>('idle');
-    const [isGuideOpen, setIsGuideOpen] = React.useState(false);
+    const [isGuideOpen, setIsGuideOpen] = React.useState(true);
     
     // State for Telegram Webhook tool
     const [tgBotToken, setTgBotToken] = React.useState('');
@@ -152,9 +152,11 @@ const CloudflareSettings: React.FC = () => {
                                     <h4 className="font-semibold text-cyan-200 text-base">قدم ۲: ساخت دیتابیس D1 در کلودفلر</h4>
                                     <ol className="list-decimal list-inside space-y-2 pl-4">
                                         <li>وارد داشبورد Cloudflare شوید و از منوی سمت چپ به <code className="text-amber-300">Workers & Pages</code> بروید.</li>
-                                        <li>روی تب <code className="text-amber-300">D1</code> کلیک کرده و <code className="text-amber-300">Create database</code> را بزنید.</li>
+                                        <li>روی تب <code className="text-amber-300">D1</code> کلیک کرده و <code className="text-amber-300">Create database</code> را بزنید (مانند تصویر زیر که لیست دیتابیس‌ها را نشان می‌دهد).</li>
+                                        <img src="https://i.imgur.com/k2gYQ2x.png" alt="Cloudflare D1 Database List" className="my-2 rounded-md border border-cyan-500/20"/>
                                         <li>یک نام برای دیتابیس خود انتخاب کنید (مثلاً <code className="text-amber-300">smart-news-db</code>)، یک موقعیت جغرافیایی انتخاب کرده و آن را بسازید.</li>
-                                        <li>در صفحه دیتابیسی که ساختید، به تب <code className="text-amber-300">Console</code> بروید.</li>
+                                        <li>در صفحه دیتابیسی که ساختید، به تب <code className="text-amber-300">Console</code> بروید (مانند تصویر زیر).</li>
+                                        <img src="https://i.imgur.com/8Fk3b6S.png" alt="Cloudflare D1 Console" className="my-2 rounded-md border border-cyan-500/20"/>
                                         <li>محتویات فایل <code className="text-amber-300">schema.sql</code> که دانلود کردید را کپی کرده و در کنسول پیست کنید، سپس روی <code className="text-amber-300">Execute</code> کلیک کنید تا جدول تنظیمات ساخته شود.</li>
                                     </ol>
                                 </div>
@@ -162,14 +164,16 @@ const CloudflareSettings: React.FC = () => {
                                 <div className="space-y-3">
                                     <h4 className="font-semibold text-cyan-200 text-base">قدم ۳: ساخت و پیکربندی ورکر (Worker)</h4>
                                     <ol className="list-decimal list-inside space-y-2 pl-4">
-                                        <li>دوباره به <code className="text-amber-300">Workers & Pages</code> برگردید و روی <code className="text-amber-300">Create application</code> و سپس تب <code className="text-amber-300">Workers</code> کلیک کنید و <code className="text-amber-300">Create worker</code> را بزنید.</li>
+                                        <li>دوباره به <code className="text-amber-300">Workers & Pages</code> برگردید و روی <code className="text-amber-300">Create application</code> و سپس تب <code className="text-amber-300">Workers</code> کلیک کنید و <code className="text-amber-300">Create worker</code> را بزنید (مانند تصویر زیر).</li>
+                                         <img src="https://i.imgur.com/O6gE2h1.png" alt="Cloudflare Create Worker" className="my-2 rounded-md border border-cyan-500/20"/>
                                         <li>یک نام برای ورکر خود انتخاب کنید (مثلاً <code className="text-amber-300">smart-news-api</code>) و <code className="text-amber-300">Deploy</code> را بزنید.</li>
                                         <li>پس از ساخته شدن، روی <code className="text-amber-300">Configure worker</code> کلیک کنید.</li>
                                         <li>
                                             <strong>الف) بارگذاری کد:</strong> روی <code className="text-amber-300">Quick edit</code> کلیک کنید. تمام کد موجود را پاک کرده و محتویات فایل <code className="text-amber-300">db-worker.js</code> را پیست کنید. سپس <code className="text-amber-300">Save and deploy</code> را بزنید.
                                         </li>
                                         <li>
-                                            <strong>ب) اتصال دیتابیس و توکن:</strong> به تب <code className="text-amber-300">Settings</code> و سپس زیرمنوی <code className="text-amber-300">Variables</code> بروید.
+                                            <strong>ب) اتصال دیتابیس و توکن:</strong> به تب <code className="text-amber-300">Settings</code> و سپس زیرمنوی <code className="text-amber-300">Variables</code> بروید. (مشابه تصویر زیر که تنظیمات یک پروژه را نشان می‌دهد).
+                                            <img src="https://i.imgur.com/kR1hD7g.png" alt="Cloudflare Worker Settings" className="my-2 rounded-md border border-cyan-500/20"/>
                                             <ul className="list-disc list-inside ml-6 mt-2 space-y-1 text-xs">
                                                 <li>در بخش <code className="text-amber-300">D1 Database Bindings</code>، روی <code className="text-amber-300">Add binding</code> کلیک کنید. نام متغیر (Variable name) را <code className="text-amber-300">DB</code> قرار دهید و دیتابیسی که در قدم قبل ساختید را انتخاب کنید. ذخیره کنید.</li>
                                                 <li>کمی پایین‌تر، در بخش <code className="text-amber-300">Environment Variables</code>، روی <code className="text-amber-300">Add variable</code> کلیک کنید. نام متغیر را <code className="text-amber-300">WORKER_TOKEN</code> قرار دهید. در بخش <code className="text-amber-300">Value</code>، یک رمز عبور قوی و تصادفی وارد کنید (مثلاً از یک password generator استفاده کنید).</li>

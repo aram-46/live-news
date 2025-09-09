@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState } from 'react';
 import { IntegrationSettings, WebsiteSettings, AppwriteSettings, SupabaseSettings, TelegramSettings, DiscordSettings, TwitterSettings } from '../types';
 import { TelegramIcon, DiscordIcon, CheckCircleIcon, CloseIcon, WebsiteIcon, TwitterIcon, AppwriteIcon, SupabaseIcon, PlusIcon, TrashIcon } from './icons';
@@ -61,7 +55,6 @@ const RoomIdInput: React.FC<{ roomIds: string[]; onRoomIdsChange: (ids: string[]
 
 const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ settings, onSettingsChange }) => {
     const [status, setStatus] = useState<Record<string, TestStatus>>({});
-    const [isHelpOpen, setIsHelpOpen] = useState(false);
     
     const handleChange = (platform: keyof IntegrationSettings, field: string, value: any) => {
         // FIX: Explicitly cast 'idle' to TestStatus to resolve TypeScript inference issue.
@@ -98,27 +91,13 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
     <>
     <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-8">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-cyan-300">اتصالات و یکپارچه‌سازی</h2>
-        <button onClick={() => setIsHelpOpen(true)} className="text-sm text-cyan-400 hover:underline">راهنمای کامل</button>
+        <h2 className="text-xl font-bold text-cyan-300">اتصالات پلتفرم</h2>
       </div>
 
         {/* --- Communication Integrations --- */}
         <div className="space-y-6">
-            <h3 className="font-semibold text-cyan-200 border-b border-cyan-400/20 pb-2">ارتباطات و شبکه‌های اجتماعی</h3>
+            <h3 className="font-semibold text-cyan-200 border-b border-cyan-400/20 pb-2">سایر اتصالات</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Telegram */}
-                <div className="space-y-4">
-                    <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><TelegramIcon className="w-6 h-6"/><span>تلگرام</span></h4>
-                    <input type="password" value={settings.telegram.botToken} onChange={(e) => handleChange('telegram', 'botToken', e.target.value)} placeholder="توکن ربات (Bot Token)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    <input type="text" value={settings.telegram.chatId} onChange={(e) => handleChange('telegram', 'chatId', e.target.value)} placeholder="شناسه چت (Chat ID)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('telegram', () => testTelegramConnection(settings.telegram))} disabled={!settings.telegram.botToken || status['telegram'] === 'testing'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['telegram'])}</div></div>
-                </div>
-                 {/* Discord */}
-                <div className="space-y-4">
-                    <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><DiscordIcon className="w-6 h-6"/><span>دیسکورد</span></h4>
-                    <input type="password" value={settings.discord.webhookUrl} onChange={(e) => handleChange('discord', 'webhookUrl', e.target.value)} placeholder="آدرس وبهوک (Webhook URL)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('discord', () => testDiscordConnection(settings.discord))} disabled={!settings.discord.webhookUrl || status['discord'] === 'testing'} className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['discord'])}</div></div>
-                </div>
                  {/* Website */}
                 <div className="space-y-4 md:col-span-2">
                     <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><WebsiteIcon className="w-6 h-6"/><span>وب‌سایت (Grupo Chat)</span></h4>
@@ -133,17 +112,6 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
                     </div>
                     <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('website', () => testWebsiteConnection(settings.website))} disabled={!settings.website.apiUrl || !settings.website.apiKey || status['website'] === 'testing'} className="text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['website'])}</div></div>
                 </div>
-                {/* Twitter */}
-                <div className="space-y-4 md:col-span-2">
-                    <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><TwitterIcon className="w-6 h-6"/><span>توییتر (X)</span></h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <input type="password" value={settings.twitter.apiKey} onChange={(e) => handleChange('twitter', 'apiKey', e.target.value)} placeholder="API Key" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                        <input type="password" value={settings.twitter.apiSecretKey} onChange={(e) => handleChange('twitter', 'apiSecretKey', e.target.value)} placeholder="API Secret Key" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                        <input type="password" value={settings.twitter.accessToken} onChange={(e) => handleChange('twitter', 'accessToken', e.target.value)} placeholder="Access Token" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                        <input type="password" value={settings.twitter.accessTokenSecret} onChange={(e) => handleChange('twitter', 'accessTokenSecret', e.target.value)} placeholder="Access Token Secret" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
-                    </div>
-                    <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('twitter', () => testTwitterConnection(settings.twitter))} disabled={!settings.twitter.apiKey || status['twitter'] === 'testing'} className="text-sm bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['twitter'])}</div></div>
-                </div>
              </div>
         </div>
 
@@ -154,6 +122,7 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
                 {/* Appwrite */}
                 <div className="space-y-4">
                     <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><AppwriteIcon className="w-6 h-6"/><span>Appwrite</span></h4>
+                    <p className="text-xs text-gray-400">برای راهنمایی کامل به تب "نصب و راه‌اندازی" مراجعه کنید.</p>
                     <input type="text" value={settings.appwrite.endpoint} onChange={(e) => handleChange('appwrite', 'endpoint', e.target.value)} placeholder="Endpoint URL" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <input type="text" value={settings.appwrite.projectId} onChange={(e) => handleChange('appwrite', 'projectId', e.target.value)} placeholder="Project ID" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <input type="password" value={settings.appwrite.apiKey} onChange={(e) => handleChange('appwrite', 'apiKey', e.target.value)} placeholder="API Key" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
@@ -162,6 +131,7 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
                 {/* Supabase */}
                 <div className="space-y-4">
                     <h4 className="flex items-center gap-2 text-lg font-semibold text-cyan-200"><SupabaseIcon className="w-6 h-6"/><span>Supabase</span></h4>
+                    <p className="text-xs text-gray-400">برای راهنمایی کامل به تب "نصب و راه‌اندازی" مراجعه کنید.</p>
                     <input type="text" value={settings.supabase.projectUrl} onChange={(e) => handleChange('supabase', 'projectUrl', e.target.value)} placeholder="Project URL" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <input type="password" value={settings.supabase.anonKey} onChange={(e) => handleChange('supabase', 'anonKey', e.target.value)} placeholder="Anon (Public) Key" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5" />
                     <div className="flex items-center gap-2"><button type="button" onClick={() => runTest('supabase', () => testSupabaseConnection(settings.supabase))} disabled={!settings.supabase.projectUrl || status['supabase'] === 'testing'} className="text-sm bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست</button><div className="w-5 h-5">{renderStatusIcon(status['supabase'])}</div></div>
@@ -170,7 +140,6 @@ const IntegrationSettingsComponent: React.FC<IntegrationSettingsProps> = ({ sett
         </div>
 
     </div>
-    {isHelpOpen && <HelpModal onClose={() => setIsHelpOpen(false)} />}
     </>
   );
 };

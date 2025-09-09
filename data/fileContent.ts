@@ -83,54 +83,65 @@ app.listen(port, () => {
 });
 `,
     
-    schemaSql: `-- Basic SQL schema for the Smart News Search application
--- This can be used with PostgreSQL, MySQL, or SQLite.
+    schemaSql: `-- Smart News Search - Comprehensive Database Schema
+-- Supports storing all settings, credentials, history, and results.
 
--- Table to store news sources, categorized for better management.
-CREATE TABLE IF NOT EXISTS sources (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    url TEXT NOT NULL UNIQUE,
-    category TEXT NOT NULL CHECK(category IN ('fact-check', 'news-agencies', 'social-media', 'financial', 'analytical')),
-    field TEXT,
-    activity TEXT,
-    credibility TEXT,
-    region TEXT,
+-- Table to store the entire application settings object as a single JSON string.
+-- This is flexible and allows adding new settings without schema changes.
+CREATE TABLE IF NOT EXISTS app_settings (
+    key_id VARCHAR(50) PRIMARY KEY,
+    settings_json LONGTEXT NOT NULL,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Table for credentials. Storing sensitive data here is less secure than
+-- environment variables, but provided as an option for hosting environments that lack them.
+CREATE TABLE IF NOT EXISTS credentials (
+    service_name VARCHAR(50) PRIMARY KEY,
+    api_key TEXT,
+    api_secret TEXT,
+    access_token TEXT,
+    access_token_secret TEXT,
+    other_config_json TEXT,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Table to store different types of user activities and searches.
+CREATE TABLE IF NOT EXISTS search_history (
+    id VARCHAR(36) PRIMARY KEY,
+    item_type VARCHAR(50) NOT NULL,
+    query_text TEXT NOT NULL,
+    result_summary TEXT,
+    result_data_json LONGTEXT,
+    is_favorite BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table to store fetched news articles to avoid duplicates and for archiving.
-CREATE TABLE IF NOT EXISTS articles (
-    link TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    summary TEXT,
-    source_id TEXT,
-    publication_time TEXT,
-    category TEXT,
-    image_url TEXT,
-    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (source_id) REFERENCES sources(id)
+-- Table to manage chatbot conversations/sessions.
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table to store application settings as key-value pairs.
--- This allows for flexible storage of settings without changing the schema.
-CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Table to store individual messages within a chat session.
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id VARCHAR(36) PRIMARY KEY,
+    session_id VARCHAR(36) NOT NULL,
+    role VARCHAR(10) NOT NULL,
+    content TEXT NOT NULL,
+    timestamp BIGINT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
 );
 
--- Example of inserting a source:
--- INSERT INTO sources (id, name, url, category, field, credibility, region)
--- VALUES ('uuid-1234', 'خبرگزاری ایسنا', 'https://www.isna.ir', 'news-agencies', 'سیاسی، اجتماعی', 'بالا', 'ایران');
-
--- Example of inserting an article:
--- INSERT INTO articles (link, title, summary, source_id, publication_time, category)
--- VALUES ('https://www.isna.ir/news/1234', 'عنوان خبر مهم', 'خلاصه خبر...', 'uuid-1234', '۱۴۰۴/۰۱/۰۱ - ۱۲:۰۰', 'سیاسی');
-
--- Example of storing a setting:
--- INSERT INTO settings (key, value)
--- VALUES ('theme', '{"id":"neon-dreams","name":"رویای نئونی","className":"theme-neon-dreams"}');
+-- Table to store the results of the Analyzer feature.
+CREATE TABLE IF NOT EXISTS analysis_results (
+    id VARCHAR(36) PRIMARY KEY,
+    topic TEXT NOT NULL,
+    analysis_type VARCHAR(50),
+    result_json LONGTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 `,
     
     wranglerToml: `# Cloudflare Worker configuration file
@@ -142,7 +153,7 @@ main = "cloudflare/worker.js"   # Path to your main worker script
 compatibility_date = "2024-05-15"
 `,
 
-    workerJs: `/**
+    telegramBotWorkerJs: `/**
  * Cloudflare Worker for a Telegram Bot
  *
  * This worker can handle both standard Telegram webhooks and custom test messages
@@ -214,7 +225,7 @@ async function handleUpdate(update) {
       const news = await fetchNewsFromGemini();
       if (news && news.length > 0) {
         const firstArticle = news[0];
-        const formattedMessage = \`*\${firstArticle.title}*\\n\\n*منبع:* \${firstArticle.source}\\n\\n\${firstArticle.summary}\\n\\n[مشاهده خبر](\${firstArticle.link})\`;
+        const formattedMessage = \`*\\\${firstArticle.title}*\\n\\n*منبع:* \\\${firstArticle.source}\\n\\n\\\${firstArticle.summary}\\n\\n[مشاهده خبر](\\\${firstArticle.link})\`;
         await sendMessage(chatId, formattedMessage, 'Markdown');
       } else {
         await sendMessage(chatId, 'متاسفانه در حال حاضر مشکلی در دریافت اخبار وجود دارد.');
@@ -455,7 +466,7 @@ main();
   - **پشتیبانی از چند ارائه‌دهنده:** تنظیمات مربوط به کلید API برای سرویس‌دهنده‌های مختلف (Gemini, OpenAI, OpenRouter, Groq).
   - **تست اتصال:** قابلیت تست اتصال به هر سرویس برای اطمینان از صحت کلید API.
 - **تخصیص مدل‌ها:**
-  - **مدیریت انعطاف‌پذیر:** امکان اختصاص دادن یک مدل هوش مصنوعی خاص به هر یک از وظایف برنامه.
+  - **مدیریت انعطاف‌پذیر:** امکان اختصاص دادن یک مدل هوش مصنوعی خاص به هر یک از وظایf برنامه.
   - **قابلیت فال‌بک (Fallback):** به سادگی می‌توانید وظایف را به مدل دیگری منتقل کنید، برای مثال در صورت اتمام محدودیت استفاده از یک سرویس.
 
 <!-- Placeholder for a screenshot -->
@@ -695,10 +706,10 @@ async function fetchNews(env, filters) {
   const prompt = \`
     IMPORTANT: All output text (titles, summaries, etc.) MUST be in Persian.
     Please find the top 5 recent news articles based on these criteria for a Persian-speaking user.
-    - Search Query: "\${filters.query || 'مهمترین اخبار روز'}"
-    - Category: "\${filters.category || 'any'}"
-    - Region: "\${filters.region || 'any'}"
-    - Source: "\${filters.source || 'any reputable source'}"
+    - Search Query: "\\\${filters.query || 'مهمترین اخبار روز'}"
+    - Category: "\\\${filters.category || 'any'}"
+    - Region: "\\\${filters.region || 'any'}"
+    - Source: "\\\${filters.source || 'any reputable source'}"
     For each article, you MUST provide a relevant image URL.
   \`;
 
@@ -750,7 +761,7 @@ async function factCheck(env, claim, imageFile) {
         3.  **Verify the Content:** Fact-check the claim using independent, high-credibility sources.
         4.  **Summarize Findings:** Provide a clear, concise verdict and summary.
         **Content for Analysis:**
-        - Text Context: "\${claim || 'No text provided, analyze the image.'}"
+        - Text Context: "\\\${claim || 'No text provided, analyze the image.'}"
     \`;
 
     const contentParts = [{ text: textPrompt }];
@@ -807,7 +818,7 @@ async function fetchStructuredData(env, topic, type) {
     let schema;
 
     if (type === 'stats') {
-        prompt = \`Find the most reliable statistical data for the query "\${topic}". Format it as JSON. The entire output must be in Persian.\`;
+        prompt = \`Find the most reliable statistical data for the query "\\\${topic}". Format it as JSON. The entire output must be in Persian.\`;
         schema = {
             type: 'OBJECT',
             properties: {
@@ -824,7 +835,7 @@ async function fetchStructuredData(env, topic, type) {
             },
         };
     } else { // Science and Religion share a similar structure
-        prompt = \`Find a key scientific paper or religious text related to "\${topic}". Prioritize academic or primary sources. Format it as JSON. The entire output must be in Persian.\`;
+        prompt = \`Find a key scientific paper or religious text related to "\\\${topic}". Prioritize academic or primary sources. Format it as JSON. The entire output must be in Persian.\`;
          schema = {
             type: 'OBJECT',
             properties: {
@@ -1323,49 +1334,50 @@ database_id = ""              # The ID of your D1 database. Fill this in after c
     // --- NEW APPWRITE INTEGRATION FILES ---
 
     appwriteGuideMd: `# راهنمای کامل راه‌اندازی بک‌اند با Appwrite (بدون نیاز به CLI)
-این راهنما شما را برای استقرار یک بک‌اند کامل شامل دیتابیس برای ذخیره تنظیمات، اخبار و تاریخچه چت، به صورت کاملاً دستی از طریق داشبورد وب‌سایت Appwrite راهنمایی می‌کند.
+این راهنما شما را برای استقرار یک بک‌اند کامل برای ذخیره تمام داده‌های برنامه راهنمایی می‌کند.
 ---
 ### بخش اول: ساخت پروژه و دیتابیس
 1.  **ساخت پروژه:** وارد [Appwrite Cloud](https://cloud.appwrite.io/) شوید و یک پروژه جدید (Create Project) بسازید.
-2.  **ذخیره اطلاعات پروژه:** از منوی سمت چپ به **Settings** بروید. مقادیر زیر را کپی کرده و در فیلدهای مربوطه در همین صفحه وارد کنید:
-    *   \`Project ID\`
-    *   \`API Endpoint\`
+2.  **ذخیره اطلاعات پروژه:** از منوی سمت چپ به **Settings** بروید. مقادیر \`Project ID\` و \`API Endpoint\` را کپی کرده و در فیلدهای مربوطه در همین صفحه وارد کنید.
 3.  **ساخت دیتابیس:** از منوی سمت چپ به بخش **Databases** بروید. یک دیتابیس جدید (Create Database) بسازید و نام آن را \`Main Database\` بگذارید. **Database ID** را کپی کرده و در فیلد مربوطه در این صفحه وارد کنید.
 ---
 ### بخش دوم: ساخت کالکشن‌ها (Collections)
-وارد دیتابیسی که ساختید شوید و سه کالکشن زیر را با دقت ایجاد کنید.
-#### 1. کالکشن تنظیمات (Settings)
-*   **Create Collection:** نام کالکشن را \`Settings\` بگذارید. **Collection ID** را کپی کرده و در فیلد \`Settings Collection ID\` وارد کنید.
-*   **Attributes Tab:** یک Attribute جدید بسازید:
-    *   **Type:** String
-    *   **Attribute ID:** \`content\`
-    *   **Size:** \`1000000\`
-    *   **Required:** Yes
-*   **Settings Tab:** در بخش Permissions، یک رول جدید از نوع \`any\` اضافه کنید و تمام دسترسی‌های **Create, Read, Update, Delete** را به آن بدهید. (این برای تست است، در محیط واقعی باید دسترسی‌ها را محدود کنید).
+وارد دیتابیسی که ساختید شوید و کالکشن‌های زیر را با دقت ایجاد کنید. برای هر کالکشن، پس از ساخت، به تب **Settings** آن رفته و به رول \`any\` تمام دسترسی‌های **Create, Read, Update, Delete** را بدهید.
 
-#### 2. کالکشن آرشیو اخبار (News Articles)
-*   **Create Collection:** نام کالکشن را \`News Articles\` بگذارید. **Collection ID** را کپی کرده و در فیلد \`News Articles Collection ID\` وارد کنید.
-*   **Attributes Tab:** Attribute های زیر را بسازید:
-    *   \`title\` (String, 255, Required)
-    *   \`link\` (String, 512, Required)
-    *   \`summary\` (String, 10000, Not Required)
-    *   \`sourceName\` (String, 100, Not Required)
-    *   \`category\` (String, 50, Not Required)
-    *   \`publicationTime\` (String, 50, Not Required)
-*   **Indexes Tab:** یک ایندکس جدید بسازید:
-    *   **Index ID:** \`link_unique\`
-    *   **Type:** \`unique\`
-    *   **Attributes:** \`link\`
-*   **Settings Tab:** مانند کالکشن قبل، به رول \`any\` تمام دسترسی‌ها را بدهید.
+#### 1. کالکشن **app_settings**
+*   **Collection ID:** \`app_settings\` (این را در فیلد مربوطه وارد کنید)
+*   **Attributes:**
+    *   \`settings_json\` (Type: String, Size: 1000000, Required: Yes)
 
-#### 3. کالکشن تاریخچه چت (Chat History)
-*   **Create Collection:** نام کالکشن را \`Chat History\` بگذارید. **Collection ID** را کپی کرده و در فیلد \`Chat History Collection ID\` وارد کنید.
-*   **Attributes Tab:** Attribute های زیر را بسازید:
-    *   \`sessionId\` (String, 36, Required)
-    *   \`role\` (String, 10, Required)
-    *   \`text\` (String, 10000, Required)
-    *   \`timestamp\` (Datetime, Required)
-*   **Settings Tab:** به رول \`any\` تمام دسترسی‌ها را بدهید.
+#### 2. کالکشن **credentials**
+*   **Collection ID:** \`credentials\`
+*   **Attributes:**
+    *   \`service_name\` (Type: String, Size: 50, Required: Yes)
+    *   \`api_key\` (Type: String, Size: 255, Required: No)
+    *   \`config_json\` (Type: String, Size: 5000, Required: No)
+
+#### 3. کالکشن **search_history**
+*   **Collection ID:** \`search_history\` (این را در فیلد مربوطه وارد کنید)
+*   **Attributes:**
+    *   \`item_type\` (Type: String, Size: 50, Required: Yes)
+    *   \`query_text\` (Type: String, Size: 10000, Required: Yes)
+    *   \`result_summary\` (Type: String, Size: 10000, Required: No)
+    *   \`is_favorite\` (Type: Boolean, Required: Yes, Default: false)
+
+#### 4. کالکشن **chat_sessions**
+*   **Collection ID:** \`chat_sessions\`
+*   **Attributes:**
+    *   \`name\` (Type: String, Size: 255, Required: Yes)
+    *   \`timestamp\` (Type: Datetime, Required: Yes)
+
+#### 5. کالکشن **chat_messages** (مهم: این کالکشن جدا از قبلی است)
+*   **Collection ID:** \`chat_messages\` (این را در فیلد Chat History وارد کنید)
+*   **Attributes:**
+    *   \`session_id\` (Type: String, Size: 36, Required: Yes)
+    *   \`role\` (Type: String, Size: 10, Required: Yes)
+    *   \`content\` (Type: String, Size: 10000, Required: Yes)
+    *   \`timestamp\` (Type: Datetime, Required: Yes)
+
 ---
 ### بخش سوم: ساخت کلید API
 1.  از منوی اصلی پروژه (گوشه پایین سمت چپ) به بخش **API Keys** بروید.
@@ -1374,7 +1386,7 @@ database_id = ""              # The ID of your D1 database. Fill this in after c
 4.  پس از ساخت، **API Key Secret** را کپی کرده و در فیلد \`API Key\` در این صفحه وارد کنید.
 ---
 ### بخش چهارم: اتصال نهایی
-پس از وارد کردن تمام اطلاعات (Project ID, Endpoint, Database ID, Collection ID ها و API Key) در فرم این صفحه، روی دکمه **"ذخیره و تست اتصال"** کلیک کنید تا از صحت اطلاعات وارد شده اطمینان حاصل کنید.`,
+پس از وارد کردن تمام اطلاعات در فرم این صفحه، روی دکمه **"ذخیره و تست اتصال"** کلیک کنید.`,
 
     appwriteJson: `{
   "projectId": "YOUR_PROJECT_ID",
@@ -1461,7 +1473,7 @@ module.exports = async (req, res) => {
             } else if (text === '/news') {
                 await bot.sendMessage(chatId, 'در حال جستجوی آخرین اخبار...');
                 const article = await getNewsFromGemini();
-                const formattedMessage = \`*$\{article.title}*\\n\\n*منبع:* $\{article.source}\\n\\n$\{article.summary}\\n\\n[مشاهده خبر]($\{article.link})\`;
+                const formattedMessage = \`*\\\${article.title}*\\n\\n*منبع:* \\\${article.source}\\n\\n\\\${article.summary}\\n\\n[مشاهده خبر](\\\${article.link})\`;
                 await bot.sendMessage(chatId, formattedMessage, { parse_mode: 'Markdown' });
             }
         }
@@ -1630,77 +1642,55 @@ module.exports = async (req, res) => {
 
 روش ارائه شده در این راهنما (پیکربندی دستی) **استانداردترین و امن‌ترین** روش برای استقرار چنین برنامه‌هایی در محیط cPanel است. فرمی که برای نصب خودکار درخواست کرده‌اید، نیازمند یک اسکریپت نصب جداگانه (معمولاً با PHP) است که خارج از محدوده این برنامه قرار دارد.`,
 
-    databaseSchemaSql: `-- Smart News Search - cPanel Database Schema for MySQL
--- Version 1.0
--- This schema is designed to store all application data for a self-hosted instance.
-
---
--- Table structure for table \`app_settings\`
--- Stores the entire application settings JSON object for easy backup.
---
-CREATE TABLE IF NOT EXISTS \`app_settings\` (
+    databaseSchemaSql: `CREATE TABLE IF NOT EXISTS \`app_settings\` (
   \`setting_key\` varchar(50) NOT NULL,
   \`settings_json\` LONGTEXT NOT NULL,
-  \`last_updated\` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  \`last_updated\` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (\`setting_key\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-ALTER TABLE \`app_settings\` ADD PRIMARY KEY (\`setting_key\`);
-INSERT INTO \`app_settings\` (\`setting_key\`, \`settings_json\`) VALUES ('main', '{}') ON DUPLICATE KEY UPDATE \`setting_key\`=\`setting_key\`;
-
---
--- Table structure for table \`credentials\`
--- IMPORTANT: Storing keys in a database is less secure than environment variables.
--- Use this only if your hosting environment does not support environment variables.
---
 CREATE TABLE IF NOT EXISTS \`credentials\` (
-  \`credential_key\` varchar(50) NOT NULL,
-  \`value\` text NOT NULL,
-  \`last_updated\` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  \`service_name\` varchar(50) NOT NULL,
+  \`config_json\` TEXT NOT NULL,
+  \`last_updated\` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (\`service_name\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-ALTER TABLE \`credentials\` ADD PRIMARY KEY (\`credential_key\`);
-
---
--- Table structure for table \`chat_history\`
--- Stores conversations from the Chatbot.
---
-CREATE TABLE IF NOT EXISTS \`chat_history\` (
-  \`id\` int(11) NOT NULL AUTO_INCREMENT,
-  \`session_id\` varchar(100) NOT NULL,
-  \`role\` varchar(10) NOT NULL,
-  \`content\` text NOT NULL,
-  \`timestamp\` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (\`id\`),
-  KEY \`session_id\` (\`session_id\`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Table structure for table \`search_history\`
--- Logs user searches for analytics or history features.
---
 CREATE TABLE IF NOT EXISTS \`search_history\` (
-  \`id\` int(11) NOT NULL AUTO_INCREMENT,
-  \`search_type\` varchar(50) NOT NULL,
-  \`query\` text NOT NULL,
-  \`filters_json\` text,
-  \`timestamp\` timestamp NOT NULL DEFAULT current_timestamp(),
+  \`id\` varchar(36) NOT NULL,
+  \`item_type\` varchar(50) NOT NULL,
+  \`query_text\` text NOT NULL,
+  \`result_summary\` text,
+  \`is_favorite\` tinyint(1) DEFAULT 0,
+  \`created_at\` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (\`id\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Table structure for table \`archived_news\`
--- Stores important news articles found by the user or bots.
---
-CREATE TABLE IF NOT EXISTS \`archived_news\` (
-  \`id\` int(11) NOT NULL AUTO_INCREMENT,
-  \`link\` varchar(768) NOT NULL,
-  \`title\` text NOT NULL,
-  \`summary\` text,
-  \`source\` varchar(255) DEFAULT NULL,
-  \`article_json\` longtext,
-  \`saved_at\` timestamp NOT NULL DEFAULT current_timestamp(),
+CREATE TABLE IF NOT EXISTS \`chat_sessions\` (
+  \`id\` varchar(36) NOT NULL,
+  \`name\` varchar(255) NOT NULL,
+  \`timestamp\` bigint(20) NOT NULL,
+  PRIMARY KEY (\`id\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS \`chat_messages\` (
+  \`id\` varchar(36) NOT NULL,
+  \`session_id\` varchar(36) NOT NULL,
+  \`role\` varchar(10) NOT NULL,
+  \`text\` text NOT NULL,
+  \`timestamp\` bigint(20) NOT NULL,
   PRIMARY KEY (\`id\`),
-  UNIQUE KEY \`link\` (\`link\`)
+  KEY \`session_id\` (\`session_id\`),
+  CONSTRAINT \`chat_messages_ibfk_1\` FOREIGN KEY (\`session_id\`) REFERENCES \`chat_sessions\` (\`id\`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS \`analysis_results\` (
+  \`id\` varchar(36) NOT NULL,
+  \`topic\` text NOT NULL,
+  \`analysis_type\` varchar(50) DEFAULT NULL,
+  \`result_json\` longtext NOT NULL,
+  \`created_at\` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (\`id\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 `,
     backendConfigJsExample: `// config.js.example - Rename this file to config.js and fill in your details.
@@ -1726,5 +1716,118 @@ module.exports = {
         discord_webhook_url: 'YOUR_DISCORD_WEBHOOK_URL',
     }
 };
-`
+`,
+    twitterBotWorkerJs: `/**
+ * Cloudflare Worker for a Twitter Bot (run on a schedule)
+ *
+ * This worker fetches news and posts it as a tweet.
+ * NOTE: Twitter API v1.1 for posting tweets requires complex OAuth 1.0a authentication.
+ * This script provides the structure, but you must implement the \`postTweet\` function.
+ *
+ * How to use:
+ * 1. Deploy this code to a Cloudflare Worker.
+ * 2. Set the following secrets in the worker settings:
+ *    - GEMINI_API_KEY
+ *    - TWITTER_API_KEY
+ *    - TWITTER_API_SECRET_KEY
+ *    - TWITTER_ACCESS_TOKEN
+ *    - TWITTER_ACCESS_TOKEN_SECRET
+ * 3. Go to the worker's "Triggers" tab and add a "Cron Trigger".
+ *    - For every hour: 0 * * * *
+ *    - For every 6 hours: 0 */6 * * *
+ */
+
+addEventListener('scheduled', event => {
+  event.waitUntil(handleSchedule(event));
+});
+
+async function handleSchedule(event) {
+  console.log("Cron trigger fired. Fetching news to tweet...");
+  try {
+    const article = await fetchLatestNews();
+    if (article) {
+      const tweetText = \`\${article.title.substring(0, 250)}... #اخبار #خبر\\n\\n\${article.link}\`;
+      await postTweet(tweetText);
+      console.log("Successfully tweeted:", tweetText);
+    } else {
+      console.log("No new article found to tweet.");
+    }
+  } catch (error) {
+    console.error("Error during scheduled tweet:", error);
+  }
+}
+
+/**
+ * Posts a tweet using the Twitter API v1.1.
+ * !! AUTHENTICATION IMPLEMENTATION REQUIRED !!
+ * @param {string} status - The text of the tweet.
+ */
+async function postTweet(status) {
+  const endpointURL = 'https://api.twitter.com/1.1/statuses/update.json';
+  
+  // Twitter API v1.1 requires OAuth 1.0a, which is complex to implement from scratch.
+  // This typically requires a library. In a Node.js environment, you'd use 'twitter-api-v2'.
+  // In a Cloudflare Worker, you would need to implement this using the Web Crypto API,
+  // which involves generating a signature from your keys and the request parameters.
+
+  // This is a placeholder showing what the final fetch would look like.
+  // The 'Authorization' header is the part you need to build.
+  
+  console.log("--- PLACEHOLDER: Tweet not sent ---");
+  console.log("To implement this, you must build the OAuth 1.0a Authorization header.");
+  console.log("Tweet content:", status);
+  
+  /*
+  const response = await fetch(\`\${endpointURL}?status=\${encodeURIComponent(status)}\`, {
+    method: 'POST',
+    headers: {
+      // Example: 'Authorization': 'OAuth oauth_consumer_key="...", oauth_nonce="...", ...'
+      // This header is the complex part that needs to be generated.
+      'Authorization': generateOAuthHeader(), 
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(\`Twitter API Error: \${JSON.stringify(error)}\`);
+  }
+  
+  return response.json();
+  */
+  return Promise.resolve({ "message": "Tweet not sent (placeholder)" });
+}
+
+async function fetchLatestNews() {
+    const prompt = "Find the single most important recent world news article for a Persian-speaking user. Provide a very short, compelling title suitable for a tweet, and a direct link. The output must be JSON with 'title' and 'link' keys.";
+    
+    const body = {
+      contents: [{ parts: [{ "text": prompt }] }],
+      "generationConfig": { "response_mime_type": "application/json" }
+    };
+    
+    const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+  
+      const data = await response.json();
+      const jsonString = data.candidates[0].content.parts[0].text;
+      const result = JSON.parse(jsonString);
+      const article = Array.isArray(result) ? result[0] : result;
+      // Basic validation
+      if (article && article.title && article.link) {
+          return article;
+      }
+      return null;
+      
+    } catch (error) {
+      console.error("Error fetching news from Gemini for Twitter:", error);
+      return null;
+    }
+}
+`,
 };

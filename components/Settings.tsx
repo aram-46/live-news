@@ -1,26 +1,18 @@
-
-
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
-import ThemeSelector from './ThemeSelector';
 import SourcesManager from './SourcesManager';
 import AIInstructionsSettings from './AIInstructions';
-import IntegrationSettings from './IntegrationSettings';
-import CustomCssSettings from './CustomCssSettings';
 import AIModelSettings from './settings/AIModelSettings';
 import ContentSettings from './ContentSettings';
-import BackendSettings from './settings/BackendSettings';
-import CloudflareSettings from './settings/CloudflareSettings';
-import AppwriteSettings from './settings/AppwriteSettings';
-import GitHubSettings from './settings/GitHubSettings';
-import AboutTab from './settings/AboutTab';
-import FontSettingsEditor from './settings/FontSettingsEditor';
 import PasswordSettings from './settings/PasswordSettings';
 import ThemeSettings from './settings/ThemeSettings';
-import { ALL_THEMES } from '../data/defaults';
 import DiscordBotSettings from './settings/DiscordBotSettings';
-import InstallationGuide from './settings/InstallationGuide';
 import AIModelAssignments from './settings/AIModelAssignments';
+import SetupGuides from './settings/SetupGuides';
+import TelegramBotSettings from './settings/TelegramBotSettings';
+import TwitterBotSettings from './settings/TwitterBotSettings';
+import IntegrationSettings from './IntegrationSettings';
+import AboutTab from './settings/AboutTab';
 
 
 interface SettingsProps {
@@ -28,7 +20,10 @@ interface SettingsProps {
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type SettingsTab = 'content' | 'theme' | 'sources' | 'ai-instructions' | 'ai-models' | 'ai-assignments' | 'integrations' | 'discord-bot' | 'backend' | 'cloudflare' | 'appwrite' | 'github' | 'about' | 'security' | 'installation';
+type SettingsTab = 
+    | 'content' | 'theme' | 'sources' | 'ai-instructions' | 'ai-models' | 'ai-assignments' 
+    | 'setup-guides' | 'telegram-bot' | 'discord-bot' | 'twitter-bot' 
+    | 'integrations' | 'security' | 'about';
 
 const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('content');
@@ -59,37 +54,18 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('ai-instructions', 'دستورالعمل‌های AI')}
         {renderTabButton('ai-models', 'مدل‌های AI')}
         {renderTabButton('ai-assignments', 'تخصیص مدل‌ها')}
-        {renderTabButton('installation', 'نصب و راه‌اندازی')}
-        {renderTabButton('integrations', 'اتصالات وب‌سایت')}
+        {renderTabButton('setup-guides', 'نصب و راه‌اندازی')}
+        {renderTabButton('telegram-bot', 'ربات تلگرام')}
         {renderTabButton('discord-bot', 'ربات دیسکورد')}
+        {renderTabButton('twitter-bot', 'ربات توییتر')}
+        {renderTabButton('integrations', 'اتصالات دیگر')}
         {renderTabButton('security', 'امنیت')}
-        {renderTabButton('backend', 'بک‌اند و دیتابیس')}
-        {renderTabButton('cloudflare', 'کلودفلر')}
-        {renderTabButton('appwrite', 'اپ‌رایت')}
-        {renderTabButton('github', 'گیت‌هاب')}
         {renderTabButton('about', 'درباره برنامه')}
       </div>
 
       <div className="space-y-8">
         {activeTab === 'theme' && (
-          <>
-            <ThemeSelector
-              themes={ALL_THEMES}
-              selectedTheme={settings.theme}
-              onThemeChange={(theme) => handlePartialChange({ theme })}
-            />
             <ThemeSettings settings={settings} onSettingsChange={onSettingsChange} />
-            <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
-                <FontSettingsEditor
-                    fontSettings={settings.liveNewsSpecifics.font}
-                    onFontSettingsChange={(font) => handlePartialChange({ liveNewsSpecifics: { ...settings.liveNewsSpecifics, font }})}
-                />
-            </div>
-            <CustomCssSettings
-              customCss={settings.customCss}
-              onCustomCssChange={(customCss) => handlePartialChange({ customCss })}
-            />
-          </>
         )}
         
         {activeTab === 'content' && (
@@ -109,8 +85,8 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
 
         {activeTab === 'ai-models' && (
             <AIModelSettings
-                settings={settings.aiModelSettings}
-                onSettingsChange={(aiModelSettings) => handlePartialChange({ aiModelSettings })}
+                settings={settings}
+                onSettingsChange={onSettingsChange}
             />
         )}
         
@@ -121,17 +97,31 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
             />
         )}
 
-        {activeTab === 'installation' && <InstallationGuide />}
+        {activeTab === 'setup-guides' && <SetupGuides settings={settings} onSettingsChange={onSettingsChange} />}
+
+        {activeTab === 'telegram-bot' && (
+            <TelegramBotSettings 
+                settings={settings.integrations.telegram}
+                onSettingsChange={(telegram) => handlePartialChange({ integrations: { ...settings.integrations, telegram }})}
+            />
+        )}
+        
+        {activeTab === 'discord-bot' && (
+            <DiscordBotSettings />
+        )}
+
+        {activeTab === 'twitter-bot' && (
+            <TwitterBotSettings 
+                settings={settings.integrations.twitter}
+                onSettingsChange={(twitter) => handlePartialChange({ integrations: { ...settings.integrations, twitter }})}
+            />
+        )}
 
         {activeTab === 'integrations' && (
             <IntegrationSettings
                 settings={settings.integrations}
                 onSettingsChange={(integrations) => handlePartialChange({ integrations })}
             />
-        )}
-        
-        {activeTab === 'discord-bot' && (
-            <DiscordBotSettings />
         )}
 
         {activeTab === 'sources' && (
@@ -148,11 +138,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
                 onPasswordChange={(password) => handlePartialChange({ password })}
             />
         )}
-
-        {activeTab === 'backend' && <BackendSettings />}
-        {activeTab === 'cloudflare' && <CloudflareSettings />}
-        {activeTab === 'appwrite' && <AppwriteSettings settings={settings.integrations.appwrite} onSettingsChange={(appwrite) => handlePartialChange({ integrations: { ...settings.integrations, appwrite }})} />}
-        {activeTab === 'github' && <GitHubSettings />}
+        
         {activeTab === 'about' && <AboutTab />}
       </div>
     </div>

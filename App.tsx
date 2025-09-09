@@ -1,8 +1,9 @@
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Add missing icon imports that will be added to the icons.tsx file
-import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon } from './components/icons';
+import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
@@ -19,8 +20,9 @@ import Analyzer from './components/Analyzer';
 import OnlineTools from './components/OnlineTools';
 import ConnectionStatus from './components/ConnectionStatus';
 import DraggableDialog from './components/DraggableDialog';
+import SearchHistory from './components/SearchHistory';
 
-type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools';
+type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools' | 'history';
 
 const FullScreenLoader: React.FC<{ message: string }> = ({ message }) => (
     <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
@@ -146,6 +148,7 @@ const App: React.FC = () => {
             {renderNavButton('online-tools', <ToolsIcon className="w-5 h-5" />, 'ابزار آنلاین')}
             {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
             {renderNavButton('browseruse', <SparklesIcon className="w-5 h-5" />, 'عامل هوشمند')}
+            {renderNavButton('history', <DocumentTextIcon className="w-5 h-5" />, 'تاریخچه')}
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
             <div className="border-l border-gray-600/50 h-6 mx-2"></div>
             <ConnectionStatus />
@@ -162,6 +165,7 @@ const App: React.FC = () => {
         {activeView === 'analyzer' && <Analyzer settings={settings} />}
         {activeView === 'browseruse' && <BrowserUse settings={settings} />}
         {activeView === 'online-tools' && <OnlineTools settings={settings} onOpenUrl={handleOpenUrl} />}
+        {activeView === 'history' && <SearchHistory settings={settings} />}
         {activeView === 'settings' && (
             isSettingsLocked ? 
             <PasswordPrompt password={settings.password!} onUnlock={() => setIsSettingsLocked(false)} /> :

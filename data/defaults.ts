@@ -140,6 +140,7 @@ export const INITIAL_SETTINGS: AppSettings = {
           settingsCollectionId: '',
           newsArticlesCollectionId: '',
           chatHistoryCollectionId: '',
+          searchHistoryCollectionId: '',
       },
       supabase: {
           projectUrl: '',
@@ -218,4 +219,5 @@ export const INITIAL_SETTINGS: AppSettings = {
   structuredSearchSources: ['مرکز آمار ایران', 'دانشگاه تهران', 'پژوهشگاه علوم انسانی', 'سازمان بهداشت جهانی (WHO)', 'صندوق بین‌المللی پول (IMF)'],
   generalTopicDomains: ['تاریخی', 'جغرافیایی', 'اجتماعی', 'زیست شناسی', 'روانشناسی', 'پزشکی', 'هنر', 'سینما', 'فرهنگ'],
   modelAssignments: {},
+  defaultProvider: 'gemini',
 };

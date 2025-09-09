@@ -63,6 +63,22 @@ const DiscordBotSettings: React.FC = () => {
         ));
     };
 
+    const fullGuide = backendFiles.discordBotGuideMd + `
+---
+### بخش ششم: اتصال به بک‌اند و دیتابیس (اختیاری)
+
+ربات دیسکورد شما با استقرار روی Cloudflare Workers کاملاً **مستقل و سرورلس** عمل می‌کند. اما برای قابلیت‌های پیشرفته‌تر مانند **ذخیره تاریخچه جستجوها** یا **همگام‌سازی تنظیمات برنامه با یک دیتابیس مرکزی**، شما نیاز به یک بک‌اند و دیتابیس دارید.
+
+این برنامه فایل‌ها و راهنماهای لازم برای راه‌اندازی موارد زیر را در اختیار شما قرار می‌دهد:
+
+*   **بک‌اند Node.js:** یک سرور Express ساده برای اجرای روی هاست شخصی یا VPS.
+*   **دیتابیس SQL:** اسکیمای جداول مورد نیاز برای ذخیره‌سازی داده‌ها.
+*   **اتصال به Appwrite/Supabase:** راهنما برای استفاده از پلتفرم‌های Backend-as-a-Service.
+
+برای دسترسی به این فایل‌ها و راهنماهای کامل، به تب **"نصب و راه‌اندازی"** در همین پنل تنظیمات مراجعه کنید.
+`;
+
+
     return (
         <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-8">
              <div>
@@ -80,7 +96,7 @@ const DiscordBotSettings: React.FC = () => {
             </div>
 
             <div className="space-y-6">
-                {renderGuide(backendFiles.discordBotGuideMd)}
+                {renderGuide(fullGuide)}
             </div>
 
         </div>

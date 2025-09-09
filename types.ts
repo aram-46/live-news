@@ -180,6 +180,7 @@ export interface AppwriteSettings {
     settingsCollectionId: string;
     newsArticlesCollectionId: string;
     chatHistoryCollectionId: string;
+    searchHistoryCollectionId: string;
 }
 export interface SupabaseSettings {
     projectUrl: string;
@@ -242,6 +243,7 @@ export interface AppSettings {
   structuredSearchSources: string[];
   generalTopicDomains: string[];
   modelAssignments: Partial<Record<AIInstructionType, AIModelProvider>>;
+  defaultProvider: AIModelProvider;
 }
 
 export interface NewsArticle {
@@ -293,6 +295,13 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   timestamp: number;
+}
+
+export interface ChatSession {
+    id: string;
+    name: string;
+    timestamp: number;
+    messages: ChatMessage[];
 }
 
 
@@ -607,4 +616,13 @@ export interface GeneralTopicResult {
         }[];
     };
     sources: GroundingSource[];
+}
+
+export interface SearchHistoryItem {
+    id: string;
+    type: string;
+    query: string;
+    timestamp: number;
+    resultSummary: string;
+    isFavorite: boolean;
 }
