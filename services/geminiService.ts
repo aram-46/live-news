@@ -136,7 +136,24 @@ export async function factCheckNews(text: string, file: { data: string; mimeType
     const ai = getAiInstance();
     if (!ai) throw new Error("AI not initialized");
 
-    const textPart = { text: `User Content:\nText: "${text}"\nURL: ${url || 'Not provided'}` };
+     const promptText = `
+        Your task is to act as an expert fact-checker. Your entire output MUST be in Persian and conform to the JSON schema.
+        1.  **Overall Credibility:** Provide a credibility assessment in Persian (e.g., 'بسیار معتبر', 'معتبر', 'نیازمند بررسی').
+        2.  **Detailed Summary:** Write a comprehensive summary in Persian explaining your findings, analysis, and final conclusion.
+        3.  **Find Sources:** Find and list MULTIPLE (at least 3 if possible) credible sources that either support or debunk the claim.
+        4.  **Source Details:** For EACH source, you MUST provide:
+            *   its name.
+            *   a direct, specific, and working link to the article/page (NOT a homepage).
+            *   its publication date.
+            *   its credibility level.
+            *   a brief summary in Persian of what that specific source says about the claim.
+        
+        Content to Analyze:
+        - Text: "${text}"
+        - URL: ${url || 'Not provided'}
+    `;
+
+    const textPart = { text: promptText };
     const contentParts: any[] = [textPart];
     
     if (file) {
@@ -150,12 +167,18 @@ export async function factCheckNews(text: string, file: { data: string; mimeType
             properties: {
                 overallCredibility: { type: Type.STRING },
                 summary: { type: Type.STRING },
-                originalSource: {
-                    type: Type.OBJECT,
-                    properties: {
-                        name: { type: Type.STRING },
-                        link: { type: Type.STRING },
-                        publicationDate: { type: Type.STRING },
+                sources: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: { type: Type.STRING },
+                            link: { type: Type.STRING },
+                            publicationDate: { type: Type.STRING },
+                            credibility: { type: Type.STRING },
+                            summary: { type: Type.STRING }
+                        },
+                         required: ["name", "link", "summary", "credibility"]
                     }
                 }
             }

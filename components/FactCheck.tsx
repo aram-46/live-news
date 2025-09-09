@@ -187,13 +187,31 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             {error && <p className="mt-4 text-sm text-red-400 bg-red-900/30 p-3 rounded-lg">{error}</p>}
             
             {initialResult && (
-                 <div ref={resultRef} className="mt-6 p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20 space-y-3 animate-fade-in">
+                 <div ref={resultRef} className="mt-6 p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20 space-y-4 animate-fade-in">
                     <div className="flex justify-between items-center">
                          <h3 className="text-lg font-bold text-cyan-200">نتیجه بررسی سریع</h3>
                          <ExportButton elementRef={resultRef} data={initialResult} title="fact-check-result" type="fact-check" disabled={false} />
                     </div>
-                    <p><strong>نتیجه کلی:</strong> <span className={initialResult.overallCredibility === Credibility.High ? 'text-green-400' : initialResult.overallCredibility === Credibility.Medium ? 'text-yellow-400' : 'text-red-400'}>{initialResult.overallCredibility}</span></p>
-                    <p className="text-sm text-gray-300 leading-relaxed">{initialResult.summary}</p>
+                     <div className="space-y-2">
+                        <p><strong>نتیجه کلی:</strong> <span className={initialResult.overallCredibility === Credibility.High ? 'text-green-400' : initialResult.overallCredibility === Credibility.Medium ? 'text-yellow-400' : 'text-red-400'}>{initialResult.overallCredibility}</span></p>
+                        <p className="text-sm text-gray-300 leading-relaxed">{initialResult.summary}</p>
+                    </div>
+                    {initialResult.sources && initialResult.sources.length > 0 && (
+                        <div className="pt-3 border-t border-gray-700/50 space-y-3">
+                            <h4 className="font-semibold text-cyan-200">منابع معتبر بررسی شده:</h4>
+                            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                                {initialResult.sources.map((source, index) => (
+                                    <div key={index} className="p-3 bg-gray-800/50 rounded-lg text-xs">
+                                        <p className="font-bold text-gray-200">{source.name}</p>
+                                        <a href={source.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">{source.link}</a>
+                                        <p className="text-gray-400 mt-1"><strong>تاریخ انتشار:</strong> {source.publicationDate || 'نامشخص'}</p>
+                                        <p className="text-gray-400"><strong>سطح اعتبار:</strong> {source.credibility}</p>
+                                        <p className="text-gray-300 mt-2 border-l-2 border-cyan-500/50 pl-2">{source.summary}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                  </div>
             )}
 
@@ -338,17 +356,37 @@ const SpecializedFactCheck: React.FC<{ settings: AppSettings }> = ({ settings })
                  {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
                  {!isLoading && !result && <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400"><p>نتیجه راستی‌آزمایی در اینجا نمایش داده خواهد شد.</p></div>}
                  {result && (
-                     <div ref={resultRef} className="p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20 space-y-3 animate-fade-in">
+                     <div ref={resultRef} className="p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20 space-y-4 animate-fade-in">
                         <div className="flex justify-between items-center">
                              <h3 className="text-lg font-bold text-cyan-200">نتیجه بررسی</h3>
                              <ExportButton elementRef={resultRef} data={result} title={`fact-check-${activeSubTab}`} type="fact-check" disabled={false} />
                         </div>
-                        <p><strong>نتیجه کلی:</strong> <span className={result.overallCredibility === Credibility.High ? 'text-green-400' : result.overallCredibility === Credibility.Medium ? 'text-yellow-400' : 'text-red-400'}>{result.overallCredibility}</span></p>
-                        <p className="text-sm text-gray-300 leading-relaxed">{result.summary}</p>
-                        <div className="text-xs text-gray-400 pt-2 border-t border-gray-700">
-                            <p><strong>منبع اصلی یافت شده:</strong> <a href={result.originalSource.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{result.originalSource.name}</a></p>
-                            <p><strong>تاریخ انتشار:</strong> {result.originalSource.publicationDate}</p>
+                         <div className="space-y-2">
+                            <p><strong>نتیجه کلی:</strong> <span className={result.overallCredibility === Credibility.High ? 'text-green-400' : result.overallCredibility === Credibility.Medium ? 'text-yellow-400' : 'text-red-400'}>{result.overallCredibility}</span></p>
+                            <p className="text-sm text-gray-300 leading-relaxed">{result.summary}</p>
                         </div>
+                        {result.sources && result.sources.length > 0 && (
+                            <div className="pt-3 border-t border-gray-700/50 space-y-3">
+                                <h4 className="font-semibold text-cyan-200">منابع معتبر بررسی شده:</h4>
+                                <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
+                                    {result.sources.map((source, index) => (
+                                        <div key={index} className="p-3 bg-gray-800/50 rounded-lg text-xs">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="font-bold text-gray-200">نام منبع: {source.name}</p>
+                                                    <a href={source.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline break-all">لینک منبع: {source.link}</a>
+                                                </div>
+                                                <div className="text-right text-gray-400 whitespace-nowrap pl-2">
+                                                    <p><strong>تاریخ:</strong> {source.publicationDate || 'نامشخص'}</p>
+                                                    <p><strong>اعتبار:</strong> {source.credibility}</p>
+                                                </div>
+                                            </div>
+                                            <p className="text-gray-300 mt-2 border-l-2 border-cyan-500/50 pl-2">{source.summary}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                      </div>
                  )}
             </div>

@@ -267,14 +267,18 @@ export interface Filters {
   sources: string[];
 }
 
+export interface FactCheckSource {
+  name: string;
+  link: string;
+  publicationDate: string;
+  credibility: Credibility | string;
+  summary: string;
+}
+
 export interface FactCheckResult {
   overallCredibility: Credibility | string;
   summary: string;
-  originalSource: {
-    name: string;
-    link: string;
-    publicationDate: string;
-  };
+  sources: FactCheckSource[];
 }
 
 export interface MediaFile {
