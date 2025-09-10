@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import SourcesManager from './SourcesManager';
+import RSSFeedManager from './RSSFeedManager';
 import AIInstructionsSettings from './AIInstructions';
 import AIModelSettings from './settings/AIModelSettings';
 import ContentSettings from './ContentSettings';
@@ -21,7 +22,7 @@ interface SettingsProps {
 }
 
 type SettingsTab = 
-    | 'content' | 'theme' | 'sources' | 'ai-instructions' | 'ai-models' | 'ai-assignments' 
+    | 'content' | 'theme' | 'sources' | 'rss-feeds' | 'ai-instructions' | 'ai-models' | 'ai-assignments' 
     | 'setup-guides' | 'telegram-bot' | 'discord-bot' | 'twitter-bot' 
     | 'integrations' | 'security' | 'about';
 
@@ -51,6 +52,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('content', 'محتوا و نمایش')}
         {renderTabButton('theme', 'تم / استایل')}
         {renderTabButton('sources', 'منابع')}
+        {renderTabButton('rss-feeds', 'خبرخوان‌ها')}
         {renderTabButton('ai-instructions', 'دستورالعمل‌های AI')}
         {renderTabButton('ai-models', 'مدل‌های AI')}
         {renderTabButton('ai-assignments', 'تخصیص مدل‌ها')}
@@ -128,6 +130,14 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
             <SourcesManager
                 sources={settings.sources}
                 onSourcesChange={(sources) => handlePartialChange({ sources })}
+                settings={settings}
+            />
+        )}
+
+        {activeTab === 'rss-feeds' && (
+            <RSSFeedManager
+                feeds={settings.rssFeeds}
+                onFeedsChange={(rssFeeds) => handlePartialChange({ rssFeeds })}
                 settings={settings}
             />
         )}

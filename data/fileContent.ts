@@ -52,7 +52,7 @@ app.get('/', (req, res) => {
 // --- Telegram Bot Logic ---
 bot.onText(/\\/start/, (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news را ارسال کنید.');
+    bot.sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news، برای اخبار از خبرخوان‌ها /rss و برای قیمت ارزهای دیجیتال /crypto را ارسال کنید.');
 });
 
 bot.onText(/\\/news/, (msg) => {
@@ -64,6 +64,24 @@ bot.onText(/\\/news/, (msg) => {
     // const news = await fetchLiveNews(...);
     // bot.sendMessage(chatId, formatNewsForTelegram(news));
 });
+
+bot.onText(/\\/rss/, (msg) => {
+    const chatId = msg.chat.id;
+    // This is a simplified call. A real implementation would fetch settings.
+    // For now, it relies on an AI instruction that contains some default feeds.
+    bot.sendMessage(chatId, 'در حال دریافت آخرین اخبار از خبرخوان‌ها...');
+    // In a real app, call a function like:
+    // const articles = await fetchNewsFromFeeds([], settings.aiInstructions['rss-feeds']);
+    // bot.sendMessage(chatId, formatArticlesForTelegram(articles));
+});
+
+
+bot.onText(/\\/crypto/, (msg) => {
+    const chatId = msg.chat.id;
+    // In a real application, you would call the Gemini API here to fetch crypto prices
+    bot.sendMessage(chatId, 'در حال دریافت قیمت ارزهای دیجیتال... (این یک عملکرد نمونه است)');
+});
+
 
 console.log('Telegram bot is polling for messages...');
 
@@ -114,6 +132,15 @@ CREATE TABLE IF NOT EXISTS search_history (
     result_summary TEXT,
     result_data_json LONGTEXT,
     is_favorite BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for RSS Feeds, simpler than sources.
+CREATE TABLE IF NOT EXISTS rss_feeds (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    url VARCHAR(512) NOT NULL UNIQUE,
+    category VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -219,7 +246,7 @@ async function handleUpdate(update) {
     const text = message.text;
 
     if (text === '/start') {
-      await sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news را ارسال کنید.');
+      await sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news، برای اخبار از خبرخوان‌ها /rss و برای قیمت ارزهای دیجیتال /crypto را ارسال کنید.');
     } else if (text === '/news') {
       await sendMessage(chatId, 'در حال جستجوی آخرین اخبار جهان...');
       const news = await fetchNewsFromGemini();
@@ -230,6 +257,16 @@ async function handleUpdate(update) {
       } else {
         await sendMessage(chatId, 'متاسفانه در حال حاضر مشکلی در دریافت اخبار وجود دارد.');
       }
+    } else if (text === '/rss') {
+        await sendMessage(chatId, 'در حال دریافت آخرین اخبار از خبرخوان‌ها...');
+        const articles = await fetchRssNewsFromGemini();
+        if (articles && articles.length > 0) {
+            const firstArticle = articles[0];
+            const formattedMessage = \`*\\\${firstArticle.title}*\\n\\n*منبع:* \\\${firstArticle.source}\\n\\n\\\${firstArticle.summary}\\n\\n[مشاهده خبر](\\\${firstArticle.link})\`;
+            await sendMessage(chatId, formattedMessage, 'Markdown');
+        } else {
+            await sendMessage(chatId, 'خطا در دریافت اخبار از خبرخوان‌ها.');
+        }
     }
   }
 }
@@ -271,7 +308,7 @@ async function sendMessage(chatId, text, parseMode = '') {
 }
 
 async function fetchNewsFromGemini() {
-  const prompt = "Find the single most important recent world news article for a Persian-speaking user. Provide title, summary, source, and link.";
+  const prompt = "Find the single most important recent world news article for a Persian-speaking user. Provide title, summary, source, and link. CRITICAL: The 'link' must be a direct, working, and publicly accessible URL to the full news article. Do not provide links to homepages, paywalled content, or incorrect pages. Verify the link is valid.";
   
   const body = {
     contents: [{
@@ -292,7 +329,9 @@ async function fetchNewsFromGemini() {
     });
 
     const data = await response.json();
+    // The response structure might be complex. This is a simplified extraction.
     const jsonString = data.candidates[0].content.parts[0].text;
+    // The model might return a single object or an array. Let's handle both.
     const result = JSON.parse(jsonString);
     return Array.isArray(result) ? result : [result];
     
@@ -300,6 +339,59 @@ async function fetchNewsFromGemini() {
     console.error("Error fetching news from Gemini:", error);
     return null;
   }
+}
+
+async function fetchRssNewsFromGemini() {
+    // This prompt relies on a system instruction or a well-trained model to know what feeds to check.
+    // For a robust implementation, the feed URLs should be passed in.
+    const prompt = "Fetch the single most important news article from these RSS feeds: [\\"https://www.isna.ir/rss\\", \\"http://feeds.bbci.co.uk/persian/rss.xml\\"]. Provide title, summary, source, and link as JSON.";
+
+    const body = {
+        contents: [{ parts: [{ "text": prompt }] }],
+        "generationConfig": { "response_mime_type": "application/json" }
+    };
+
+    const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        const jsonString = data.candidates[0].content.parts[0].text;
+        const result = JSON.parse(jsonString);
+        return Array.isArray(result) ? result : [result];
+    } catch (error) {
+        console.error("Error fetching RSS news from Gemini:", error);
+        return null;
+    }
+}
+
+async function fetchCryptoFromGemini() {
+    const prompt = "Find live price data for the top 5 most popular cryptocurrencies (like Bitcoin, Ethereum, etc.). For each, provide its ID, symbol, name, price in USD, price in Iranian Toman, and the 24-hour price change percentage. Use reliable sources like ramzarz.news for up-to-date information. Return as a JSON array.";
+    
+    const body = {
+        contents: [{ parts: [{ "text": prompt }] }],
+        "generationConfig": { "response_mime_type": "application/json" }
+    };
+    
+    const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        const jsonString = data.candidates[0].content.parts[0].text;
+        return JSON.parse(jsonString);
+    } catch (error) {
+        console.error("Error fetching crypto data from Gemini:", error);
+        return null;
+    }
 }
 `,
 
@@ -408,7 +500,6 @@ main();
 
 ### ۲. جستجوی پیشرفته (Advanced Search)
 - **فیلتر چندبعدی:** جستجو بر اساس کلیدواژه، دسته‌بندی، منطقه جغرافیایی و نوع منبع (داخلی، خارجی و...).
-- **فیلترهای هوشمند دینی:** در تب 'موضوعات دینی'، از یک سیستم فیلترینگ هوشمند و مرحله به مرحله استفاده کنید. هوش مصنوعی به شما **حوزه‌ها**، **مناطق** و **منابع** مرتبط را به صورت آبشاری پیشنهاد می‌دهد تا به دقیق‌ترین نتایج دست یابید.
 - **نتایج هوشمند:** دریافت نتایج دقیق و مرتبط با استفاده از دستورالعمل‌های اختصاصی برای هوش مصنوعی.
 - **مدیریت نتایج:** قابلیت حذف موقت یک خبر از لیست نتایج برای تمرکز بیشتر.
 
@@ -432,12 +523,13 @@ main();
     - امکان سفارشی‌سازی خروجی برای پلتفرم‌های مختلف (مانند گیت‌هاب یا وب‌سایت شخصی).
     - پیش‌نمایش زنده صفحه ساخته شده.
 
-### ۵. خروجی‌های متنوع (Diverse Exports)
-- **پشتیبانی از فرمت‌های مختلف:** علاوه بر خروجی‌های PDF، HTML و عکس (PNG)، اکنون می‌توانید نتایج تمام بخش‌های جستجو را به صورت فایل **Word (.doc)** و **Excel (.xlsx)** نیز دریافت کنید.
-
-### ۶. نوار اخبار متحرک (News Ticker)
+### ۵. نوار اخبار متحرک (News Ticker)
 - **نمایش پویا:** نمایش مهم‌ترین عناوین خبری به صورت متحرک در بالای صفحه.
 - **شخصی‌سازی کامل:** تنظیم سرعت، جهت حرکت (چپ به راست و بالعکس) و رنگ متن.
+
+### ۶. اعتبار و دسترسی به منابع
+- **لینک‌های معتبر و مستقیم:** هوش مصنوعی به شدت موظف شده است که برای تمامی اخبار، منابع و نتایج جستجو، لینک‌های **مستقیم، سالم و قابل دسترس** ارائه دهد. این امر از نمایش محتوای فیک یا لینک‌های شکسته جلوگیری می‌کند.
+- **تجربه کاربری بهینه:** تمامی لینک‌هایی که به منابع خارجی ارجاع می‌دهند، به صورت خودکار در یک **تب جدید** در مرورگر باز می‌شوند تا جریان کاری شما در برنامه قطع نشود.
 
 ## پنل تنظیمات جامع
 
@@ -466,7 +558,7 @@ main();
   - **پشتیبانی از چند ارائه‌دهنده:** تنظیمات مربوط به کلید API برای سرویس‌دهنده‌های مختلف (Gemini, OpenAI, OpenRouter, Groq).
   - **تست اتصال:** قابلیت تست اتصال به هر سرویس برای اطمینان از صحت کلید API.
 - **تخصیص مدل‌ها:**
-  - **مدیریت انعطاف‌پذیر:** امکان اختصاص دادن یک مدل هوش مصنوعی خاص به هر یک از وظایf برنامه.
+  - **مدیریت انعطاف‌پذیر:** امکان اختصاص دادن یک مدل هوش مصنوعی خاص به هر یک از وظایف برنامه.
   - **قابلیت فال‌بک (Fallback):** به سادگی می‌توانید وظایف را به مدل دیگری منتقل کنید، برای مثال در صورت اتمام محدودیت استفاده از یک سرویس.
 
 <!-- Placeholder for a screenshot -->

@@ -212,6 +212,16 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                             </div>
                         </div>
                     )}
+                     {initialResult.groundingSources && initialResult.groundingSources.length > 0 && (
+                        <div className="pt-3 border-t border-gray-700/50">
+                            <h4 className="font-semibold text-cyan-200 text-sm">منابع جستجوی آنلاین (AI):</h4>
+                            <ul className="list-disc list-inside text-xs space-y-1 mt-2">
+                            {initialResult.groundingSources.map((source, i) => (
+                                <li key={i}><a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate" title={source.uri}>{source.title || "منبع بدون عنوان"}</a></li>
+                            ))}
+                            </ul>
+                        </div>
+                    )}
                  </div>
             )}
 
@@ -385,6 +395,16 @@ const SpecializedFactCheck: React.FC<{ settings: AppSettings }> = ({ settings })
                                         </div>
                                     ))}
                                 </div>
+                            </div>
+                        )}
+                        {result.groundingSources && result.groundingSources.length > 0 && (
+                            <div className="pt-3 border-t border-gray-700/50">
+                                <h4 className="font-semibold text-cyan-200 text-sm">منابع جستجوی آنلاین (AI):</h4>
+                                <ul className="list-disc list-inside text-xs space-y-1 mt-2">
+                                {result.groundingSources.map((source, i) => (
+                                    <li key={i}><a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate" title={source.uri}>{source.title || "منبع بدون عنوان"}</a></li>
+                                ))}
+                                </ul>
                             </div>
                         )}
                      </div>

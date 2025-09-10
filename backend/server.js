@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
 // --- Telegram Bot Logic ---
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news و برای قیمت ارزهای دیجیتال /crypto را ارسال کنید.');
+    bot.sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news، برای اخبار از خبرخوان‌ها /rss و برای قیمت ارزهای دیجیتال /crypto را ارسال کنید.');
 });
 
 bot.onText(/\/news/, (msg) => {
@@ -45,6 +45,17 @@ bot.onText(/\/news/, (msg) => {
     // const news = await fetchLiveNews(...);
     // bot.sendMessage(chatId, formatNewsForTelegram(news));
 });
+
+bot.onText(/\/rss/, (msg) => {
+    const chatId = msg.chat.id;
+    // This is a simplified call. A real implementation would fetch settings.
+    // For now, it relies on an AI instruction that contains some default feeds.
+    bot.sendMessage(chatId, 'در حال دریافت آخرین اخبار از خبرخوان‌ها...');
+    // In a real app, call a function like:
+    // const articles = await fetchNewsFromFeeds([], settings.aiInstructions['rss-feeds']);
+    // bot.sendMessage(chatId, formatArticlesForTelegram(articles));
+});
+
 
 bot.onText(/\/crypto/, (msg) => {
     const chatId = msg.chat.id;

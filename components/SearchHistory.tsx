@@ -7,7 +7,7 @@ interface SearchHistoryProps {
   settings: AppSettings;
 }
 
-type HistoryFilter = 'all' | 'news' | 'fact-check' | 'analyzer' | 'browser-agent' | 'live-news';
+type HistoryFilter = 'all' | 'news' | 'fact-check' | 'analyzer' | 'browser-agent' | 'live-news' | 'rss-feed';
 
 const historyTypeLabels: Record<string, string> = {
     'news': 'جستجوی اخبار',
@@ -17,7 +17,8 @@ const historyTypeLabels: Record<string, string> = {
     'live-news': 'اخبار روز',
     'stats': 'آمار',
     'science': 'علمی',
-    'religion': 'دینی'
+    'religion': 'دینی',
+    'rss-feed': 'خبرخوان',
 };
 
 
@@ -84,6 +85,7 @@ const SearchHistory: React.FC<SearchHistoryProps> = ({ settings }) => {
     const filterButtons: {id: HistoryFilter, label: string}[] = [
         {id: 'all', label: 'همه'},
         {id: 'news', label: 'اخبار'},
+        {id: 'rss-feed', label: 'خبرخوان'},
         {id: 'fact-check', label: 'فکت چک'},
         {id: 'analyzer', label: 'تحلیل‌گر'},
         {id: 'browser-agent', label: 'عامل هوشمند'},

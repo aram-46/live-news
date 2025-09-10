@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { AnalysisResult, FallacyResult, AnalysisStance } from '../types';
-import { ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, LinkIcon, DocumentTextIcon } from './icons';
+import { AnalysisResult, FallacyResult, AnalysisStance, AnalysisExample } from '../types';
+import { ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, LinkIcon, DocumentTextIcon, CheckCircleIcon } from './icons';
 import ExportButton from './ExportButton';
 
 interface AnalysisResultDisplayProps {
@@ -37,7 +37,10 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result })
         const fallacyResult = result as FallacyResult;
         return (
              <div ref={resultRef} className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-4 animate-fade-in">
-                 <h2 className="text-xl font-bold text-cyan-300">مغالطه‌های شناسایی شده</h2>
+                 <div className="flex justify-between items-start">
+                    <h2 className="text-xl font-bold text-cyan-300">مغالطه‌های شناسایی شده</h2>
+                    <ExportButton elementRef={resultRef} data={result} title="fallacy_result" type="structured" disabled={false} />
+                 </div>
                  {fallacyResult.identifiedFallacies.length > 0 ? (
                     fallacyResult.identifiedFallacies.map((fallacy, index) => (
                         <div key={index} className="p-4 bg-gray-800/50 border-l-4 border-red-500 rounded-r-lg">
@@ -50,6 +53,16 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result })
                  ) : (
                     <p className="text-green-300">هیچ مغالطه‌ای در متن شناسایی نشد.</p>
                  )}
+                 {fallacyResult.groundingSources && fallacyResult.groundingSources.length > 0 && (
+                    <div className="pt-3 border-t border-gray-700/50">
+                        <h4 className="font-semibold text-cyan-200 text-sm">منابع جستجوی آنلاین (AI):</h4>
+                        <ul className="list-disc list-inside text-xs space-y-1 mt-2">
+                        {fallacyResult.groundingSources.map((source, i) => (
+                            <li key={i}><a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate" title={source.uri}>{source.title || "منبع بدون عنوان"}</a></li>
+                        ))}
+                        </ul>
+                    </div>
+                )}
             </div>
         )
     }
@@ -103,10 +116,20 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result })
                 </div>
             )}
 
+            {analysisResult.groundingSources && analysisResult.groundingSources.length > 0 && (
+                <div className="pt-3">
+                    <h4 className="font-semibold text-cyan-200 text-sm">منابع اصلی جستجوی آنلاین (AI):</h4>
+                    <ul className="list-disc list-inside text-xs space-y-1 mt-2">
+                    {analysisResult.groundingSources.map((source, i) => (
+                        <li key={i}><a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate" title={source.uri}>{source.title || "منبع بدون عنوان"}</a></li>
+                    ))}
+                    </ul>
+                </div>
+            )}
 
             {/* Footer sections */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700">
-                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع استفاده شده</h5><ul className="space-y-2">{analysisResult.sources.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
+                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع ذکر شده در تحلیل</h5><ul className="space-y-2">{analysisResult.sources.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
                 <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><DocumentTextIcon className="w-5 h-5"/>تکنیک‌های تحلیلی</h5><ul className="space-y-1 list-disc list-inside">{analysisResult.techniques.map((t, i) => <li key={i} className="text-sm">{t}</li>)}</ul></div>
                 <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LightBulbIcon className="w-5 h-5"/>پیشنهادات مرتبط</h5><ul className="space-y-2">{analysisResult.suggestions.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
             </div>

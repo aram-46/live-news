@@ -31,6 +31,7 @@ import {
     DebateRole,
     debateRoleLabels,
     AIModelProvider,
+    RSSFeed,
 } from "../types";
 
 // This is a placeholder for a real API key which MUST be provided by an environment variable.
@@ -277,6 +278,57 @@ export async function fetchLiveNews(category: string, allSources: any, instructi
     return JSON.parse(response.text.trim());
 }
 
+// FIX: Added missing function `fetchNewsFromFeeds` to fix import error in LiveNews.tsx.
+export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, query?: string): Promise<NewsArticle[]> {
+    const ai = getAiInstance();
+    if (!ai) return [];
+
+    const feedUrls = feeds.map(f => f.url).join(', ');
+    
+    let prompt = `
+        User Request: Fetch the top 15 most important and recent news articles from the last 24 hours from these RSS feeds: [${feedUrls}].
+        Merge the results, remove duplicates, and return them as a JSON array of NewsArticle objects.
+        The entire output must be in Persian.
+    `;
+
+    if (query) {
+        prompt += `\nAdditionally, filter the results to only include articles related to this query: "${query}"`;
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            systemInstruction: instruction,
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        title: { type: Type.STRING },
+                        summary: { type: Type.STRING },
+                        link: { type: Type.STRING },
+                        source: { type: Type.STRING },
+                        publicationTime: { type: Type.STRING },
+                        credibility: { type: Type.STRING },
+                        category: { type: Type.STRING },
+                        imageUrl: { type: Type.STRING },
+                    },
+                    required: ["title", "link", "summary", "source"]
+                },
+            },
+        },
+    });
+
+    try {
+        return JSON.parse(response.text.trim());
+    } catch (e) {
+        console.error("Failed to parse news from feeds:", e);
+        return [];
+    }
+}
+
 export async function checkForUpdates(sources: any): Promise<boolean> {
     console.log("Checking for updates (mock)...");
     await new Promise(res => setTimeout(res, 2000));
@@ -323,6 +375,47 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
 
     return JSON.parse(response.text.trim());
 }
+
+// FIX: Added missing function `findFeedsWithAI` to fix import error in RSSFeedManager.tsx.
+export async function findFeedsWithAI(category: SourceCategory, existingFeeds: RSSFeed[]): Promise<Partial<RSSFeed>[]> {
+    const ai = getAiInstance();
+    if (!ai) return [];
+
+    const existingUrls = existingFeeds.map(f => f.url).join(', ');
+    const prompt = `
+        Find 5 new RSS feed URLs for news sources in the category "${category}".
+        For each, provide its name and the full URL.
+        - DO NOT include any of these existing URLs: ${existingUrls}
+        - The response must be in Persian and conform to the JSON schema.
+    `;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        name: { type: Type.STRING },
+                        url: { type: Type.STRING },
+                    },
+                    required: ["name", "url"]
+                }
+            }
+        }
+    });
+
+    try {
+        return JSON.parse(response.text.trim());
+    } catch (e) {
+        console.error("Failed to parse found RSS feeds:", e);
+        return [];
+    }
+}
+
 
 export async function fetchNews(filters: Filters, instruction: string, maxResults: number, showImages: boolean): Promise<{ articles: NewsArticle[], suggestions: string[] }> {
     const ai = getAiInstance();
@@ -809,12 +902,26 @@ export const generateSeoKeywords = generateKeywordsForTopic;
 export const suggestWebsiteNames = generateKeywordsForTopic;
 export const suggestDomainNames = generateKeywordsForTopic;
 
-export async function generateArticle(topic: string, wordCount: number, instruction: string): Promise<string> {
+// FIX: Modified function to return an object with articleText and groundingSources, as expected by ContentCreator.tsx. Added the googleSearch tool to fetch sources.
+export async function generateArticle(topic: string, wordCount: number, instruction: string): Promise<{ articleText: string, groundingSources: GroundingSource[] }> {
     const ai = getAiInstance();
-    if (!ai) return "";
+    if (!ai) return { articleText: "", groundingSources: [] };
     const prompt = `User Request: Write a ${wordCount}-word article about "${topic}".`;
-    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt, config: { systemInstruction: instruction } });
-    return response.text;
+    const response = await ai.models.generateContent({ 
+        model: 'gemini-2.5-flash', 
+        contents: prompt, 
+        config: { 
+            systemInstruction: instruction,
+            tools: [{ googleSearch: {} }] 
+        } 
+    });
+    
+    const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((s:any) => s.web).filter(Boolean) || [];
+    
+    return {
+        articleText: response.text,
+        groundingSources: groundingSources
+    };
 }
 
 // FIX: Replaced mock function with a real implementation using the 'imagen-4.0-generate-001' model.

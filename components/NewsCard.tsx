@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from 'react';
 import { NewsArticle, Credibility, AppSettings, FontSettings } from '../types';
 import { LinkIcon, ShareIcon, TelegramIcon, DiscordIcon, CloseIcon, ClipboardIcon, CheckCircleIcon } from './icons';
@@ -96,7 +93,23 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, settings, onRemove, fontSe
         </div>
       </header>
       <p style={summaryStyle} className="text-gray-300 text-sm leading-relaxed mb-4 flex-grow">{article.summary}</p>
-      <footer className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-gray-400 gap-3 mt-auto">
+      
+       {article.groundingSources && article.groundingSources.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-700/50 text-xs">
+            <h5 className="font-semibold text-cyan-400/80 mb-1">منابع هوش مصنوعی:</h5>
+            <ul className="list-disc list-inside space-y-1 text-gray-400">
+              {article.groundingSources.slice(0, 2).map((source, i) => (
+                <li key={i} className="truncate">
+                    <a href={source.uri} target="_blank" rel="noopener noreferrer" className="hover:underline" title={source.uri}>
+                        {source.title || "منبع بدون عنوان"}
+                    </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+      <footer className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-gray-400 gap-3 mt-auto pt-3">
         <div className="flex items-center gap-4">
           <span className="font-semibold">{article.source}</span>
           <span>{article.publicationTime}</span>

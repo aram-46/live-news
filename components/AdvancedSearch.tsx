@@ -1,7 +1,5 @@
-
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Filters, NewsArticle, AppSettings, SearchTab, PodcastResult, StanceHolder, HostingSite } from '../types';
+import { Filters, NewsArticle, AppSettings, SearchTab, PodcastResult, StanceHolder, HostingSite, GroundingSource } from '../types';
 import { fetchNews, fetchPodcasts } from '../services/geminiService';
 import FilterPanel from './FilterPanel';
 import NewsResults from './NewsResults';
@@ -58,6 +56,16 @@ const PodcastResultCard: React.FC<{ podcast: PodcastResult; }> = ({ podcast }) =
             </div>
             
             <footer className="pt-3 border-t border-gray-700/50 space-y-3">
+                 {podcast.groundingSources && podcast.groundingSources.length > 0 && (
+                    <div className="text-xs">
+                        <h5 className="font-semibold text-cyan-400/80 mb-1">منابع هوش مصنوعی:</h5>
+                        <ul className="list-disc list-inside space-y-1 text-gray-400">
+                            {podcast.groundingSources.slice(0, 2).map((source, i) => (
+                                <li key={i} className="truncate"><a href={source.uri} target="_blank" rel="noopener noreferrer" className="hover:underline">{source.title}</a></li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
                 <div className="flex items-center gap-2">
                     <a
                         href={podcast.link}
@@ -193,9 +201,9 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onSettingsCha
     setNews([]);
     setSuggestions([]);
     try {
-      const results = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages);
-      setNews(results.articles);
-      setSuggestions(results.suggestions);
+      const { articles, suggestions: apiSuggestions } = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages);
+      setNews(articles);
+      setSuggestions(apiSuggestions);
     } catch (error) {
       console.error('Error fetching news:', error);
       setNewsError('خطا در دریافت اخبار. لطفاً دوباره تلاش کنید.');

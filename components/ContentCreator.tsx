@@ -1,9 +1,7 @@
-
-
 import React, { useState, useCallback } from 'react';
-import { AppSettings } from '../types';
+import { AppSettings, GroundingSource } from '../types';
 import { generateSeoKeywords, suggestWebsiteNames, suggestDomainNames, generateArticle, generateImagesForArticle } from '../services/geminiService';
-import { MagicIcon, ClipboardIcon, CheckCircleIcon, ImageIcon } from './icons';
+import { MagicIcon, ClipboardIcon, CheckCircleIcon, ImageIcon, LinkIcon } from './icons';
 
 interface ContentCreatorProps {
     settings: AppSettings;
@@ -11,14 +9,17 @@ interface ContentCreatorProps {
 
 const ResultCard: React.FC<{
     title: string;
-    content: string | string[];
+    content: string | string[] | GroundingSource[];
     isLoading: boolean;
     isList?: boolean;
-}> = ({ title, content, isLoading, isList = false }) => {
+    isSourceList?: boolean;
+}> = ({ title, content, isLoading, isList = false, isSourceList = false }) => {
     const [isCopied, setIsCopied] = useState(false);
 
     const handleCopy = () => {
-        const textToCopy = Array.isArray(content) ? content.join('\n') : content;
+        const textToCopy = Array.isArray(content) 
+            ? content.map(item => typeof item === 'string' ? item : item.uri).join('\n') 
+            : String(content);
         navigator.clipboard.writeText(textToCopy);
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
@@ -28,23 +29,37 @@ const ResultCard: React.FC<{
         if (isLoading) {
             return <div className="h-20 bg-gray-700/50 rounded animate-pulse"></div>;
         }
-        if (Array.isArray(content) && content.length === 0) {
+        if (!content || (Array.isArray(content) && content.length === 0)) {
             return <p className="text-xs text-gray-500">موردی برای نمایش وجود ندارد.</p>;
+        }
+        if (isSourceList && Array.isArray(content)) {
+            return (
+                 <ul className="space-y-1">
+                    {(content as GroundingSource[]).map((item, index) => (
+                        <li key={index} className="text-sm truncate">
+                            <a href={item.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:underline">
+                                <LinkIcon className="w-4 h-4 flex-shrink-0"/>
+                                <span className="truncate" title={item.title}>{item.title}</span>
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            )
         }
         if (isList && Array.isArray(content)) {
             return (
                 <ul className="space-y-1 list-disc list-inside">
-                    {content.map((item, index) => <li key={index} className="text-sm">{item}</li>)}
+                    {(content as string[]).map((item, index) => <li key={index} className="text-sm">{item}</li>)}
                 </ul>
             );
         }
-        return <p className="text-sm whitespace-pre-wrap leading-relaxed">{content}</p>;
+        return <p className="text-sm whitespace-pre-wrap leading-relaxed">{content as string}</p>;
     };
 
     return (
         <div className="p-4 bg-gray-800/50 rounded-lg relative group">
             <h4 className="font-semibold text-cyan-200 mb-2">{title}</h4>
-            <div className="text-gray-300 max-h-48 overflow-y-auto">
+            <div className="text-gray-300 max-h-48 overflow-y-auto pr-2">
                 {renderContent()}
             </div>
             {content && (content as any).length > 0 && !isLoading && (
@@ -68,6 +83,7 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
     const [articleTopic, setArticleTopic] = useState('');
     const [wordCount, setWordCount] = useState(300);
     const [articleText, setArticleText] = useState('');
+    const [articleSources, setArticleSources] = useState<GroundingSource[]>([]);
     const [articleKeywords, setArticleKeywords] = useState<string[]>([]);
     const [images, setImages] = useState<string[]>([]);
     const [imageCount, setImageCount] = useState(1);
@@ -94,9 +110,13 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setArticleLoading('article');
         setArticleText('');
         setArticleKeywords([]);
+        setArticleSources([]);
         try {
-            const article = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation']);
-            setArticleText(article);
+            // FIX: The generateArticle function now returns an object. Destructure it correctly.
+            const { articleText, groundingSources } = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation']);
+            setArticleText(articleText);
+            setArticleSources(groundingSources || []);
+            
             // Also generate keywords for the article
             const keywords = await generateSeoKeywords(articleTopic, settings.aiInstructions['seo-keywords']);
             setArticleKeywords(keywords);
@@ -149,6 +169,7 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
                 </div>
                  <ResultCard title="متن مقاله" content={articleText} isLoading={articleLoading === 'article'} />
                  <ResultCard title="کلمات کلیدی مقاله" content={articleKeywords} isLoading={articleLoading === 'article'} isList />
+                 <ResultCard title="منابع استفاده شده در مقاله" content={articleSources} isLoading={articleLoading === 'article'} isSourceList />
 
                  <div className="p-4 bg-gray-800/50 rounded-lg space-y-4">
                     <h4 className="font-semibold text-cyan-200 flex items-center gap-2"><ImageIcon className="w-5 h-5"/> تولید تصویر برای مقاله</h4>

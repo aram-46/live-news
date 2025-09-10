@@ -37,7 +37,7 @@ async function handleUpdate(update) {
     const text = message.text;
 
     if (text === '/start') {
-      await sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای آخرین اخبار /news و برای قیمت ارز دیجیتال /crypto را ارسال کنید.');
+      await sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای آخرین اخبار /news، برای اخبار از خبرخوان‌ها /rss و برای قیمت ارز دیجیتال /crypto را ارسال کنید.');
     } else if (text === '/news') {
       await sendMessage(chatId, 'در حال جستجوی آخرین اخبار جهان...');
       const news = await fetchNewsFromGemini();
@@ -48,6 +48,16 @@ async function handleUpdate(update) {
       } else {
         await sendMessage(chatId, 'متاسفانه در حال حاضر مشکلی در دریافت اخبار وجود دارد.');
       }
+    } else if (text === '/rss') {
+        await sendMessage(chatId, 'در حال دریافت آخرین اخبار از خبرخوان‌ها...');
+        const articles = await fetchRssNewsFromGemini();
+        if (articles && articles.length > 0) {
+            const firstArticle = articles[0];
+            const formattedMessage = `*${firstArticle.title}*\n\n*منبع:* ${firstArticle.source}\n\n${firstArticle.summary}\n\n[مشاهده خبر](${firstArticle.link})`;
+            await sendMessage(chatId, formattedMessage, 'Markdown');
+        } else {
+            await sendMessage(chatId, 'خطا در دریافت اخبار از خبرخوان‌ها.');
+        }
     } else if (text === '/crypto') {
         await sendMessage(chatId, 'در حال دریافت قیمت لحظه‌ای ارزهای دیجیتال...');
         const coins = await fetchCryptoFromGemini();
@@ -121,6 +131,33 @@ async function fetchNewsFromGemini() {
     return null;
   }
 }
+
+async function fetchRssNewsFromGemini() {
+    const prompt = "Fetch the single most important news article from these RSS feeds: [\"https://www.isna.ir/rss\", \"http://feeds.bbci.co.uk/persian/rss.xml\"]. Provide title, summary, source, and link as JSON.";
+
+    const body = {
+        contents: [{ parts: [{ "text": prompt }] }],
+        "generationConfig": { "response_mime_type": "application/json" }
+    };
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        const jsonString = data.candidates[0].content.parts[0].text;
+        const result = JSON.parse(jsonString);
+        return Array.isArray(result) ? result : [result];
+    } catch (error) {
+        console.error("Error fetching RSS news from Gemini:", error);
+        return null;
+    }
+}
+
 
 async function fetchCryptoFromGemini() {
     const prompt = "Find live price data for the top 5 most popular cryptocurrencies (like Bitcoin, Ethereum, etc.). For each, provide its ID, symbol, name, price in USD, price in Iranian Toman, and the 24-hour price change percentage. Use reliable sources like ramzarz.news for up-to-date information. Return as a JSON array.";

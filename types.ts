@@ -49,6 +49,14 @@ export interface FindSourcesOptions {
   credibility: 'any' | 'high' | 'medium';
 }
 
+export interface RSSFeed {
+  id: string;
+  name: string;
+  url: string;
+  category: SourceCategory;
+}
+export type RSSFeeds = Record<SourceCategory, RSSFeed[]>;
+
 export type AIInstructionType = 
     | 'fact-check' | 'deep-analysis' | 'news-search' | 'video-search' 
     | 'audio-search' | 'book-search' | 'news-display' | 'news-ticker' 
@@ -62,7 +70,7 @@ export type AIInstructionType =
     | 'browser-agent' | 'general-topics'
     | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation'
     | 'page-builder' | 'podcast-search' | 'crypto-data' | 'crypto-search' | 'crypto-analysis'
-    | 'wordpress-theme';
+    | 'wordpress-theme' | 'rss-feeds';
 
 
 export const aiInstructionLabels: Record<AIInstructionType, string> = {
@@ -106,6 +114,7 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'crypto-search': 'جستجوی ارز دیجیتال',
   'crypto-analysis': 'تحلیل ارز دیجیتال',
   'wordpress-theme': 'قالب وردپرس',
+  'rss-feeds': 'دستورالعمل‌های خبرخوان (RSS)',
 };
 
 export type AIInstructions = Record<AIInstructionType, string>;
@@ -246,6 +255,7 @@ export interface AppSettings {
   generalTopicDomains: string[];
   modelAssignments: Partial<Record<AIInstructionType, AIModelProvider>>;
   defaultProvider: AIModelProvider;
+  rssFeeds: RSSFeeds;
 }
 
 export interface NewsArticle {
@@ -257,6 +267,7 @@ export interface NewsArticle {
   credibility: Credibility | string;
   category: string;
   imageUrl?: string;
+  groundingSources?: GroundingSource[];
 }
 
 export interface TickerArticle {
@@ -283,6 +294,7 @@ export interface FactCheckResult {
   overallCredibility: Credibility | string;
   summary: string;
   sources: FactCheckSource[];
+  groundingSources?: GroundingSource[];
 }
 
 export interface MediaFile {
@@ -341,6 +353,7 @@ export interface PodcastResult {
     proponents: StanceHolder[];
     opponents: StanceHolder[];
     hostingSites?: HostingSite[];
+    groundingSources?: GroundingSource[];
 }
 
 export interface ChartData {
@@ -372,6 +385,7 @@ export interface StatisticsResult {
     alternativeResults: string;
   };
   relatedSuggestions: string[];
+  groundingSources?: GroundingSource[];
 }
 export interface ScientificArticleResult extends Omit<StatisticsResult, 'chart'> {}
 
@@ -477,6 +491,7 @@ export interface WordPressThemePlan {
             fontSize: string;
         };
     };
+    groundingSources?: GroundingSource[];
 }
 export interface AnalysisStance {
   name: string;
@@ -499,6 +514,7 @@ export interface AnalysisResult {
     sources: { title: string; url: string; }[];
     techniques: string[];
     suggestions: { title: string; url: string; }[];
+    groundingSources?: GroundingSource[];
 }
 
 export interface FallacyResult {
@@ -508,6 +524,7 @@ export interface FallacyResult {
         explanation: string;
         correctedStatement: string;
     }[];
+    groundingSources?: GroundingSource[];
 }
 
 export type AnalyzerTabId = 'political' | 'religious' | 'logical' | 'philosophical' | 'philosophy-of-science' | 'historical' | 'physics' | 'theological' | 'fallacy-finder';
@@ -539,6 +556,7 @@ export interface VideoFactCheckClaim {
 export interface VideoFactCheckResult {
     overallVerdict: string;
     claims: VideoFactCheckClaim[];
+    groundingSources?: GroundingSource[];
 }
 
 export interface VideoTimestampResult {
@@ -547,10 +565,12 @@ export interface VideoTimestampResult {
         timestamp: string;
         sentence: string;
     }[];
+    groundingSources?: GroundingSource[];
 }
 
 export interface TranscriptionResult {
     transcription: string;
+    groundingSources?: GroundingSource[];
 }
 
 export interface CryptoCoin {
@@ -577,6 +597,7 @@ export interface CryptoSearchResult {
         link: string;
         credibility: Credibility | string;
     }[];
+    groundingSources?: GroundingSource[];
 }
 
 export interface CryptoAnalysisResult {
@@ -602,6 +623,7 @@ export interface CryptoAnalysisResult {
         score: number;
     };
     futureOutlook: string;
+    groundingSources?: GroundingSource[];
 }
 
 export interface GeneralTopicResult {
@@ -659,4 +681,5 @@ export interface DebateConfig {
 export interface TranscriptEntry {
     participant: DebateParticipant;
     text: string;
+    groundingSources?: GroundingSource[];
 }

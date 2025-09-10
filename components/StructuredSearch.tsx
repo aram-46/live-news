@@ -251,6 +251,17 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                                     {result.analysis.alternativeResults && <p><strong>نتایج جایگزین:</strong> {result.analysis.alternativeResults}</p>}
                                 </div>
                             </div>
+
+                             {result.groundingSources && result.groundingSources.length > 0 && (
+                                <div className="pt-3 border-t border-gray-700/50">
+                                    <h4 className="font-semibold text-cyan-200 text-sm">منابع جستجوی آنلاین (AI):</h4>
+                                    <ul className="list-disc list-inside text-xs space-y-1 mt-2">
+                                    {result.groundingSources.map((source, i) => (
+                                        <li key={i}><a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate" title={source.uri}>{source.title || "منبع بدون عنوان"}</a></li>
+                                    ))}
+                                    </ul>
+                                </div>
+                            )}
                             
                             <Suggestions suggestions={result.relatedSuggestions} onSuggestionClick={(q) => { setQuery(q); handleSearch(); }}/>
 
