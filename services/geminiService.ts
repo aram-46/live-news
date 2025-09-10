@@ -26,6 +26,11 @@ import {
     WordPressThemePlan,
     AnalysisResult,
     FallacyResult,
+    DebateConfig,
+    TranscriptEntry,
+    DebateRole,
+    debateRoleLabels,
+    AIModelProvider,
 } from "../types";
 
 // This is a placeholder for a real API key which MUST be provided by an environment variable.
@@ -1069,4 +1074,47 @@ export async function findFallacies(topic: string, file: { data: string; mimeTyp
         }
     });
     return JSON.parse(response.text.trim());
+}
+
+export async function getDebateTurnResponse(
+    history: TranscriptEntry[],
+    currentSpeakerRole: DebateRole,
+    turnCount: number,
+    config: DebateConfig,
+    isFinalTurn: boolean,
+    instruction: string,
+    modelProvider: AIModelProvider
+): Promise<GenerateContentResponse> {
+    const ai = getAiInstance();
+    if (!ai) throw new Error("AI not initialized");
+    
+    const participantMap = config.participants.map(p => `${debateRoleLabels[p.role]}: ${p.name}`).join('\n');
+    const historyText = history.map(t => `${t.participant.name} (${debateRoleLabels[t.participant.role]}):\n${t.text}`).join('\n\n---\n\n');
+    
+    let actionPrompt = '';
+    const currentParticipant = config.participants.find(p => p.role === currentSpeakerRole)!;
+
+    if (history.length === 0) {
+        actionPrompt = `شما به عنوان "${currentParticipant.name}" (${debateRoleLabels[currentSpeakerRole]}), مناظره را با معرفی موضوع و طرح اولین سوال یا نکته آغاز کنید.`;
+    } else if (isFinalTurn && currentSpeakerRole === 'moderator') {
+        actionPrompt = `شما به عنوان مدیر جلسه، مناظره را با یک خلاصه نهایی از دیدگاه‌های مطرح شده به پایان برسانید.`;
+    } else {
+         actionPrompt = `حالا نوبت شماست. به عنوان "${currentParticipant.name}" (${debateRoleLabels[currentSpeakerRole]}), به آخرین گفته‌ها واکنش نشان دهید و استدلال خود را مطرح کنید.`;
+    }
+    
+    const fullPrompt = `
+        تاریخچه مناظره تا اینجا:
+        ${historyText}
+
+        ${actionPrompt}
+    `;
+
+    // The model provider logic would be implemented here. For now, we default to Gemini.
+    console.log(`Generating response using model provider: ${modelProvider}`);
+
+    return await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: fullPrompt,
+        config: { systemInstruction: instruction }
+    });
 }

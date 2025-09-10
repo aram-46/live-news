@@ -58,6 +58,7 @@ export type AIInstructionType =
     | 'analyzer-political' | 'analyzer-religious' | 'analyzer-logical'
     | 'analyzer-philosophical' | 'analyzer-philosophy-of-science' | 'analyzer-historical'
     | 'analyzer-physics' | 'analyzer-theological' | 'analyzer-fallacy-finder'
+    | 'analyzer-debate'
     | 'browser-agent' | 'general-topics'
     | 'seo-keywords' | 'website-names' | 'domain-names' | 'article-generation'
     | 'page-builder' | 'podcast-search' | 'crypto-data' | 'crypto-search' | 'crypto-analysis'
@@ -92,6 +93,7 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
   'analyzer-physics': 'تحلیل‌گر فیزیک',
   'analyzer-theological': 'تحلیل‌گر کلامی',
   'analyzer-fallacy-finder': 'مغالطه‌یاب',
+  'analyzer-debate': 'شبیه‌ساز مناظره',
   'browser-agent': 'عامل هوشمند وب',
   'general-topics': 'موضوعات عمومی',
   'seo-keywords': 'کلمات کلیدی سئو',
@@ -625,4 +627,36 @@ export interface SearchHistoryItem {
     timestamp: number;
     resultSummary: string;
     isFavorite: boolean;
+}
+
+// --- DEBATE SIMULATOR TYPES ---
+export type DebateRole = 'moderator' | 'proponent' | 'opponent' | 'neutral';
+
+export const debateRoleLabels: Record<DebateRole, string> = {
+    'moderator': 'مدیر جلسه',
+    'proponent': 'موافق',
+    'opponent': 'مخالف',
+    'neutral': 'بی‌طرف'
+};
+
+export interface DebateParticipant {
+    id: number;
+    role: DebateRole;
+    name: string;
+    avatar?: string; // Base64 data URL
+    modelProvider: AIModelProvider;
+}
+
+export interface DebateConfig {
+    topic: string;
+    participants: DebateParticipant[];
+    starter: DebateRole;
+    turnLimit: number; // Turns per participant
+    responseLength: 'short' | 'medium' | 'long';
+    tone: 'formal' | 'passionate' | 'academic';
+}
+
+export interface TranscriptEntry {
+    participant: DebateParticipant;
+    text: string;
 }

@@ -2,12 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat } from "@google/genai";
 import { AppSettings, AnalyzerTabId, analyzerTabLabels, Stance, ChatMessage, AIInstructionType, generateUUID } from '../types';
 import { BrainIcon, ThumbsUpIcon, ThumbsDownIcon } from './icons';
+import DebateSimulator from './DebateSimulator';
+
 
 interface AnalyzerProps {
     settings: AppSettings;
 }
 
-const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
+const PersonalAnalyzer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     const [activeTab, setActiveTab] = useState<AnalyzerTabId>('political');
     const [topic, setTopic] = useState('');
     const [stance, setStance] = useState<Stance>('neutral');
@@ -155,7 +157,6 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
             <div className="flex border-b border-cyan-400/20 overflow-x-auto">
                 {(Object.keys(analyzerTabLabels) as AnalyzerTabId[]).map(key => renderTabButton(key, analyzerTabLabels[key]))}
             </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
                     <h2 className="text-xl font-bold text-cyan-300 flex items-center gap-3"><BrainIcon className="w-6 h-6" /> تحلیل و مناظره ({analyzerTabLabels[activeTab]})</h2>
@@ -207,5 +208,34 @@ const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
         </div>
     );
 };
+
+const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
+    const [mainTab, setMainTab] = useState<'personal' | 'simulator'>('simulator');
+    
+    const renderMainTabButton = (tabId: 'personal' | 'simulator', label: string) => (
+         <button
+            onClick={() => setMainTab(tabId)}
+            className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 ${
+            mainTab === tabId
+                ? 'border-cyan-400 text-cyan-300'
+                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
+            }`}
+        >
+            {label}
+        </button>
+    );
+
+    return (
+        <div className="space-y-6">
+            <div className="flex border-b border-cyan-400/20 mb-6">
+                {renderMainTabButton('personal', 'تحلیلگر شخصی')}
+                {renderMainTabButton('simulator', 'شبیه‌ساز مناظره')}
+            </div>
+            {mainTab === 'personal' && <PersonalAnalyzer settings={settings} />}
+            {mainTab === 'simulator' && <DebateSimulator settings={settings} />}
+        </div>
+    );
+};
+
 
 export default Analyzer;
