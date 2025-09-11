@@ -63,7 +63,6 @@ function safeJsonParse<T>(jsonString: string, fallback: T): T {
 }
 
 // --- General Purpose & Helpers ---
-// FIX: Export ApiKeyStatus type for use in other components.
 export type ApiKeyStatus = 'valid' | 'invalid_key' | 'not_set' | 'network_error';
 
 export async function checkApiKeyStatus(): Promise<ApiKeyStatus> {
@@ -233,7 +232,6 @@ export async function factCheckNews(text: string, file: { data: string, mimeType
         }
     });
 
-    // FIX: Explicitly type parsedResult as FactCheckResult to allow adding groundingSources.
     const parsedResult: FactCheckResult = safeJsonParse(response.text, { overallCredibility: "Error", summary: "Failed to parse model response.", sources: [] });
     
     // Add grounding metadata if available
@@ -648,7 +646,7 @@ export async function findFeedsWithAI(category: SourceCategory, existing: RSSFee
      const ai = getAIClient();
     const prompt = `
         Find 5 new RSS feeds for category "${category}", excluding these URLs: ${existing.map(f => f.url).join(', ')}
-        Your entire response MUST be a single, valid JSON array of objects.
+        Your entire response MUST be a single, valid JSON array of objects. Each object MUST have "name" and "url" properties.
         Do not include any other text or markdown formatting.
     `;
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});

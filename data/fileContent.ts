@@ -105,15 +105,13 @@ app.listen(port, () => {
 -- Supports storing all settings, credentials, history, and results.
 
 -- Table to store the entire application settings object as a single JSON string.
--- This is flexible and allows adding new settings without schema changes.
 CREATE TABLE IF NOT EXISTS app_settings (
     key_id VARCHAR(50) PRIMARY KEY,
     settings_json LONGTEXT NOT NULL,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Table for credentials. Storing sensitive data here is less secure than
--- environment variables, but provided as an option for hosting environments that lack them.
+-- Table for credentials. Storing sensitive data here is less secure than environment variables.
 CREATE TABLE IF NOT EXISTS credentials (
     service_name VARCHAR(50) PRIMARY KEY,
     api_key TEXT,
@@ -135,13 +133,26 @@ CREATE TABLE IF NOT EXISTS search_history (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Table for RSS Feeds, simpler than sources.
+-- Table for RSS Feeds URLs.
 CREATE TABLE IF NOT EXISTS rss_feeds (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     url VARCHAR(512) NOT NULL UNIQUE,
     category VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table to store articles fetched from RSS feeds to avoid duplicates.
+CREATE TABLE IF NOT EXISTS rss_articles (
+    id VARCHAR(36) PRIMARY KEY,
+    feed_id VARCHAR(36) NOT NULL,
+    title VARCHAR(512) NOT NULL,
+    link VARCHAR(1024) NOT NULL UNIQUE,
+    summary TEXT,
+    publication_time VARCHAR(100),
+    fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_sent BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (feed_id) REFERENCES rss_feeds(id) ON DELETE CASCADE
 );
 
 -- Table to manage chatbot conversations/sessions.
@@ -182,18 +193,8 @@ compatibility_date = "2024-05-15"
 
     telegramBotWorkerJs: `/**
  * Cloudflare Worker for a Telegram Bot
- *
  * This worker can handle both standard Telegram webhooks and custom test messages
  * from the application's settings panel for verification.
- *
- * How to use:
- * 1. Create a new Worker in your Cloudflare dashboard.
- * 2. Copy and paste this code into the Worker's editor.
- * 3. Go to the Worker's settings and add the following secrets:
- *    - \`TELEGRAM_BOT_TOKEN\`: Your token from BotFather.
- *    - \`GEMINI_API_KEY\`: Your Google Gemini API key.
- * 4. Deploy the Worker.
- * 5. Use the Webhook Setup Tool in the app's Cloudflare settings tab to set the webhook.
  */
 
 addEventListener('fetch', event => {
@@ -201,7 +202,6 @@ addEventListener('fetch', event => {
 });
 
 async function handleRequest(request) {
-  // Add CORS headers for the test message functionality
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -215,8 +215,6 @@ async function handleRequest(request) {
   if (request.method === 'POST') {
     try {
       const payload = await request.json();
-
-      // Differentiate between a Telegram update and a custom test message
       if (payload.update_id) { // Standard Telegram webhook
         await handleUpdate(payload);
       } else if (payload.test_message) { // Custom test message from app
@@ -224,9 +222,7 @@ async function handleRequest(request) {
       } else {
         return new Response('Invalid payload', { status: 400, headers: corsHeaders });
       }
-
       return new Response('OK', { status: 200, headers: corsHeaders });
-
     } catch (e) {
       console.error('Error processing request:', e);
       return new Response('Error', { status: 500, headers: corsHeaders });
@@ -235,19 +231,17 @@ async function handleRequest(request) {
   return new Response('This worker only accepts POST requests.', { status: 405, headers: corsHeaders });
 }
 
-/**
- * Handles incoming updates from the Telegram webhook.
- * @param {object} update - The Telegram update object.
- */
 async function handleUpdate(update) {
   if (update.message) {
     const message = update.message;
     const chatId = message.chat.id;
     const text = message.text;
+    const command = text.split(' ')[0];
+    const args = text.substring(command.length).trim();
 
-    if (text === '/start') {
-      await sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. برای دریافت آخرین اخبار /news، برای اخبار از خبرخوان‌ها /rss و برای قیمت ارزهای دیجیتال /crypto را ارسال کنید.');
-    } else if (text === '/news') {
+    if (command === '/start') {
+      await sendMessage(chatId, 'سلام! ربات هوشمند اخبار آماده است. از دستورات /news, /rss, /crypto, /factcheck, /analyze, /suggest استفاده کنید.');
+    } else if (command === '/news') {
       await sendMessage(chatId, 'در حال جستجوی آخرین اخبار جهان...');
       const news = await fetchNewsFromGemini();
       if (news && news.length > 0) {
@@ -257,7 +251,7 @@ async function handleUpdate(update) {
       } else {
         await sendMessage(chatId, 'متاسفانه در حال حاضر مشکلی در دریافت اخبار وجود دارد.');
       }
-    } else if (text === '/rss') {
+    } else if (command === '/rss') {
         await sendMessage(chatId, 'در حال دریافت آخرین اخبار از خبرخوان‌ها...');
         const articles = await fetchRssNewsFromGemini();
         if (articles && articles.length > 0) {
@@ -267,131 +261,124 @@ async function handleUpdate(update) {
         } else {
             await sendMessage(chatId, 'خطا در دریافت اخبار از خبرخوان‌ها.');
         }
+    } else if (command === '/crypto') {
+        await sendMessage(chatId, 'در حال دریافت قیمت لحظه‌ای ارزهای دیجیتال...');
+        const coins = await fetchCryptoFromGemini();
+        if (coins && coins.length > 0) {
+            let cryptoMessage = '📈 *آخرین قیمت‌ها:*\\n\\n';
+            coins.forEach(coin => {
+                const change = coin.price_change_percentage_24h >= 0 ? '📈' : '📉';
+                cryptoMessage += \`*\\\${coin.name} (\\\${coin.symbol.toUpperCase()})*\\n\`;
+                cryptoMessage += \`قیمت: *\\\${coin.price_usd.toLocaleString('en-US')} $* | *\\\${coin.price_toman.toLocaleString('fa-IR')} تومان*\\n\`;
+                cryptoMessage += \`تغییر ۲۴ ساعت: \\\${change} \\\${Math.abs(coin.price_change_percentage_24h).toFixed(2)}%\\n\\n\`;
+            });
+            await sendMessage(chatId, cryptoMessage, 'Markdown');
+        } else {
+            await sendMessage(chatId, 'متاسفانه مشکلی در دریافت قیمت ارزهای دیجیتال وجود دارد.');
+        }
+    } else if (command === '/factcheck') {
+        if (!args) {
+            await sendMessage(chatId, "لطفا متن ادعای خود را بعد از دستور /factcheck وارد کنید.");
+            return;
+        }
+        await sendMessage(chatId, 'در حال بررسی اعتبار ادعای شما...');
+        const result = await factCheckFromGemini(args);
+        await sendMessage(chatId, result, 'Markdown');
+    } else if (command === '/analyze') {
+        if (!args) {
+            await sendMessage(chatId, "لطفا موضوع تحلیل خود را بعد از دستور /analyze وارد کنید.");
+            return;
+        }
+        await sendMessage(chatId, 'در حال تحلیل موضوع...');
+        const result = await analyzeFromGemini(args);
+        await sendMessage(chatId, result, 'Markdown');
+    } else if (command === '/suggest') {
+        const [type, ...topicParts] = args.split(' ');
+        const topic = topicParts.join(' ');
+        if (!type || !topic) {
+            await sendMessage(chatId, "استفاده صحیح: /suggest <type> <topic>\\nType میتواند keywords, webname, domain باشد.");
+            return;
+        }
+        await sendMessage(chatId, \`در حال جستجوی پیشنهاد برای \\\`\\\${topic}\\\`...\`);
+        const result = await suggestFromGemini(type, topic);
+        await sendMessage(chatId, result);
     }
   }
 }
 
-/**
- * Handles a test message request from the application's UI.
- * @param {object} testPayload - The payload containing chat_id and text.
- */
 async function handleTestMessage(testPayload) {
     const { chat_id, text } = testPayload;
     if (chat_id && text) {
         await sendMessage(chat_id, text);
     } else {
-        // This will cause the worker to return a 500 error, indicating a problem.
         throw new Error('Invalid test message payload received.');
     }
 }
 
-
 async function sendMessage(chatId, text, parseMode = '') {
   const url = \`https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage\`;
-  const payload = {
-    chat_id: chatId,
-    text: text,
-  };
-  if (parseMode) {
-    payload.parse_mode = parseMode;
-  }
-  
-  const response = await fetch(url, {
+  const payload = { chat_id: chatId, text: text, parse_mode: parseMode || undefined };
+  await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Failed to send message to Telegram:", errorData);
-  }
+}
+
+// --- Simplified Gemini Functions for Telegram Bot ---
+
+async function callGemini(prompt, response_mime_type = "text/plain") {
+    const body = {
+      contents: [{ parts: [{ "text": prompt }] }],
+      ...(response_mime_type === "application/json" && { generationConfig: { response_mime_type } })
+    };
+    const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await response.json();
+        return data.candidates[0].content.parts[0].text;
+    } catch (error) {
+        console.error("Error calling Gemini:", error);
+        return null;
+    }
 }
 
 async function fetchNewsFromGemini() {
-  const prompt = "Find the single most important recent world news article for a Persian-speaking user. Provide title, summary, source, and link. CRITICAL: The 'link' must be a direct, working, and publicly accessible URL to the full news article. Do not provide links to homepages, paywalled content, or incorrect pages. Verify the link is valid.";
-  
-  const body = {
-    contents: [{
-      parts: [{ "text": prompt }]
-    }],
-    "generationConfig": {
-        "response_mime_type": "application/json",
-    }
-  };
-  
-  const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
-  
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
-    // The response structure might be complex. This is a simplified extraction.
-    const jsonString = data.candidates[0].content.parts[0].text;
-    // The model might return a single object or an array. Let's handle both.
-    const result = JSON.parse(jsonString);
-    return Array.isArray(result) ? result : [result];
-    
-  } catch (error) {
-    console.error("Error fetching news from Gemini:", error);
-    return null;
-  }
+    const text = await callGemini("Find the single most important recent world news article for a Persian-speaking user. Provide a JSON object with title, summary, source, and link.", "application/json");
+    return text ? JSON.parse(text.trim()) : null;
 }
-
 async function fetchRssNewsFromGemini() {
-    // This prompt relies on a system instruction or a well-trained model to know what feeds to check.
-    // For a robust implementation, the feed URLs should be passed in.
-    const prompt = "Fetch the single most important news article from these RSS feeds: [\\"https://www.isna.ir/rss\\", \\"http://feeds.bbci.co.uk/persian/rss.xml\\"]. Provide title, summary, source, and link as JSON.";
-
-    const body = {
-        contents: [{ parts: [{ "text": prompt }] }],
-        "generationConfig": { "response_mime_type": "application/json" }
-    };
-
-    const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-        const data = await response.json();
-        const jsonString = data.candidates[0].content.parts[0].text;
-        const result = JSON.parse(jsonString);
-        return Array.isArray(result) ? result : [result];
-    } catch (error) {
-        console.error("Error fetching RSS news from Gemini:", error);
-        return null;
-    }
+    const text = await callGemini("Fetch the single most important news article from these RSS feeds: [\\"https://www.isna.ir/rss\\", \\"http://feeds.bbci.co.uk/persian/rss.xml\\"]. Provide JSON with title, summary, source, and link.", "application/json");
+    return text ? JSON.parse(text.trim()) : null;
 }
-
 async function fetchCryptoFromGemini() {
-    const prompt = "Find live price data for the top 5 most popular cryptocurrencies (like Bitcoin, Ethereum, etc.). For each, provide its ID, symbol, name, price in USD, price in Iranian Toman, and the 24-hour price change percentage. Use reliable sources like ramzarz.news for up-to-date information. Return as a JSON array.";
-    
-    const body = {
-        contents: [{ parts: [{ "text": prompt }] }],
-        "generationConfig": { "response_mime_type": "application/json" }
-    };
-    
-    const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${GEMINI_API_KEY}\`;
-
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-        const data = await response.json();
-        const jsonString = data.candidates[0].content.parts[0].text;
-        return JSON.parse(jsonString);
-    } catch (error) {
-        console.error("Error fetching crypto data from Gemini:", error);
-        return null;
+    const text = await callGemini("Find live price data for the top 3 cryptocurrencies. For each, provide its name, symbol, price in USD, price in Iranian Toman, and the 24-hour price change percentage. Return as a JSON array.", "application/json");
+    return text ? JSON.parse(text.trim()) : null;
+}
+async function factCheckFromGemini(claim) {
+    const prompt = \`Fact-check this claim: "\\\${claim}". Provide a short summary of your findings and a credibility rating (High, Medium, Low) in Persian. Format as Markdown.\`;
+    return await callGemini(prompt) || "خطا در بررسی ادعا.";
+}
+async function analyzeFromGemini(topic) {
+    const prompt = \`Provide a brief, neutral analysis of this topic: "\\\${topic}". The response should be in Persian.\`;
+    return await callGemini(prompt) || "خطا در تحلیل موضوع.";
+}
+async function suggestFromGemini(type, topic) {
+    let prompt = '';
+    if (type === 'keywords') {
+        prompt = \`Suggest 5 SEO keywords for: "\\\${topic}". List them.\`;
+    } else if (type === 'webname') {
+        prompt = \`Suggest 5 creative website names for: "\\\${topic}". List them.\`;
+    } else if (type === 'domain') {
+        prompt = \`Suggest 5 available domain names for: "\\\${topic}". List them.\`;
+    } else {
+        return "نوع پیشنهاد نامعتبر است.";
     }
+    return await callGemini(prompt) || "خطا در دریافت پیشنهاد.";
 }
 `,
 
@@ -725,30 +712,20 @@ import { InteractionResponseType, InteractionType, verifyKey } from 'discord-int
 import { GoogleGenAI } from '@google/genai';
 
 // --- UTILITY AND HELPER FUNCTIONS ---
-
-/**
- * A simple utility function to get an option value from the interaction data.
- * @param {object} interaction - The interaction object from Discord.
- * @param {string} name - The name of the option to retrieve.
- * @returns {string | undefined} The value of the option or undefined if not found.
- */
 function getOption(interaction, name) {
   const options = interaction.data.options;
-  if (options) {
-    const option = options.find((opt) => opt.name === name);
-    if (option) {
-      return option.value;
-    }
+  if (!options) return undefined;
+  // Handle subcommands
+  if (options[0]?.type === 1 || options[0]?.type === 2) { 
+      const subOptions = options[0].options;
+      if (!subOptions) return undefined;
+      const option = subOptions.find((opt) => opt.name === name);
+      return option?.value;
   }
-  return undefined;
+  const option = options.find((opt) => opt.name === name);
+  return option?.value;
 }
 
-/**
- * A utility function to get an attachment from the interaction data.
- * @param {object} interaction - The interaction object from Discord.
- * @param {string} name - The name of the attachment option.
- * @returns {object | undefined} The attachment object or undefined.
- */
 function getAttachment(interaction, name) {
     const options = interaction.data.options;
     if (options) {
@@ -760,18 +737,10 @@ function getAttachment(interaction, name) {
     return undefined;
 }
 
-
-/**
- * Converts an image from a URL to a base64 string.
- * @param {string} url - The URL of the image.
- * @returns {Promise<{data: string, mimeType: string} | null>} Base64 data and MIME type.
- */
 async function urlToGenerativePart(url) {
     try {
         const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(\`Failed to fetch image: \${response.statusText}\`);
-        }
+        if (!response.ok) throw new Error(\`Failed to fetch image: \${response.statusText}\`);
         const mimeType = response.headers.get('content-type');
         const buffer = await response.arrayBuffer();
         const data = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
@@ -783,387 +752,181 @@ async function urlToGenerativePart(url) {
 }
 
 // --- GEMINI API INTERACTION FUNCTIONS ---
-
-// NOTE: The prompts and schemas below are adapted from the main web application's
-// geminiService.ts file to work within this JavaScript worker environment.
-
-/**
- * Fetches news articles from Gemini based on filters.
- * @param {object} env - The Cloudflare worker environment/secrets.
- * @param {object} filters - The search filters.
- * @returns {Promise<object[]>} A promise that resolves to an array of news articles.
- */
 async function fetchNews(env, filters) {
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  const prompt = \`
-    IMPORTANT: All output text (titles, summaries, etc.) MUST be in Persian.
-    Please find the top 5 recent news articles based on these criteria for a Persian-speaking user.
-    - Search Query: "\\\${filters.query || 'مهمترین اخبار روز'}"
-    - Category: "\\\${filters.category || 'any'}"
-    - Region: "\\\${filters.region || 'any'}"
-    - Source: "\\\${filters.source || 'any reputable source'}"
-    For each article, you MUST provide a relevant image URL.
-  \`;
-
+  const prompt = \`IMPORTANT: All output text (titles, summaries, etc.) MUST be in Persian. Find the top 3 recent news articles based on these criteria for a Persian-speaking user. - Search Query: "\\\${filters.query || 'مهمترین اخبار روز'}" - Category: "\\\${filters.category || 'any'}" - Region: "\\\${filters.region || 'any'}" - Source: "\\\${filters.source || 'any reputable source'}". For each article, you MUST provide a relevant image URL.\`;
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: 'ARRAY',
-          items: {
-            type: 'OBJECT',
-            properties: {
-              title: { type: 'STRING' },
-              summary: { type: 'STRING' },
-              source: { type: 'STRING' },
-              publicationTime: { type: 'STRING' },
-              credibility: { type: 'STRING' },
-              link: { type: 'STRING' },
-              category: { type: 'STRING' },
-              imageUrl: { type: 'STRING' },
-            },
-          },
-        },
-      },
+      model: "gemini-2.5-flash", contents: prompt,
+      config: { responseMimeType: "application/json", responseSchema: { type: 'ARRAY', items: { type: 'OBJECT', properties: { title: { type: 'STRING' }, summary: { type: 'STRING' }, source: { type: 'STRING' }, publicationTime: { type: 'STRING' }, credibility: { type: 'STRING' }, link: { type: 'STRING' }, category: { type: 'STRING' }, imageUrl: { type: 'STRING' } } } } }
     });
     return JSON.parse(response.text.trim());
-  } catch (error) {
-    console.error("Error fetching news from Gemini:", error);
-    return null;
-  }
+  } catch (error) { console.error("Error fetching news from Gemini:", error); return null; }
 }
 
-/**
- * Performs a fact-check using Gemini.
- * @param {object} env - The Cloudflare worker environment/secrets.
- * @param {string} claim - The text claim to check.
- * @param {object} imageFile - The image file to check.
- * @returns {Promise<object>} A promise that resolves to the fact-check result.
- */
 async function factCheck(env, claim, imageFile) {
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-    const textPrompt = \`
-        As a world-class investigative journalist, conduct a deep analysis of the following content. Your entire output MUST be in Persian and structured as JSON.
-        **Your Mission:**
-        1.  **Trace the Origin:** Find the EARLIEST verifiable instance of this claim/media.
-        2.  **Analyze the Source:** Evaluate the credibility of the original source.
-        3.  **Verify the Content:** Fact-check the claim using independent, high-credibility sources.
-        4.  **Summarize Findings:** Provide a clear, concise verdict and summary.
-        **Content for Analysis:**
-        - Text Context: "\\\${claim || 'No text provided, analyze the image.'}"
-    \`;
-
+    const textPrompt = \`As a world-class investigative journalist, conduct a deep analysis of the following content. Your entire output MUST be in Persian and structured as JSON. **Mission:** Verify the content and provide a clear, concise verdict and summary. **Content for Analysis:** - Text Context: "\\\${claim || 'No text provided, analyze the image.'}"\`;
     const contentParts = [{ text: textPrompt }];
-    if (imageFile) {
-        contentParts.push({
-            inlineData: {
-                data: imageFile.data,
-                mimeType: imageFile.mimeType,
-            }
-        });
-    }
-
+    if (imageFile) contentParts.push({ inlineData: { data: imageFile.data, mimeType: imageFile.mimeType } });
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: { parts: contentParts },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: 'OBJECT',
-                    properties: {
-                        overallCredibility: { type: 'STRING', enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'] },
-                        summary: { type: 'STRING' },
-                        originalSource: {
-                            type: 'OBJECT',
-                            properties: {
-                                name: { type: 'STRING' },
-                                link: { type: 'STRING' },
-                                publicationDate: { type: 'STRING' },
-                            },
-                        },
-                    },
-                }
-            }
+            model: "gemini-2.5-flash", contents: { parts: contentParts },
+            config: { responseMimeType: "application/json", responseSchema: { type: 'OBJECT', properties: { overallCredibility: { type: 'STRING', enum: ['بسیار معتبر', 'معتبر', 'نیازمند بررسی'] }, summary: { type: 'STRING' }, originalSource: { type: 'OBJECT', properties: { name: { type: 'STRING' }, link: { type: 'STRING' }, publicationDate: { type: 'STRING' } } } } } }
         });
         return JSON.parse(response.text.trim());
-    } catch (error) {
-        console.error("Error during fact-check from Gemini:", error);
-        return null;
-    }
+    } catch (error) { console.error("Error during fact-check from Gemini:", error); return null; }
 }
 
-
-/**
- * Fetches structured data (stats, science, religion) from Gemini.
- * @param {object} env - The Cloudflare worker environment/secrets.
- * @param {string} topic - The topic to search for.
- * @param {string} type - The type of search ('stats', 'science', 'religion').
- * @returns {Promise<object>} A promise that resolves to the structured result.
- */
 async function fetchStructuredData(env, topic, type) {
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-    let prompt;
-    let schema;
-
+    let prompt; let schema;
     if (type === 'stats') {
         prompt = \`Find the most reliable statistical data for the query "\\\${topic}". Format it as JSON. The entire output must be in Persian.\`;
-        schema = {
-            type: 'OBJECT',
-            properties: {
-                title: { type: 'STRING' },
-                summary: { type: 'STRING' },
-                sourceDetails: {
-                    type: 'OBJECT',
-                    properties: {
-                        name: { type: 'STRING' },
-                        link: { type: 'STRING' },
-                        publicationDate: { type: 'STRING' },
-                    },
-                },
-            },
-        };
-    } else { // Science and Religion share a similar structure
+        schema = { type: 'OBJECT', properties: { title: { type: 'STRING' }, summary: { type: 'STRING' }, sourceDetails: { type: 'OBJECT', properties: { name: { type: 'STRING' }, link: { type: 'STRING' }, publicationDate: { type: 'STRING' } } } } };
+    } else {
         prompt = \`Find a key scientific paper or religious text related to "\\\${topic}". Prioritize academic or primary sources. Format it as JSON. The entire output must be in Persian.\`;
-         schema = {
-            type: 'OBJECT',
-            properties: {
-                title: { type: 'STRING' },
-                summary: { type: 'STRING' },
-                sourceDetails: {
-                    type: 'OBJECT',
-                    properties: {
-                        name: { type: 'STRING' },
-                        link: { type: 'STRING' },
-                        author: { type: 'STRING' },
-                    },
-                },
-            },
-        };
+        schema = { type: 'OBJECT', properties: { title: { type: 'STRING' }, summary: { type: 'STRING' }, sourceDetails: { type: 'OBJECT', properties: { name: { type: 'STRING' }, link: { type: 'STRING' }, author: { type: 'STRING' } } } } };
     }
-
     try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: { responseMimeType: "application/json", responseSchema: schema }
-        });
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { responseMimeType: "application/json", responseSchema: schema } });
         return JSON.parse(response.text.trim());
-    } catch (error) {
-        console.error(\`Error fetching structured data (\${type}) from Gemini:\`, error);
-        return null;
-    }
+    } catch (error) { console.error(\`Error fetching structured data (\${type}) from Gemini:\`, error); return null; }
 }
 
+async function analyzeTopic(env, topic) {
+    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    const prompt = \`Provide a deep, unbiased analysis of the given topic in Persian. The output must match the AnalysisResult JSON format, but simplify the content for a Discord embed. Provide a main "analysis" text and up to 3 "keyPoints" as an array of objects with a "title" and "description". Topic: \\\${topic}\`;
+    try {
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: 'OBJECT', properties: { analysis: { type: 'STRING' }, keyPoints: { type: 'ARRAY', items: { type: 'OBJECT', properties: { title: { type: 'STRING' }, description: { type: 'STRING' } } } } } } } });
+        return JSON.parse(response.text.trim());
+    } catch (error) { console.error("Error analyzing topic:", error); return null; }
+}
+
+async function fetchCrypto(env, coinName) {
+    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    const prompt = \`Search for the crypto coin "\\\${coinName}". Your response MUST be a single JSON object with these keys: name, symbol, price_usd, price_toman, price_change_percentage_24h, summary.\`;
+    try {
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { tools:[{googleSearch:{}}], responseMimeType: "application/json", responseSchema: { type: 'OBJECT', properties: { name: { type: 'STRING' }, symbol: { type: 'STRING' }, price_usd: { type: 'NUMBER' }, price_toman: { type: 'NUMBER' }, price_change_percentage_24h: { type: 'NUMBER' }, summary: { type: 'STRING' } } } } });
+        return JSON.parse(response.text.trim());
+    } catch (error) { console.error("Error fetching crypto data:", error); return null; }
+}
+
+async function generateToolContent(env, type, topic) {
+    const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    let prompt;
+    if (type === 'keywords') prompt = \`Generate 10 relevant SEO keywords for "\\\${topic}". Separate them with commas.\`;
+    else if (type === 'webname') prompt = \`Suggest 5 creative website names for "\\\${topic}". List them on new lines.\`;
+    else if (type === 'domain') prompt = \`Suggest 5 available domain names (.com, .ir) for "\\\${topic}". List them on new lines.\`;
+    else if (type === 'article') prompt = \`Write a short, engaging article (about 150 words) on the topic of "\\\${topic}".\`;
+    else return null;
+    try {
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { tools: type === 'article' ? [{googleSearch:{}}] : undefined } });
+        return response.text;
+    } catch (error) { console.error(\`Error generating tool content (\${type}):\`, error); return null; }
+}
 
 // --- DISCORD RESPONSE FORMATTING FUNCTIONS ---
-
-/**
- * Creates an error embed for Discord.
- * @param {string} message - The error message to display.
- * @returns {object} The Discord embed object.
- */
-function createErrorEmbed(message) {
-  return {
-    type: 4, // Use 4 for channel message with source
-    data: {
-      embeds: [{
-        title: 'خطا',
-        description: message,
-        color: 0xFF0000, // Red
-      }],
-    },
-  };
-}
-
-/**
- * Creates a help embed listing all commands.
- * @returns {object} The Discord embed object.
- */
 function createHelpEmbed() {
-    return {
-        type: 4,
-        data: {
-            embeds: [{
-                title: "راهنمای ربات هوشمند اخبار",
-                description: "از دستورات زیر برای استفاده از امکانات ربات استفاده کنید:",
-                color: 0x00A0E8,
-                fields: [
-                    { name: "/search [query] [category] [region] [source]", value: "جستجوی پیشرفته اخبار. همه پارامترها اختیاری هستند.", inline: false },
-                    { name: "/factcheck [claim] [image]", value: "بررسی اعتبار یک ادعا (متنی) یا یک تصویر (فایل).", inline: false },
-                    { name: "/stats [topic]", value: "جستجوی آمار و داده‌های معتبر در مورد یک موضوع.", inline: false },
-                    { name: "/science [topic]", value: "یافتن مقالات و تحقیقات علمی مرتبط با یک موضوع.", inline: false },
-                    { name: "/religion [topic]", value: "جستجو در منابع معتبر دینی در مورد یک موضوع.", inline: false },
-                    { name: "/help", value: "نمایش این پیام راهنما.", inline: false },
-                ]
-            }]
-        }
-    };
+    return { type: 4, data: { embeds: [{ title: "راهنمای ربات هوشمند", description: "از دستورات زیر استفاده کنید:", color: 0x00A0E8, fields: [
+        { name: "/search [query] ...", value: "جستجوی پیشرفته اخبار.", inline: false },
+        { name: "/factcheck [claim] [image]", value: "بررسی اعتبار یک ادعا یا تصویر.", inline: false },
+        { name: "/analyze [topic]", value: "تحلیل عمیق یک موضوع.", inline: false },
+        { name: "/crypto [coin]", value: "دریافت قیمت و اطلاعات ارز دیجیتال.", inline: false },
+        { name: "/tools [subcommand] [topic]", value: "ابزارهای تولید محتوا (keywords, webname, domain, article).", inline: false },
+        { name: "/stats [topic]", value: "جستجوی آمار معتبر.", inline: false },
+        { name: "/science [topic]", value: "یافتن مقالات علمی.", inline: false },
+        { name: "/religion [topic]", value: "جستجو در منابع دینی.", inline: false },
+        { name: "/help", value: "نمایش این پیام راهنما.", inline: false },
+    ]}]}};
 }
-
 
 // --- MAIN WORKER LOGIC ---
-
 export default {
   async fetch(request, env, ctx) {
     const signature = request.headers.get('x-signature-ed25519');
     const timestamp = request.headers.get('x-signature-timestamp');
     const body = await request.text();
     const isValidRequest = verifyKey(body, signature, timestamp, env.DISCORD_PUBLIC_KEY);
-    
-    if (!isValidRequest) {
-      return new Response('Invalid request signature', { status: 401 });
-    }
-
+    if (!isValidRequest) return new Response('Invalid request signature', { status: 401 });
     const interaction = JSON.parse(body);
-
     if (interaction.type === InteractionType.PING) {
-      return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), {
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify({ type: InteractionResponseType.PONG }), { headers: { 'Content-Type': 'application/json' }});
     }
-
     if (interaction.type === InteractionType.APPLICATION_COMMAND) {
       const commandName = interaction.data.name;
-
-        // Defer response to avoid timeout
-        ctx.waitUntil((async () => {
+      ctx.waitUntil((async () => {
             let responseEmbed;
-
             try {
                 switch (commandName) {
                     case 'search': {
-                        const filters = {
-                            query: getOption(interaction, 'query'),
-                            category: getOption(interaction, 'category'),
-                            region: getOption(interaction, 'region'),
-                            source: getOption(interaction, 'source'),
-                        };
+                        const filters = { query: getOption(interaction, 'query'), category: getOption(interaction, 'category'), region: getOption(interaction, 'region'), source: getOption(interaction, 'source') };
                         const news = await fetchNews(env, filters);
-                        if (news && news.length > 0) {
-                             responseEmbed = {
-                                embeds: news.slice(0, 5).map(article => ({
-                                    title: article.title,
-                                    description: article.summary,
-                                    url: article.link,
-                                    color: 0x06b6d4,
-                                    thumbnail: { url: article.imageUrl },
-                                    fields: [
-                                        { name: 'منبع', value: article.source, inline: true },
-                                        { name: 'اعتبار', value: article.credibility, inline: true },
-                                        { name: 'دسته‌بندی', value: article.category, inline: true },
-                                    ],
-                                    footer: { text: article.publicationTime }
-                                }))
-                            };
-                        } else {
-                           responseEmbed = { embeds: [{ title: 'نتیجه‌ای یافت نشد', description: 'جستجوی شما نتیجه‌ای در بر نداشت. لطفاً دوباره تلاش کنید.', color: 0xFFCC00 }]};
-                        }
+                        responseEmbed = news && news.length > 0 ? { embeds: news.slice(0, 3).map(article => ({ title: article.title, description: article.summary, url: article.link, color: 0x06b6d4, thumbnail: { url: article.imageUrl }, fields: [{ name: 'منبع', value: article.source, inline: true }, { name: 'اعتبار', value: article.credibility, inline: true }, { name: 'دسته', value: article.category, inline: true }], footer: { text: article.publicationTime } }))} : { embeds: [{ title: 'نتیجه‌ای یافت نشد', description: 'جستجوی شما نتیجه‌ای در بر نداشت.', color: 0xFFCC00 }]};
                         break;
                     }
-                     case 'factcheck': {
+                    case 'factcheck': {
                         const claim = getOption(interaction, 'claim');
                         const imageAttachment = getAttachment(interaction, 'image');
-                        let imageFile = null;
-                        if (imageAttachment) {
-                           imageFile = await urlToGenerativePart(imageAttachment.url);
-                        }
-                        if (!claim && !imageFile) {
-                           responseEmbed = { embeds: [{ title: 'ورودی نامعتبر', description: 'لطفاً یک ادعای متنی یا یک فایل تصویر برای بررسی ارسال کنید.', color: 0xFFCC00 }]};
-                           break;
-                        }
-
+                        let imageFile = imageAttachment ? await urlToGenerativePart(imageAttachment.url) : null;
+                        if (!claim && !imageFile) { responseEmbed = { embeds: [{ title: 'ورودی نامعتبر', description: 'لطفاً یک ادعای متنی یا یک فایل تصویر برای بررسی ارسال کنید.', color: 0xFFCC00 }]}; break; }
                         const result = await factCheck(env, claim, imageFile);
-                        if (result) {
-                            const colorMap = { 'بسیار معتبر': 0x00FF00, 'معتبر': 0xFFFF00, 'نیازمند بررسی': 0xFF0000 };
-                             responseEmbed = { embeds: [{
-                                title: \`نتیجه فکت چک: \${result.overallCredibility}\`,
-                                description: result.summary,
-                                color: colorMap[result.overallCredibility] || 0x808080,
-                                fields: [
-                                    { name: 'منبع اولیه', value: \`[\${result.originalSource.name}](\${result.originalSource.link})\`, inline: true },
-                                    { name: 'تاریخ انتشار', value: result.originalSource.publicationDate, inline: true },
-                                ]
-                            }]};
-                        } else {
-                             responseEmbed = { embeds: [{ title: 'خطا در بررسی', description: 'متاسفانه در حال حاضر امکان بررسی این مورد وجود ندارد.', color: 0xFF0000 }]};
-                        }
+                        const colorMap = { 'بسیار معتبر': 0x00FF00, 'معتبر': 0xFFFF00, 'نیازمند بررسی': 0xFF0000 };
+                        responseEmbed = result ? { embeds: [{ title: \`نتیجه فکت چک: \${result.overallCredibility}\`, description: result.summary, color: colorMap[result.overallCredibility] || 0x808080, fields: [{ name: 'منبع اولیه', value: \`[\${result.originalSource.name}](\${result.originalSource.link})\`, inline: true }, { name: 'تاریخ انتشار', value: result.originalSource.publicationDate, inline: true }]}]} : { embeds: [{ title: 'خطا در بررسی', description: 'متاسفانه امکان بررسی این مورد وجود ندارد.', color: 0xFF0000 }]};
                         break;
                     }
-                    case 'stats':
-                    case 'science':
-                    case 'religion': {
+                    case 'stats': case 'science': case 'religion': {
                         const topic = getOption(interaction, 'topic');
                         const result = await fetchStructuredData(env, topic, commandName);
-                         if (result) {
+                        if (result) {
                             const fields = [];
                             if (result.sourceDetails.name) fields.push({ name: 'منبع', value: \`[\${result.sourceDetails.name}](\${result.sourceDetails.link})\`, inline: true });
                             if (result.sourceDetails.publicationDate) fields.push({ name: 'تاریخ انتشار', value: result.sourceDetails.publicationDate, inline: true });
                             if (result.sourceDetails.author) fields.push({ name: 'نویسنده', value: result.sourceDetails.author, inline: true });
-                            
-                            responseEmbed = { embeds: [{
-                                title: result.title,
-                                description: result.summary,
-                                color: 0x8b5cf6, // Purple
-                                fields: fields,
-                            }]};
-                        } else {
-                           responseEmbed = { embeds: [{ title: 'نتیجه‌ای یافت نشد', description: 'جستجوی شما نتیجه‌ای در بر نداشت.', color: 0xFFCC00 }]};
-                        }
+                            responseEmbed = { embeds: [{ title: result.title, description: result.summary, color: 0x8b5cf6, fields: fields }]};
+                        } else { responseEmbed = { embeds: [{ title: 'نتیجه‌ای یافت نشد', description: 'جستجوی شما نتیجه‌ای در بر نداشت.', color: 0xFFCC00 }]}; }
                         break;
                     }
-                    case 'help': {
-                        // This command is handled synchronously below, but we can have a case for it here too.
+                    case 'analyze': {
+                        const topic = getOption(interaction, 'topic');
+                        const result = await analyzeTopic(env, topic);
+                        responseEmbed = result ? { embeds: [{ title: \`تحلیل موضوع: \${topic}\`, description: result.analysis, color: 0xbe185d, fields: result.keyPoints.map(p => ({name: p.title, value: p.description})) }] } : { embeds: [{ title: 'خطا در تحلیل', color: 0xFF0000 }] };
                         break;
                     }
-                    default:
-                        responseEmbed = { embeds: [{ title: 'دستور نامعتبر', description: 'این دستور شناسایی نشد.', color: 0xFF0000 }] };
+                    case 'crypto': {
+                        const coin = getOption(interaction, 'coin');
+                        const result = await fetchCrypto(env, coin);
+                        const change = result?.price_change_percentage_24h >= 0;
+                        responseEmbed = result ? { embeds: [{ title: \`قیمت \${result.name} (\${result.symbol.toUpperCase()})\`, description: result.summary, color: 0xf59e0b, fields: [ { name: 'قیمت (دلار)', value: \`$\${result.price_usd.toLocaleString('en-US')}\`, inline: true }, { name: 'قیمت (تومان)', value: \`\${result.price_toman.toLocaleString('fa-IR')} تومان\`, inline: true }, { name: 'تغییر ۲۴ ساعته', value: \`\${change ? '📈' : '📉'} \${Math.abs(result.price_change_percentage_24h).toFixed(2)}%\`, inline: true } ] }] } : { embeds: [{ title: 'ارز یافت نشد', description: 'نام یا نماد ارز مورد نظر را به درستی وارد کنید.', color: 0xFF0000 }] };
                         break;
+                    }
+                    case 'tools': {
+                        const subcommand = interaction.data.options[0].name;
+                        const topic = getOption(interaction, 'topic');
+                        const result = await generateToolContent(env, subcommand, topic);
+                        const titleMap = { keywords: 'کلمات کلیدی سئو', webname: 'نام‌های پیشنهادی سایت', domain: 'دامنه‌های پیشنهادی', article: 'پیش‌نویس مقاله' };
+                        responseEmbed = result ? { embeds: [{ title: \`\${titleMap[subcommand]} برای: \${topic}\`, description: result, color: 0x16a34a }] } : { embeds: [{ title: 'خطا در ابزار', color: 0xFF0000 }] };
+                        break;
+                    }
                 }
             } catch (e) {
                 console.error(e);
                 responseEmbed = { embeds: [{ title: 'خطای داخلی', description: 'یک خطای پیش‌بینی نشده در ربات رخ داد.', color: 0xFF0000 }] };
             }
-
-             // Edit the original deferred message with the result
             const followupUrl = \`https://discord.com/api/v10/webhooks/\${env.DISCORD_APP_ID}/\${interaction.token}/messages/@original\`;
-            await fetch(followupUrl, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(responseEmbed),
-            });
-        })());
-
-        // For commands that can respond instantly like /help
-        if (interaction.data.name === 'help') {
-             return new Response(JSON.stringify(createHelpEmbed()), { headers: { 'Content-Type': 'application/json' } });
-        }
-
-        // Send a deferred response to show "Bot is thinking..."
-        return new Response(JSON.stringify({ type: 5 }), { headers: { 'Content-Type': 'application/json' } });
-
+            await fetch(followupUrl, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(responseEmbed) });
+      })());
+      if (interaction.data.name === 'help') {
+        return new Response(JSON.stringify(createHelpEmbed()), { headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response(JSON.stringify({ type: 5 }), { headers: { 'Content-Type': 'application/json' } });
     }
-
     return new Response('Unhandled interaction type', { status: 400 });
   },
 };
 `,
 
     discordBotRegisterCommandsJs: `// This is a script to register your bot's slash commands with Discord.
-// You only need to run this ONCE from your local machine, not on the server.
-
-// How to run:
-// 1. Make sure you have Node.js installed.
-// 2. Create a file named ".env" in the same directory as this script.
-// 3. Add your Discord App ID and Bot Token to the .env file like this:
-//    DISCORD_APP_ID=YOUR_APPLICATION_ID
-//    DISCORD_BOT_TOKEN=YOUR_BOT_TOKEN
-// 4. Run 'npm install' to install dependencies.
-// 5. Run 'node register-commands.js' in your terminal.
-
 require('dotenv').config();
 const fetch = require('node-fetch');
 
@@ -1174,94 +937,38 @@ if (!DISCORD_APP_ID || !DISCORD_BOT_TOKEN) {
 }
 
 const commands = [
-  {
-    name: 'help',
-    description: 'نمایش لیست تمام دستورات و راهنمای ربات',
-  },
-  {
-    name: 'search',
-    description: 'جستجوی پیشرفته اخبار',
-    options: [
-      {
-        name: 'query',
-        description: 'موضوع یا کلیدواژه جستجو',
-        type: 3, // STRING
-        required: true,
-      },
-      {
-        name: 'category',
-        description: 'دسته‌بندی خبر (مثال: سیاسی)',
-        type: 3,
-        required: false,
-      },
-      {
-        name: 'region',
-        description: 'منطقه جغرافیایی (مثال: خاورمیانه)',
-        type: 3,
-        required: false,
-      },
-      {
-        name: 'source',
-        description: 'نوع منبع (مثال: خارجی)',
-        type: 3,
-        required: false,
-      },
-    ],
-  },
-  {
-    name: 'factcheck',
-    description: 'بررسی اعتبار یک ادعا یا یک تصویر',
-    options: [
-      {
-        name: 'claim',
-        description: 'ادعای متنی که می‌خواهید بررسی شود',
-        type: 3, // STRING
-        required: false,
-      },
-      {
-        name: 'image',
-        description: 'تصویری که می‌خواهید بررسی و ردیابی شود',
-        type: 11, // ATTACHMENT
-        required: false,
-      },
-    ],
-  },
-  {
-    name: 'stats',
-    description: 'جستجوی آمار و داده‌های معتبر در مورد یک موضوع',
-    options: [
-      {
-        name: 'topic',
-        description: 'موضوع مورد نظر برای یافتن آمار',
-        type: 3, // STRING
-        required: true,
-      },
-    ],
-  },
-  {
-    name: 'science',
-    description: 'یافتن مقالات و تحقیقات علمی مرتبط با یک موضوع',
-    options: [
-      {
-        name: 'topic',
-        description: 'موضوع علمی مورد نظر',
-        type: 3, // STRING
-        required: true,
-      },
-    ],
-  },
-   {
-    name: 'religion',
-    description: 'جستجو در منابع معتبر دینی در مورد یک موضوع',
-    options: [
-      {
-        name: 'topic',
-        description: 'موضوع دینی مورد نظر',
-        type: 3, // STRING
-        required: true,
-      },
-    ],
-  },
+  { name: 'help', description: 'نمایش لیست تمام دستورات و راهنمای ربات' },
+  { name: 'search', description: 'جستجوی پیشرفته اخبار', options: [
+      { name: 'query', description: 'موضوع یا کلیدواژه جستجو', type: 3, required: true },
+      { name: 'category', description: 'دسته‌بندی خبر (مثال: سیاسی)', type: 3, required: false },
+      { name: 'region', description: 'منطقه جغرافیایی (مثال: خاورمیانه)', type: 3, required: false },
+      { name: 'source', description: 'نوع منبع (مثال: خارجی)', type: 3, required: false },
+  ]},
+  { name: 'factcheck', description: 'بررسی اعتبار یک ادعا یا یک تصویر', options: [
+      { name: 'claim', description: 'ادعای متنی که می‌خواهید بررسی شود', type: 3, required: false },
+      { name: 'image', description: 'تصویری که می‌خواهید بررسی و ردیابی شود', type: 11, required: false },
+  ]},
+  { name: 'stats', description: 'جستجوی آمار و داده‌های معتبر در مورد یک موضوع', options: [
+      { name: 'topic', description: 'موضوع مورد نظر برای یافتن آمار', type: 3, required: true },
+  ]},
+  { name: 'science', description: 'یافتن مقالات و تحقیقات علمی مرتبط با یک موضوع', options: [
+      { name: 'topic', description: 'موضوع علمی مورد نظر', type: 3, required: true },
+  ]},
+  { name: 'religion', description: 'جستجو در منابع معتبر دینی در مورد یک موضوع', options: [
+      { name: 'topic', description: 'موضوع دینی مورد نظر', type: 3, required: true },
+  ]},
+  { name: 'analyze', description: 'تحلیل عمیق یک موضوع با استفاده از تحلیل‌گر هوشمند', options: [
+      { name: 'topic', description: 'موضوع مورد نظر برای تحلیل', type: 3, required: true },
+  ]},
+  { name: 'crypto', description: 'دریافت اطلاعات و قیمت ارز دیجیتال', options: [
+      { name: 'coin', description: 'نام یا نماد ارز دیجیتال (مثال: Bitcoin یا BTC)', type: 3, required: true },
+  ]},
+  { name: 'tools', description: 'استفاده از ابزارهای آنلاین تولید محتوا', options: [
+      { name: 'keywords', description: 'تولید کلمات کلیدی سئو برای یک موضوع', type: 1, options: [{ name: 'topic', description: 'موضوع اصلی', type: 3, required: true }] },
+      { name: 'webname', description: 'پیشنهاد نام برای وب‌سایت', type: 1, options: [{ name: 'topic', description: 'موضوع اصلی', type: 3, required: true }] },
+      { name: 'domain', description: 'پیشنهاد نام دامنه برای یک موضوع', type: 1, options: [{ name: 'topic', description: 'موضوع اصلی', type: 3, required: true }] },
+      { name: 'article', description: 'تولید پیش‌نویس مقاله برای یک موضوع', type: 1, options: [{ name: 'topic', description: 'موضوع اصلی', type: 3, required: true }] },
+  ]},
 ];
 
 const url = \`https://discord.com/api/v10/applications/\${DISCORD_APP_ID}/commands\`;
@@ -1270,13 +977,9 @@ async function registerCommands() {
   try {
     const response = await fetch(url, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': \`Bot \${DISCORD_BOT_TOKEN}\`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': \`Bot \${DISCORD_BOT_TOKEN}\` },
       body: JSON.stringify(commands),
     });
-
     if (response.ok) {
       console.log('Successfully registered commands!');
       const data = await response.json();
@@ -1293,6 +996,7 @@ async function registerCommands() {
 
 registerCommands();
 `,
+
     discordBotPackageJson: `{
   "name": "discord-bot-command-installer",
   "version": "1.0.0",
@@ -1389,25 +1093,42 @@ export default {
   },
 };
 `,
-    cloudflareDbSchemaSql: `-- SQL schema for the Cloudflare D1 settings database.
--- This creates a simple key-value table to store the main settings object.
+    cloudflareDbSchemaSql: `-- SQL schema for the Cloudflare D1 database.
+-- This creates tables for settings, RSS feeds, and RSS articles.
 
--- Drop the table if it already exists to start fresh (optional)
+-- Drop tables if they exist to start fresh (optional)
+DROP TABLE IF EXISTS rss_articles;
+DROP TABLE IF EXISTS rss_feeds;
 DROP TABLE IF EXISTS settings;
 
--- Create the settings table
+-- Create the settings table (simple key-value)
 CREATE TABLE settings (
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
 );
-
--- Optional: Add an index for faster lookups on the primary key
 CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_key ON settings (key);
 
--- Add a comment to describe the table's purpose
--- In some SQL dialects, this might be different. This is a generic comment.
--- Description: This table stores the entire application settings object as a JSON string
--- under a single key, 'app-settings'.
+-- Create the RSS feeds table
+CREATE TABLE rss_feeds (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL UNIQUE,
+    category TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create the RSS articles table
+CREATE TABLE rss_articles (
+    id TEXT PRIMARY KEY NOT NULL,
+    feed_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    link TEXT NOT NULL UNIQUE,
+    summary TEXT,
+    publication_time TEXT,
+    fetched_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    is_sent INTEGER DEFAULT 0,
+    FOREIGN KEY (feed_id) REFERENCES rss_feeds(id) ON DELETE CASCADE
+);
 `,
     cloudflareDbWranglerToml: `# Cloudflare Worker configuration file for the settings/database API.
 # This file is used by the Wrangler CLI to deploy your worker.
@@ -1439,37 +1160,45 @@ database_id = ""              # The ID of your D1 database. Fill this in after c
 #### 1. کالکشن **app_settings**
 *   **Collection ID:** \`app_settings\` (این را در فیلد مربوطه وارد کنید)
 *   **Attributes:**
-    *   \`settings_json\` (Type: String, Size: 1000000, Required: Yes)
+    *   \`content\` (Type: String, Size: 1000000, Required: Yes)
 
-#### 2. کالکشن **credentials**
-*   **Collection ID:** \`credentials\`
-*   **Attributes:**
-    *   \`service_name\` (Type: String, Size: 50, Required: Yes)
-    *   \`api_key\` (Type: String, Size: 255, Required: No)
-    *   \`config_json\` (Type: String, Size: 5000, Required: No)
-
-#### 3. کالکشن **search_history**
-*   **Collection ID:** \`search_history\` (این را در فیلد مربوطه وارد کنید)
+#### 2. کالکشن **search_history**
+*   **Collection ID:** \`search_history\`
 *   **Attributes:**
     *   \`item_type\` (Type: String, Size: 50, Required: Yes)
     *   \`query_text\` (Type: String, Size: 10000, Required: Yes)
     *   \`result_summary\` (Type: String, Size: 10000, Required: No)
     *   \`is_favorite\` (Type: Boolean, Required: Yes, Default: false)
 
-#### 4. کالکشن **chat_sessions**
-*   **Collection ID:** \`chat_sessions\`
+#### 3. کالکشن **chat_messages**
+*   **Collection ID:** \`chat_history\` (این را در فیلد Chat History وارد کنید)
+*   **Attributes:**
+    *   \`sessionId\` (Type: String, Size: 36, Required: Yes)
+    *   \`role\` (Type: String, Size: 10, Required: Yes)
+    *   \`text\` (Type: String, Size: 10000, Required: Yes)
+    *   \`timestamp\` (Type: Datetime, Required: Yes)
+*   **Indexes:**
+    *   \`sessionId_idx\` (Key: \`sessionId\`, Type: \`key\`)
+
+#### 4. کالکشن **rss_feeds**
+*   **Collection ID:** \`rss_feeds\`
 *   **Attributes:**
     *   \`name\` (Type: String, Size: 255, Required: Yes)
-    *   \`timestamp\` (Type: Datetime, Required: Yes)
+    *   \`url\` (Type: URL, Size: 512, Required: Yes)
+    *   \`category\` (Type: String, Size: 50, Required: Yes)
+*   **Indexes:**
+    *   \`url_unique\` (Key: \`url\`, Type: \`unique\`)
 
-#### 5. کالکشن **chat_messages** (مهم: این کالکشن جدا از قبلی است)
-*   **Collection ID:** \`chat_messages\` (این را در فیلد Chat History وارد کنید)
+#### 5. کالکشن **rss_articles**
+*   **Collection ID:** \`rss_articles\`
 *   **Attributes:**
-    *   \`session_id\` (Type: String, Size: 36, Required: Yes)
-    *   \`role\` (Type: String, Size: 10, Required: Yes)
-    *   \`content\` (Type: String, Size: 10000, Required: Yes)
-    *   \`timestamp\` (Type: Datetime, Required: Yes)
-
+    *   \`feed_id\` (Type: String, Size: 36, Required: Yes)
+    *   \`title\` (Type: String, Size: 512, Required: Yes)
+    *   \`link\` (Type: URL, Size: 1024, Required: Yes)
+    *   \`summary\` (Type: String, Size: 10000, Required: No)
+    *   \`is_sent\` (Type: Boolean, Required: Yes, Default: false)
+*   **Indexes:**
+    *   \`link_unique\` (Key: \`link\`, Type: \`unique\`)
 ---
 ### بخش سوم: ساخت کلید API
 1.  از منوی اصلی پروژه (گوشه پایین سمت چپ) به بخش **API Keys** بروید.
@@ -1758,6 +1487,31 @@ CREATE TABLE IF NOT EXISTS \`search_history\` (
   PRIMARY KEY (\`id\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS \`rss_feeds\` (
+    \`id\` varchar(36) NOT NULL,
+    \`name\` varchar(255) NOT NULL,
+    \`url\` varchar(512) NOT NULL,
+    \`category\` varchar(50) NOT NULL,
+    \`created_at\` timestamp NOT NULL DEFAULT current_timestamp(),
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`url\` (\`url\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS \`rss_articles\` (
+    \`id\` varchar(36) NOT NULL,
+    \`feed_id\` varchar(36) NOT NULL,
+    \`title\` varchar(512) NOT NULL,
+    \`link\` varchar(1024) NOT NULL,
+    \`summary\` text,
+    \`publication_time\` varchar(100) DEFAULT NULL,
+    \`fetched_at\` timestamp NOT NULL DEFAULT current_timestamp(),
+    \`is_sent\` tinyint(1) DEFAULT 0,
+    PRIMARY KEY (\`id\`),
+    UNIQUE KEY \`link\` (\`link\`),
+    KEY \`feed_id\` (\`feed_id\`),
+    CONSTRAINT \`rss_articles_ibfk_1\` FOREIGN KEY (\`feed_id\`) REFERENCES \`rss_feeds\` (\`id\`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS \`chat_sessions\` (
   \`id\` varchar(36) NOT NULL,
   \`name\` varchar(255) NOT NULL,
@@ -1785,6 +1539,7 @@ CREATE TABLE IF NOT EXISTS \`analysis_results\` (
   PRIMARY KEY (\`id\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 `,
+
     backendConfigJsExample: `// config.js.example - Rename this file to config.js and fill in your details.
 
 module.exports = {
@@ -1809,6 +1564,7 @@ module.exports = {
     }
 };
 `,
+    
     twitterBotWorkerJs: `/**
  * Cloudflare Worker for a Twitter Bot (run on a schedule)
  *

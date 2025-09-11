@@ -28,7 +28,10 @@ const getCredibilityClass = (credibility?: Credibility | string) => {
     return { dot: 'bg-gray-400' };
 };
 
-const formatPrice = (price: number) => {
+const formatPrice = (price?: number) => {
+    if (typeof price !== 'number') {
+        return 'N/A';
+    }
     return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: price > 1 ? 2 : 8 });
 };
 
@@ -51,7 +54,7 @@ const CollapsibleSection: React.FC<{ title: string; children: React.ReactNode; i
                 <span className="font-semibold text-cyan-300">{title}</span>
                 <svg className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
-            {isOpen && <div className="p-4 space-y-4">{children}</div>}
+            {isOpen && <div className="p-4 space-y-4 text-sm text-gray-300">{children}</div>}
         </div>
     );
 };

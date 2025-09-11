@@ -1,4 +1,4 @@
-import { AppSettings } from '../types';
+import { AppSettings, generateUUID } from '../types';
 
 export const THEMES = [
     { id: 'ocean-breeze', name: 'نسیم اقیانوس (پیش‌فرض)', className: 'theme-base' },
@@ -33,7 +33,20 @@ export const INITIAL_SETTINGS: AppSettings = {
         'analytical': [],
     },
     rssFeeds: {
-        'news-agencies': [],
+        'news-agencies': [
+            { id: generateUUID(), name: 'خبرگزاری مهر', url: 'https://www.mehrnews.com/rss', category: 'news-agencies' },
+            { id: generateUUID(), name: 'خبرگزاری تسنیم', url: 'https://www.tasnimnews.com/fa/rss', category: 'news-agencies' },
+            { id: generateUUID(), name: 'خبرگزاری ایرنا', url: 'https://www.irna.ir/rss', category: 'news-agencies' },
+            { id: generateUUID(), name: 'خبرگزاری فارس', url: 'https://www.farsnews.ir/rss', category: 'news-agencies' },
+            { id: generateUUID(), name: 'تابناک', url: 'https://www.tabnak.ir/fa/rss/allnews', category: 'news-agencies' },
+            { id: generateUUID(), name: 'باشگاه خبرنگاران جوان', url: 'https://www.yjc.ir/fa/rss', category: 'news-agencies' },
+            { id: generateUUID(), name: 'بی‌بی‌سی فارسی', url: 'http://feeds.bbci.co.uk/persian/rss.xml', category: 'news-agencies' },
+            { id: generateUUID(), name: 'رویترز', url: 'http://feeds.reuters.com/reuters/worldNews', category: 'news-agencies' },
+            { id: generateUUID(), name: 'نیویورک تایمز', url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', category: 'news-agencies' },
+            { id: generateUUID(), name: 'یورونیوز فارسی', url: 'https://parsi.euronews.com/rss', category: 'news-agencies' },
+            { id: generateUUID(), name: 'رادیو فردا', url: 'https://www.radiofarda.com/api/z-o-t-q-v-', category: 'news-agencies' },
+            { id: generateUUID(), name: 'صدای آمریکا', url: 'https://ir.voanews.com/api/z-g_tqqimovo_', category: 'news-agencies' },
+        ],
         'fact-check': [],
         'social-media': [],
         'financial': [],
