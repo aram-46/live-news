@@ -15,15 +15,15 @@ interface NewsCardProps {
 const getCredibilityClass = (credibility: Credibility | string) => {
   const credibilityStr = credibility.toString();
   if (credibilityStr.includes(Credibility.High)) {
-      return { dot: 'bg-green-400', text: 'text-green-300', shadow: 'shadow-glow-green' };
+      return { badge: 'bg-green-500/20 text-green-300 border border-green-500/30', shadow: 'shadow-glow-green' };
   }
   if (credibilityStr.includes(Credibility.Medium)) {
-      return { dot: 'bg-yellow-400', text: 'text-yellow-300', shadow: 'shadow-glow-yellow' };
+      return { badge: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30', shadow: 'shadow-glow-yellow' };
   }
   if (credibilityStr.includes(Credibility.Low)) {
-      return { dot: 'bg-red-400', text: 'text-red-300', shadow: 'shadow-glow-red' };
+      return { badge: 'bg-red-500/20 text-red-300 border border-red-500/30', shadow: 'shadow-glow-red' };
   }
-  return { dot: 'bg-gray-400', text: 'text-gray-300', shadow: 'shadow-glow-gray' };
+  return { badge: 'bg-gray-500/20 text-gray-300 border border-gray-500/30', shadow: 'shadow-glow-gray' };
 };
 
 const NewsCard: React.FC<NewsCardProps> = ({ article, settings, onRemove, fontSettings }) => {
@@ -113,12 +113,11 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, settings, onRemove, fontSe
       <footer className="flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-gray-400 gap-3 mt-auto pt-3">
         <div className="flex items-center gap-4">
           <span className="font-semibold">{article.source}</span>
-          <span>{article.publicationTime}</span>
+          <span style={{ textShadow: '0 0 6px var(--accent-shadow-color), 0 0 2px var(--text-accent)' }} className="text-accent">{article.publicationTime}</span>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className={`flex items-center gap-2 ${credibilityClasses.text}`}>
-              <span className={`w-3 h-3 rounded-full ${credibilityClasses.dot} ${credibilityClasses.shadow}`}></span>
-              <span className="font-semibold">{article.credibility}</span>
+            <div className={`px-2.5 py-1 font-bold rounded-full ${credibilityClasses.badge} ${credibilityClasses.shadow}`}>
+              {article.credibility}
             </div>
              <a
               href={article.link}

@@ -13,7 +13,7 @@ interface RSSFeedManagerProps {
 const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, settings }) => {
   const [editingFeed, setEditingFeed] = useState<RSSFeed | null>(null);
   const [isAdding, setIsAdding] = useState<SourceCategory | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState<SourceCategory | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [activeAiCategory, setActiveAiCategory] = useState<SourceCategory | null>(null);
@@ -45,16 +45,10 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
     }
   };
 
-  const openAiModal = (category: SourceCategory) => {
-    setActiveAiCategory(category);
-    setIsAiModalOpen(true);
-  };
-
-  const handleFindWithAI = async () => {
-    if (!activeAiCategory) return;
-    setAiLoading(true);
+  const handleFindWithAI = async (category: SourceCategory) => {
+    setAiLoading(category);
     try {
-        const newFoundFeeds = await findFeedsWithAI(activeAiCategory, feeds[activeAiCategory]);
+        const newFoundFeeds = await findFeedsWithAI(category, feeds[category]);
         
         if(newFoundFeeds.length === 0) {
             alert("خبرخوان جدیدی توسط هوش مصنوعی یافت نشد.");
@@ -63,20 +57,20 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
 
         const feedsToAdd: RSSFeed[] = [];
         let skippedCount = 0;
-        const existingUrls = new Set(feeds[activeAiCategory].map(f => f.url.toLowerCase().trim()));
+        const existingUrls = new Set(feeds[category].map(f => f.url.toLowerCase().trim()));
         
         newFoundFeeds.forEach((f: Partial<RSSFeed>) => {
             if(f.url && existingUrls.has(f.url.toLowerCase().trim())) {
                 skippedCount++;
-            } else if (f.url) {
-                feedsToAdd.push({ ...f, id: generateUUID(), category: activeAiCategory } as RSSFeed);
+            } else if (f.url && f.name) {
+                feedsToAdd.push({ ...f, id: generateUUID(), category: category } as RSSFeed);
                 existingUrls.add(f.url.toLowerCase().trim());
             }
         });
 
         if (feedsToAdd.length > 0) {
             const newFeeds = { ...feeds };
-            newFeeds[activeAiCategory] = [...newFeeds[activeAiCategory], ...feedsToAdd];
+            newFeeds[category] = [...newFeeds[category], ...feedsToAdd];
             onFeedsChange(newFeeds);
         }
 
@@ -86,8 +80,7 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
         alert("خطا در یافتن خبرخوان‌ها با هوش مصنوعی.");
         console.error(error);
     } finally {
-        setAiLoading(false);
-        setIsAiModalOpen(false);
+        setAiLoading(null);
     }
   };
 
@@ -208,8 +201,8 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-cyan-200">{sourceCategoryLabels[category]}</h3>
                     <div className="flex gap-2">
-                         <button onClick={() => openAiModal(category)} disabled={aiLoading} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-3 rounded-lg transition duration-300 text-sm">
-                            <MagicIcon className="w-5 h-5"/>
+                         <button onClick={() => handleFindWithAI(category)} disabled={!!aiLoading} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-3 rounded-lg transition duration-300 text-sm disabled:opacity-50">
+                            {aiLoading === category ? <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <MagicIcon className="w-5 h-5"/>}
                             <span>جستجو با AI</span>
                         </button>
                         <button onClick={() => setIsAdding(category)} className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-black font-bold py-2 px-3 rounded-lg transition duration-300 text-sm">
