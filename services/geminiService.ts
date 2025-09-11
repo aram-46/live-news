@@ -8,7 +8,6 @@ import {
     AppSettings,
     Source,
     SourceCategory,
-    FindSourcesOptions,
     PodcastResult,
     WebResult,
     GroundingSource,
@@ -30,10 +29,16 @@ import {
     WordPressThemePlan,
     DebateConfig,
     DebateRole,
+    debateRoleLabels,
     AIModelProvider,
     DebateParticipant,
     TranscriptEntry,
-    RSSFeed
+    RSSFeed,
+    FindSourcesOptions,
+    ConductDebateMessage,
+    ConductDebateConfig,
+    DebateAnalysisResult,
+    ResearchResult
 } from '../types';
 
 let ai: GoogleGenAI;
@@ -50,7 +55,11 @@ const getAIClient = () => {
 };
 
 // A helper to safely parse JSON from the model
-function safeJsonParse<T>(jsonString: string, fallback: T): T {
+function safeJsonParse<T>(jsonString: string | undefined | null, fallback: T): T {
+    if (typeof jsonString !== 'string' || !jsonString.trim()) {
+        console.error("Failed to parse JSON from model: input is not a valid string.", { input: jsonString });
+        return fallback;
+    }
     try {
         // The model sometimes returns markdown code blocks ```json ... ```
         const cleanJsonString = jsonString.replace(/^```json\s*|```\s*$/g, '').trim();
@@ -632,9 +641,33 @@ export async function generateWordPressThemeCode(plan: WordPressThemePlan, file:
     return response.text.replace(/^```(php|css|js)?\s*|```\s*$/g, '').trim();
 }
 export async function getDebateTurnResponse(transcript: TranscriptEntry[], role: DebateRole, turn: number, config: DebateConfig, isFinal: boolean, instruction: string, provider: AIModelProvider): Promise<GenerateContentResponse> {
-    // This function can be extended to use different providers
     const ai = getAIClient();
-    const prompt = `${instruction}\nDebate context:\n${JSON.stringify(config)}\nTranscript:\n${transcript.map(t => `${t.participant.name}: ${t.text}`).join('\n\n')}\nIt's your turn, ${role}. This is your turn number ${turn}. ${isFinal ? "This is your final turn, provide a concluding statement." : "Provide your response."}`;
+
+    const transcriptText = transcript.map(t => `${t.participant.name} (${debateRoleLabels[t.participant.role]}): ${t.text}`).join('\n\n');
+    
+    let prompt = `${instruction}\n
+    **Debate Configuration:**
+    - Topic: ${config.topic}
+    - Quality Level: ${config.qualityLevel}
+    - Tone: ${config.tone}
+    - Response Length: ${config.responseLength}
+    
+    **Current Transcript:**
+    ${transcriptText}
+    
+    ---
+    
+    **Your Turn:**
+    You are **${config.participants.find(p => p.role === role)?.name}** and your role is **${debateRoleLabels[role]}**.
+    This is your turn number **${turn}** out of ${config.turnLimit}.
+    `;
+
+    if (isFinal && role === 'moderator') {
+        prompt += `This is the final turn of the debate. As the moderator, please provide a concise, neutral summary of the entire debate, highlighting the key arguments from each side. Conclude the debate.`;
+    } else {
+        prompt += `Based on the conversation so far, provide your response according to your role and the configured tone and length.`;
+    }
+
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash', 
         contents: prompt,
@@ -642,6 +675,91 @@ export async function getDebateTurnResponse(transcript: TranscriptEntry[], role:
     });
     return response;
 }
+export async function getAIOpponentResponse(
+    transcript: ConductDebateMessage[],
+    config: ConductDebateConfig,
+    instruction: string
+): Promise<GenerateContentResponse> {
+    const ai = getAIClient();
+    const transcriptText = transcript.map(t => `${t.role === 'user' ? 'شما' : 'هوش مصنوعی'}: ${t.text}`).join('\n\n');
+
+    const prompt = `
+        ${instruction}
+        **Debate Topic:** ${config.topic}
+        **Your Role:** ${debateRoleLabels[config.aiRole]}
+
+        **Debate Transcript so far:**
+        ${transcriptText}
+
+        ---
+        **Your turn:** Based on the user's last message and your role, provide a concise and relevant response in Persian.
+    `;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: { tools: [{ googleSearch: {} }] }
+    });
+    return response;
+}
+
+export async function analyzeUserDebate(
+    transcript: ConductDebateMessage[],
+    topic: string,
+    instruction: string
+): Promise<DebateAnalysisResult> {
+    const ai = getAIClient();
+    const transcriptText = transcript.map(t => `${t.role === 'user' ? 'User' : 'AI'}: ${t.text}`).join('\n\n');
+
+    const prompt = `
+        Analyze the following debate transcript on the topic "${topic}".
+        Focus exclusively on the **User's** performance.
+        The entire transcript is provided below for context.
+        Your entire output must be in Persian.
+
+        **Transcript:**
+        ${transcriptText}
+    `;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            systemInstruction: instruction,
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    summary: { type: Type.STRING, description: 'A brief, neutral summary of the entire debate in Persian.' },
+                    performanceAnalysis: {
+                        type: Type.OBJECT,
+                        properties: {
+                            knowledgeLevel: { type: Type.INTEGER, description: 'User\'s knowledge level on the topic (1-10).' },
+                            eloquence: { type: Type.INTEGER, description: 'User\'s eloquence and fluency (1-10).' },
+                            argumentStrength: { type: Type.INTEGER, description: 'Strength and logic of user\'s arguments (1-10).' },
+                            feedback: { type: Type.STRING, description: 'Constructive feedback for the user in Persian.' },
+                        },
+                    },
+                    fallacyDetection: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                fallacyType: { type: Type.STRING, description: 'The type of logical fallacy used by the user.' },
+                                userQuote: { type: Type.STRING, description: 'The exact quote from the user that contains the fallacy.' },
+                                explanation: { type: Type.STRING, description: 'A brief explanation of why this is a fallacy in Persian.' },
+                            },
+                        },
+                    },
+                    overallScore: { type: Type.INTEGER, description: 'An overall score for the user\'s performance (0-100).' },
+                },
+            },
+        },
+    });
+
+    return safeJsonParse(response.text, {} as DebateAnalysisResult);
+}
+
 export async function findFeedsWithAI(category: SourceCategory, existing: RSSFeed[]): Promise<Partial<RSSFeed>[]> {
      const ai = getAIClient();
     const prompt = `
@@ -658,4 +776,52 @@ export async function generateEditableListItems(listName: string, listType: stri
     const prompt = `Generate a list of ${count} items for a settings page. The list is for "${listName}". Return a JSON array of strings.`;
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }});
     return safeJsonParse(response.text, []);
+}
+
+export async function generateResearchKeywords(topic: string, field: string): Promise<string[]> {
+    const ai = getAIClient();
+    const prompt = `Based on the research topic "${topic}" in the field of "${field}", generate 5 to 7 highly relevant academic and scientific keywords for database searches. Your response MUST be a single, valid JSON array of strings. Do not include any other text or markdown formatting.`;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
+    });
+    return safeJsonParse(response.text, []);
+}
+
+export async function fetchResearchData(topic: string, field: string, keywords: string[]): Promise<ResearchResult> {
+    const ai = getAIClient();
+    const prompt = `
+        Conduct a deep academic analysis on the following topic for a Persian-speaking audience.
+        - Topic: "${topic}"
+        - Field: "${field}"
+        - Keywords: ${keywords.join(', ')}
+
+        Your task is to search academic databases and the web to provide a structured report.
+        The entire response must be in Persian.
+        Your entire response MUST be a single, valid JSON object. Do not include any other text, explanations, or markdown formatting like \`\`\`json. The JSON object must have the following structure:
+        {
+          "understanding": "string",
+          "comprehensiveSummary": "string",
+          "credibilityScore": number,
+          "viewpointDistribution": { "proponentPercentage": number, "opponentPercentage": number, "neutralPercentage": number },
+          "proponents": [ { "name": "string", "argument": "string", "scientificLevel": number } ],
+          "opponents": [ { "name": "string", "argument": "string", "scientificLevel": number } ],
+          "academicSources": [ { "title": "string", "link": "string", "snippet": "string" } ]
+        }
+    `;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            tools: [{ googleSearch: {} }],
+            // Removed responseMimeType and responseSchema which are incompatible with the googleSearch tool
+        }
+    });
+
+    const parsedResult = safeJsonParse(response.text, {} as ResearchResult);
+    if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+        parsedResult.webSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
+    }
+    return parsedResult;
 }

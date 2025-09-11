@@ -111,7 +111,8 @@ export type AIInstructionType =
     | 'domain-names' | 'article-generation' | 'page-builder' | 'wordpress-theme'
     | 'crypto-data' | 'crypto-search' | 'crypto-analysis'
     | 'analyzer-political' | 'analyzer-economic' | 'analyzer-social'
-    | 'analyzer-propaganda' | 'analyzer-fallacy-finder' | 'analyzer-debate';
+    | 'analyzer-propaganda' | 'analyzer-fallacy-finder' | 'analyzer-debate'
+    | 'analyzer-user-debate' | 'research-analysis';
 
 export type AIInstructions = Record<AIInstructionType, string>;
 
@@ -148,6 +149,8 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
     'analyzer-propaganda': 'ردیابی پروپاگاندا',
     'analyzer-fallacy-finder': 'شناسایی مغالطه‌ها',
     'analyzer-debate': 'شبیه‌ساز مناظره',
+    'analyzer-user-debate': 'تحلیلگر مناظره کاربر',
+    'research-analysis': 'تحلیلگر تحقیقات',
 };
 
 export type AIModelProvider = 'gemini' | 'openai' | 'openrouter' | 'groq';
@@ -507,7 +510,7 @@ export interface WordPressThemePlan {
     features: string[];
 }
 
-// --- Debate Simulator ---
+// --- Debate ---
 export type DebateRole = 'moderator' | 'proponent' | 'opponent' | 'neutral';
 
 export const debateRoleLabels: Record<DebateRole, string> = {
@@ -517,6 +520,7 @@ export const debateRoleLabels: Record<DebateRole, string> = {
     neutral: "بی‌طرف"
 };
 
+// Debate Simulator
 export interface DebateParticipant {
     id: number;
     role: DebateRole;
@@ -529,9 +533,10 @@ export interface DebateConfig {
     topic: string;
     participants: DebateParticipant[];
     starter: DebateRole;
-    turnLimit: number; // number of turns per participant
+    turnLimit: number;
     responseLength: 'short' | 'medium' | 'long';
-    tone: 'formal' | 'passionate' | 'academic';
+    qualityLevel: 'academic' | 'medium' | 'low';
+    tone: 'formal' | 'friendly' | 'witty' | 'polite' | 'aggressive';
 }
 
 export interface TranscriptEntry {
@@ -539,37 +544,108 @@ export interface TranscriptEntry {
     text: string;
 }
 
+// Conduct Debate (User vs AI)
+export interface ConductDebateConfig {
+    topic: string;
+    aiRole: DebateRole;
+    aiModel: AIModelProvider;
+    analyzePerformance: boolean;
+}
+
+export interface ConductDebateMessage {
+    id: string;
+    role: 'user' | 'model';
+    text: string;
+    timestamp: number;
+}
+
+export interface DebateAnalysisResult {
+    summary: string;
+    performanceAnalysis: {
+        knowledgeLevel: number; // 1-10
+        eloquence: number; // 1-10
+        argumentStrength: number; // 1-10
+        feedback: string;
+    };
+    fallacyDetection: {
+        fallacyType: string;
+        userQuote: string;
+        explanation: string;
+    }[];
+    overallScore: number; // 0-100
+}
+
+
 // --- Crypto Tracker ---
+export interface CryptoCoin {
+    id: string;
+    symbol: string;
+    name: string;
+    image: string;
+    price_usd: number;
+    price_toman: number;
+    price_change_percentage_24h: number;
+    market_cap_usd: number;
+    market_cap_toman: number;
+}
 export interface SimpleCoin {
     id: string;
     symbol: string;
     name: string;
 }
-export interface CryptoCoin extends SimpleCoin {
-    price_usd: number;
-    price_toman: number;
-    price_change_percentage_24h: number;
-    // FIX: Added optional image property to match usage in CryptoTracker.tsx.
-    image?: string;
-}
 export interface CryptoSearchResult {
     coin: CryptoCoin;
     summary: string;
-    sources: { name: string; link: string; credibility: Credibility | string }[];
+    sources: {
+        name: string;
+        link: string;
+        credibility: Credibility | string;
+    }[];
 }
 export interface CryptoAnalysisResult {
     coinName: string;
     symbol: string;
     summary: string;
-    technicalAnalysis: { title: string; content: string; keyLevels: { support: string[]; resistance: string[] } };
-    fundamentalAnalysis: { title: string; content: string; keyMetrics: { name: string; value: string }[] };
-    sentimentAnalysis: { title: string; content: string; score: number };
+    technicalAnalysis: {
+        title: string;
+        content: string;
+        keyLevels: { support: string[]; resistance: string[]; };
+    };
+    fundamentalAnalysis: {
+        title: string;
+        content: string;
+        keyMetrics: { name: string; value: string; }[];
+    };
+    sentimentAnalysis: {
+        title: string;
+        content: string;
+        score: number; // 0-100
+    };
     futureOutlook: string;
 }
-
 export interface FindSourcesOptions {
     region: 'any' | 'internal' | 'external';
     language: 'any' | 'persian' | 'non-persian';
-    count: number;
     credibility: 'any' | 'high' | 'medium';
+    count: number;
+}
+
+// --- Research Tab ---
+export interface ResearchResult {
+    understanding: string;
+    comprehensiveSummary: string;
+    credibilityScore: number; // 0-100
+    viewpointDistribution: {
+        proponentPercentage: number;
+        opponentPercentage: number;
+        neutralPercentage: number;
+    };
+    proponents: AnalysisStance[];
+    opponents: AnalysisStance[];
+    academicSources: {
+        title: string;
+        link: string;
+        snippet: string;
+    }[];
+    webSources?: GroundingSource[];
 }

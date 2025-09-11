@@ -417,3 +417,9 @@ export const PauseIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
     </svg>
 );
+
+export const BeakerIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.625a3.75 3.75 0 0 1-5.625 2.632V12a3.75 3.75 0 0 1 3.75-3.75h1.5M9.75 3.104c.132-.02.265-.032.401-.032h3.702c.136 0 .269.012.401.032M9.75 3.104 12 5.25m0 0 2.25-2.146M12 5.25v5.625a3.75 3.75 0 0 0 5.625 2.632V12a3.75 3.75 0 0 0-3.75-3.75h-1.5m-3.75 9.375c.03-.023.058-.047.087-.072a3.75 3.75 0 0 1 5.226 0c.029.025.057.049.087.072m-5.399 0c-.03.023-.058.047-.087.072a3.75 3.75 0 0 0 5.226 0c.029-.025.057-.049.087-.072m0 0a3.75 3.75 0 0 0-5.226 0" />
+    </svg>
+);

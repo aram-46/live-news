@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { AppSettings, DebateConfig, DebateParticipant, DebateRole, debateRoleLabels, TranscriptEntry, AIModelProvider, generateUUID } from '../types';
+import { AppSettings, DebateConfig, DebateParticipant, DebateRole, debateRoleLabels, TranscriptEntry, AIModelProvider } from '../types';
 import { getDebateTurnResponse } from '../services/geminiService';
-import { GavelIcon, PlusCircleIcon, MinusCircleIcon, CircleIcon, UploadImageIcon, PlayIcon, PauseIcon, BrainIcon } from './icons';
+import { GavelIcon, PlusCircleIcon, MinusCircleIcon, CircleIcon, UploadImageIcon, PlayIcon, PauseIcon } from './icons';
 import ExportButton from './ExportButton';
 
 interface DebateSimulatorProps {
@@ -33,13 +32,13 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
             { id: 3, role: 'opponent', name: 'مخالف', modelProvider: 'gemini' },
             { id: 4, role: 'neutral', name: 'بی‌طرف', modelProvider: 'gemini' },
         ],
-        starter: 'moderator',
+        starter: 'proponent',
         turnLimit: 2,
         responseLength: 'medium',
+        qualityLevel: 'medium',
         tone: 'formal',
     });
     
-    // FIX: Added 'error' to the DebateState type to allow setting an error state.
     const [debateState, setDebateState] = useState<'idle' | 'running' | 'paused' | 'finished' | 'error'>('idle');
     const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
     const [activeSpeaker, setActiveSpeaker] = useState<DebateRole | null>(null);
@@ -48,7 +47,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
     
     const transcriptRef = useRef<HTMLDivElement>(null);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
-    const turnCountRef = useRef<Record<DebateRole, number>>({ moderator: 0, proponent: 0, opponent: 0, neutral: 0 });
+    const turnCountRef = useRef<Record<string, number>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
     const participantIdToUpdate = useRef<number | null>(null);
 
@@ -86,40 +85,45 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
     
     const getNextSpeaker = useCallback((currentSpeaker: DebateRole): DebateRole | null => {
         const order: DebateRole[] = ['moderator', 'proponent', 'opponent', 'neutral'];
-        const isLastTurn = Object.values(turnCountRef.current).every(count => count >= config.turnLimit);
+        const regularOrder: DebateRole[] = ['proponent', 'opponent', 'neutral'];
+        
+        const totalTurns = config.participants.length * config.turnLimit;
+        const completedTurns = Object.values(turnCountRef.current).reduce((a, b) => a + b, 0);
 
-        if (isLastTurn) {
-             // If everyone has had their turns, let the moderator conclude if they haven't already.
-            return turnCountRef.current.moderator <= config.turnLimit ? 'moderator' : null;
+        if (completedTurns >= totalTurns) {
+            return turnCountRef.current['moderator'] <= config.turnLimit ? 'moderator' : null;
         }
 
-        let nextIndex = (order.indexOf(currentSpeaker) + 1) % order.length;
-        let nextSpeaker = order[nextIndex];
-        let attempts = 0;
-
-        // Loop to find the next available speaker
-        while (attempts < order.length) {
-            if (nextSpeaker === 'moderator' && turnCountRef.current.moderator >= config.turnLimit) {
-                 // Moderator only speaks at the beginning and end, and if someone else is done
-            } else if (turnCountRef.current[nextSpeaker] < config.turnLimit) {
+        const currentInRegular = regularOrder.indexOf(currentSpeaker);
+        if (currentInRegular !== -1) {
+            let nextSpeaker = regularOrder[(currentInRegular + 1) % regularOrder.length];
+            if (turnCountRef.current[nextSpeaker] < config.turnLimit) {
                 return nextSpeaker;
             }
-            nextIndex = (nextIndex + 1) % order.length;
-            nextSpeaker = order[nextIndex];
-            attempts++;
+             // If next in line is done, try the one after that
+            nextSpeaker = regularOrder[(currentInRegular + 2) % regularOrder.length];
+             if (turnCountRef.current[nextSpeaker] < config.turnLimit) {
+                return nextSpeaker;
+            }
+        }
+        
+        // Fallback or initial case
+        for (const role of regularOrder) {
+            if (turnCountRef.current[role] < config.turnLimit) {
+                return role;
+            }
         }
 
-        // If loop completes, it means only moderator might be left
-        return turnCountRef.current.moderator <= config.turnLimit ? 'moderator' : null;
+        return turnCountRef.current['moderator'] <= config.turnLimit ? 'moderator' : null;
 
-    }, [config.turnLimit]);
+    }, [config.turnLimit, config.participants]);
     
     const performNextTurn = useCallback(async (speakerRole: DebateRole) => {
         setActiveSpeaker(speakerRole);
-        turnCountRef.current[speakerRole]++;
+        turnCountRef.current[speakerRole] = (turnCountRef.current[speakerRole] || 0) + 1;
 
         try {
-            const isFinalTurn = Object.values(turnCountRef.current).every(c => c >= config.turnLimit);
+            const isFinalTurn = Object.values(turnCountRef.current).reduce((a, b) => a + b, 0) >= config.participants.length * config.turnLimit;
             const speaker = config.participants.find(p => p.role === speakerRole)!;
             const response = await getDebateTurnResponse(transcript, speakerRole, turnCountRef.current[speakerRole], config, isFinalTurn, settings.aiInstructions['analyzer-debate'], speaker.modelProvider);
 
@@ -129,7 +133,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
             await new Promise(res => setTimeout(res, 500)); // Short pause
 
             const nextSpeaker = getNextSpeaker(speakerRole);
-            if (nextSpeaker) {
+            if (nextSpeaker && debateState === 'running') {
                 setCurrentSpeakerRole(nextSpeaker);
             } else {
                 setDebateState('finished');
@@ -140,15 +144,14 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
             console.error(err);
             setError('یک خطا در حین شبیه‌سازی رخ داد.');
             setDebateState('error');
-            setActiveSpeaker(null);
-            setCurrentSpeakerRole(null);
         }
-    }, [config, transcript, getNextSpeaker, settings.aiInstructions]);
+    }, [config, transcript, getNextSpeaker, settings.aiInstructions, debateState]);
 
 
     useEffect(() => {
       if (debateState === 'running' && currentSpeakerRole) {
-        performNextTurn(currentSpeakerRole);
+        const timer = setTimeout(() => performNextTurn(currentSpeakerRole!), 1000);
+        return () => clearTimeout(timer);
       }
     }, [debateState, currentSpeakerRole, performNextTurn]);
 
@@ -156,27 +159,27 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
     const handleStartStop = () => {
         if (debateState === 'running') {
             setDebateState('paused');
+            setCurrentSpeakerRole(null);
         } else if (debateState === 'paused') {
             setDebateState('running');
+            const lastSpeaker = transcript[transcript.length - 1]?.participant.role || 'moderator';
+            setCurrentSpeakerRole(getNextSpeaker(lastSpeaker));
         } else { // idle, finished, error
             setDebateState('running');
             setError(null);
             setTranscript([]);
-            turnCountRef.current = { moderator: 0, proponent: 0, opponent: 0, neutral: 0 };
-            setCurrentSpeakerRole(config.starter);
+            turnCountRef.current = {};
+            // Moderator always starts
+            setCurrentSpeakerRole('moderator');
         }
     };
     
     const getRoleIcon = (role: DebateRole) => {
-        const participant = config.participants.find(p => p.role === role);
-        if (participant?.avatar) {
-            return <img src={participant.avatar} alt={participant.name} className="w-6 h-6 rounded-full object-cover" />;
-        }
         switch (role) {
-            case 'moderator': return <GavelIcon className="w-6 h-6" />;
-            case 'proponent': return <PlusCircleIcon className="w-6 h-6" />;
-            case 'opponent': return <MinusCircleIcon className="w-6 h-6" />;
-            case 'neutral': return <CircleIcon className="w-6 h-6" />;
+            case 'moderator': return <GavelIcon className="w-5 h-5" />;
+            case 'proponent': return <PlusCircleIcon className="w-5 h-5" />;
+            case 'opponent': return <MinusCircleIcon className="w-5 h-5" />;
+            case 'neutral': return <CircleIcon className="w-5 h-5" />;
             default: return null;
         }
     };
@@ -184,6 +187,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
     const isProviderEnabled = (provider: AIModelProvider): boolean => {
         if (provider === 'gemini') return !!process.env.API_KEY;
         const modelSettings = settings.aiModelSettings[provider as keyof typeof settings.aiModelSettings];
+        // @ts-ignore
         return 'apiKey' in modelSettings && !!modelSettings.apiKey;
     };
     const availableProviders: AIModelProvider[] = (Object.keys(settings.aiModelSettings) as AIModelProvider[]).filter(isProviderEnabled);
@@ -236,16 +240,6 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
                 <h2 className="text-xl font-bold text-cyan-300">پیکربندی مناظره</h2>
                 <fieldset disabled={debateState === 'running' || debateState === 'paused'} className="space-y-4 disabled:opacity-50">
-                    <CollapsibleSection title="راهنمای استفاده" initialOpen={false}>
-                        <ol className="list-decimal list-inside space-y-2 text-xs">
-                            <li><strong>موضوع:</strong> یک موضوع دقیق برای مناظره وارد کنید.</li>
-                            <li><strong>شرکت‌کنندگان:</strong> می‌توانید نام هر نقش را تغییر دهید. برای هر نقش یک آواتار آپلود کرده و مدل هوش مصنوعی دلخواه را انتخاب کنید.</li>
-                            <li><strong>تنظیمات:</strong> مشخص کنید کدام نقش مناظره را شروع می‌کند، هر نقش چند نوبت صحبت کند، و طول و لحن پاسخ‌ها چگونه باشد.</li>
-                            <li><strong>شروع:</strong> دکمه "شروع شبیه‌سازی" را بزنید.</li>
-                            <li><strong>کنترل:</strong> می‌توانید در حین اجرا مناظره را متوقف و دوباره ادامه دهید.</li>
-                            <li><strong>خروجی:</strong> پس از اتمام، با استفاده از دکمه خروجی، کل متن مناظره را ذخیره کنید.</li>
-                        </ol>
-                    </CollapsibleSection>
                     <textarea value={config.topic} onChange={e => handleConfigChange('topic', e.target.value)} rows={3} placeholder="موضوع اصلی مناظره..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
                      
                     <CollapsibleSection title="شرکت‌کنندگان و مدل‌ها" initialOpen={true}>
@@ -265,21 +259,28 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <select value={config.starter} onChange={e => handleConfigChange('starter', e.target.value)} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm">
                             <option value="" disabled>شروع‌کننده...</option>
-                            {config.participants.map(p => <option key={p.role} value={p.role}>{p.name}</option>)}
+                            {config.participants.filter(p => p.role !== 'moderator').map(p => <option key={p.role} value={p.role}>{p.name}</option>)}
                         </select>
                         <div>
                              <label className="text-xs text-gray-400">نوبت هر نفر: {config.turnLimit}</label>
                              <input type="range" min="1" max="5" value={config.turnLimit} onChange={e => handleConfigChange('turnLimit', Number(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
                         </div>
-                        <select value={config.responseLength} onChange={e => handleConfigChange('responseLength', e.target.value)} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm">
+                         <select value={config.responseLength} onChange={e => handleConfigChange('responseLength', e.target.value)} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm">
                             <option value="short">پاسخ کوتاه</option>
                             <option value="medium">پاسخ متوسط</option>
                             <option value="long">پاسخ بلند</option>
                         </select>
-                        <select value={config.tone} onChange={e => handleConfigChange('tone', e.target.value)} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm">
+                        <select value={config.qualityLevel} onChange={e => handleConfigChange('qualityLevel', e.target.value)} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm">
+                            <option value="academic">علمی/آکادمیک</option>
+                            <option value="medium">متوسط</option>
+                            <option value="low">پایین</option>
+                        </select>
+                        <select value={config.tone} onChange={e => handleConfigChange('tone', e.target.value)} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm col-span-2">
                             <option value="formal">لحن رسمی</option>
-                            <option value="passionate">لحن پرشور</option>
-                            <option value="academic">لحن آکادمیک</option>
+                            <option value="friendly">دوستانه</option>
+                            <option value="witty">شوخ</option>
+                            <option value="polite">مودبانه</option>
+                            <option value="aggressive">تند</option>
                         </select>
                     </div>
                 </fieldset>
@@ -296,13 +297,13 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
                     <div className="absolute inset-0 bg-grid-pattern opacity-20"></div>
                     <div className="debate-table"></div>
                     {config.participants.map((p, i) => {
-                        const angle = (i / 4) * 2 * Math.PI - Math.PI / 4;
+                        const angle = (i / config.participants.length) * 2 * Math.PI;
                         const x = 50 + 40 * Math.cos(angle);
                         const y = 50 + 40 * Math.sin(angle);
                         const isSpeaking = activeSpeaker === p.role;
                         return (
-                            <div key={p.id} className={`participant-node ${isSpeaking ? 'active' : ''}`} style={{ top: `${y}%`, left: `${x}%`, '--glow-color': 'var(--accent-color)' } as React.CSSProperties}>
-                                {getRoleIcon(p.role)}
+                            <div key={p.id} className={`participant-node ${isSpeaking ? 'active' : ''}`} style={{ top: `${y}%`, left: `${x}%`, '--glow-color-rgb': '6, 182, 212' } as React.CSSProperties} title={p.name}>
+                                 {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full rounded-full object-cover" /> : getRoleIcon(p.role)}
                             </div>
                         );
                     })}

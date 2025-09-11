@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Add missing icon imports that will be added to the icons.tsx file
-import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon } from './components/icons';
+import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon, BeakerIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 // FIX: Changed import paths to be explicitly relative
 import { AppSettings } from './types';
@@ -21,8 +21,10 @@ import OnlineTools from './components/OnlineTools';
 import ConnectionStatus from './components/ConnectionStatus';
 import DraggableDialog from './components/DraggableDialog';
 import SearchHistory from './components/SearchHistory';
+import Debate from './components/Debate';
+import Research from './components/Research';
 
-type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools' | 'history';
+type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools' | 'history' | 'debate' | 'research';
 
 const FullScreenLoader: React.FC<{ message: string }> = ({ message }) => (
     <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
@@ -145,6 +147,8 @@ const App: React.FC = () => {
             {renderNavButton('search', <SearchIcon className="w-5 h-5" />, 'جستجو')}
             {renderNavButton('factcheck', <CheckCircleIcon className="w-5 h-5" />, 'فکت چک')}
             {renderNavButton('analyzer', <BrainIcon className="w-5 h-5" />, 'تحلیل‌گر')}
+            {renderNavButton('research', <BeakerIcon className="w-5 h-5" />, 'تحقیقات')}
+            {renderNavButton('debate', <BrainIcon className="w-5 h-5" />, 'مناظره')}
             {renderNavButton('online-tools', <ToolsIcon className="w-5 h-5" />, 'ابزار آنلاین')}
             {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
             {renderNavButton('browseruse', <SparklesIcon className="w-5 h-5" />, 'عامل هوشمند')}
@@ -163,6 +167,8 @@ const App: React.FC = () => {
         {activeView === 'search' && <AdvancedSearch settings={settings} onSettingsChange={handleSettingsChange} onOpenUrl={handleOpenUrl} />}
         {activeView === 'factcheck' && <FactCheck settings={settings} />}
         {activeView === 'analyzer' && <Analyzer settings={settings} />}
+        {activeView === 'research' && <Research settings={settings} />}
+        {activeView === 'debate' && <Debate settings={settings} />}
         {activeView === 'browseruse' && <BrowserUse settings={settings} />}
         {activeView === 'online-tools' && <OnlineTools settings={settings} onOpenUrl={handleOpenUrl} />}
         {activeView === 'history' && <SearchHistory settings={settings} />}

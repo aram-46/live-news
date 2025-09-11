@@ -161,7 +161,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
                 "دسته بندی"?: SourceCategory;
             };
 
-            const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet, { header: ["نام سایت", "حوزه", "آدرس سایت", "فعالیت", "درجه اعتبار", "کشور یا منطقه", "دسته بندی"] });
+            const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet);
 
             const newSources: Sources = JSON.parse(JSON.stringify(sources));
             // FIX: Explicitly typed the 's' parameter to 'Source' to avoid it being inferred as 'unknown'.
@@ -169,9 +169,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
             let addedCount = 0;
             let skippedCount = 0;
             
-            const dataRows = json.slice(1);
-
-            dataRows.forEach((row: ImportedRow) => {
+            json.forEach((row: ImportedRow) => {
                 const url = row['آدرس سایت'] || '';
                 const category = row['دسته بندی'] as SourceCategory;
 
