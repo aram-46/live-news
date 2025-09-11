@@ -1,235 +1,119 @@
-import { AppSettings, Theme, generateUUID } from '../types';
+import { AppSettings } from '../types';
 
-export const ALL_THEMES: Theme[] = [
-  { id: 'base', name: 'پیش‌فرض (اقیانوس)', className: 'theme-base' },
-  { id: 'neon-dreams', name: 'رویای نئونی', className: 'theme-neon-dreams' },
-  { id: 'solar-flare', name: 'شراره خورشیدی', className: 'theme-solar-flare' },
-  { id: 'sunset-glow', name: 'غروب درخشان (بنفش/صورتی)', className: 'theme-sunset-glow' },
-  { id: 'citrus-burst', name: 'انفجار مرکبات (زرد/صورتی)', className: 'theme-citrus-burst' },
-  { id: 'ocean-breeze', name: 'نسیم اقیانوس (نیلی/آبی)', className: 'theme-ocean-breeze' },
-  { id: 'crimson-fire', name: 'آتش سرخ (قرمز/نارنجی)', className: 'theme-crimson-fire' },
+export const THEMES = [
+    { id: 'ocean-breeze', name: 'نسیم اقیانوس (پیش‌فرض)', className: 'theme-base' },
+    { id: 'neon-dreams', name: 'رویای نئونی', className: 'theme-neon-dreams' },
+    { id: 'solar-flare', name: 'شراره خورشیدی', className: 'theme-solar-flare' },
 ];
 
 export const INITIAL_SETTINGS: AppSettings = {
-  theme: ALL_THEMES[0],
-  sources: {
-    'fact-check': [
-      { id: generateUUID(), name: 'دوجداره', field: 'سیاسی، اجتماعی، فکت چک', url: 'http://www.dorjeh.com', activity: 'بررسی اخبار و شایعات، تحلیل منتقد', credibility: 'بالا (شفاف و مستقل)', region: 'خارج از ایران' },
-      { id: generateUUID(), name: 'ویس چک', field: 'فکت چک، شبکه‌های اجتماعی', url: 'http://www.vicecheck.ir', activity: 'بررسی شایعات و اخبار جعلی', credibility: 'بالا (مستقل، تخصصی)', region: 'ایران (فعالیت از خارج)' }
-    ],
-    'news-agencies': [
-      { id: generateUUID(), name: 'خبرگزاری ایسنا', field: 'سیاسی، اجتماعی، علمی', url: 'https://www.isna.ir', activity: 'گزارش‌های نسبتاً بی‌طرف از رویدادهای کشور', credibility: 'بالا (نسبت به داخلی‌ها)', region: 'ایران' },
-      { id: generateUUID(), name: 'بی‌بی‌سی فارسی', field: 'سیاسی، اجتماعی، بین‌المللی', url: 'https://www.bbc.com/persian', activity: 'گزارش‌های تحقیقی، تحلیل بی‌طرف، فکت چک', credibility: 'بسیار بالا (مستقل، بین‌المللی)', region: 'بریتانیا' },
-      { id: generateUUID(), name: 'The New York Times (NYT)', field: 'سیاسی، بین‌المللی، فرهنگی', url: 'https://www.nytimes.com', activity: 'خبر و تحلیل عمیق', credibility: 'بسیار بالا', region: 'ایالات متحده' },
-      { id: generateUUID(), name: 'Reuters', field: 'اقتصاد، بین‌المللی، تجارت', url: 'https://www.reuters.com', activity: 'خبرگزاری بین‌المللی، سریع و دقیق', credibility: 'بسیار بالا', region: 'بریتانیا' },
-    ],
-    'social-media': [],
-    'financial': [
-      { id: generateUUID(), name: 'Bloomberg', field: 'اقتصاد، مالی، بازارهای جهانی', url: 'https://www.bloomberg.com', activity: 'تخصصی در اخبار مالی و تحلیل داده', credibility: 'بسیار بالا', region: 'ایالات متحده' },
-    ],
-    'analytical': [
-      { id: generateUUID(), name: 'The Economist', field: 'سیاست، اقتصاد، تحلیل', url: 'https://www.economist.com', activity: 'تحلیل‌های استراتژیک', credibility: 'بسیار بالا (تحلیلی)', region: 'بریتانیا' },
-    ],
-  },
-  aiInstructions: {
-    'fact-check': 'شما یک روزنامه‌نگار تحقیقی متخصص در ردیابی اطلاعات غلط دیجیتال و شایعات شبکه‌های اجتماعی هستید. تحلیل شما باید بی‌طرف، عینی و بر اساس شواهد قابل راستی‌آزمایی از منابع معتبر باشد. اولویت اصلی شما یافتن منبع اولیه یک ادعا است.',
-    'deep-analysis': 'شما یک محقق ارشد و تحلیلگر اطلاعات هستید. وظیفه شما بررسی عمیق یک موضوع با استفاده از منابع معتبر آکادمیک و انگلیسی‌زبان است. شما باید دیدگاه‌های موافق و مخالف را شناسایی کرده، خلاصه‌سازی کنید و اعتبار هرکدام را بسنجید. هدف شما ارائه یک تصویر جامع، بی‌طرف و مستند از موضوع است. تمام خروجی باید به زبان فارسی باشد.',
-    'news-search': 'شما یک هوش مصنوعی گردآورنده خبر هستید. اخبار جدید، مرتبط و متنوع از منابع معتبر را در اولویت قرار دهید. از اخبار زرد و جنجالی پرهیز کنید.',
-    'video-search': 'شما یک موتور جستجوی ویدئوی هوشمند هستید. بهترین و مرتبط‌ترین ویدئوها را از پلتفرم‌های اشتراک‌گذاری ویدئو و شبکه‌های اجتماعی بر اساس درخواست کاربر پیدا کنید.',
-    'audio-search': 'شما یک دستیار هوشمند برای یافتن محتوای صوتی هستید. پادکست‌ها، کتاب‌های صوتی و فایل‌های صوتی مرتبط با موضوع درخواستی کاربر را از منابع معتبر پیدا کنید.',
-    'book-search': 'شما یک کتابدار و محقق دیجیتال هستید. بهترین کتاب‌ها، مقالات و وب‌سایت‌های مرتبط با موضوع درخواستی کاربر را پیدا کرده و معرفی کنید.',
-    'news-display': 'شما یک نمایش‌دهنده اخبار هوشمند هستید. مهم‌ترین و به‌روزترین عناوین خبری را ارائه دهید. اطمینان حاصل کنید که خلاصه‌ها کوتاه و دقیق هستند.',
-    'news-ticker': 'شما دستیار هوش مصنوعی برای نوار اخبار هستید. عناوین خبری بسیار کوتاه و فوری را ارائه دهید. عناوین باید به زبان فارسی و دارای لینک به منبع معتبر باشند.',
-    'statistics-search': 'شما یک تحلیلگر داده و آمارشناس متخصص هستید. وظیفه شما یافتن معتبرترین داده‌های آماری مرتبط با پرسش کاربر و ارائه آن در قالب یک گزارش جامع شامل نمودار، تحلیل و جزئیات منبع است.',
-    'science-search': 'شما یک پژوهشگر و محقق علمی هستید. وظیفه شما یافتن مقالات و تحقیقات علمی کلیدی مرتبط با موضوع کاربر از منابع معتبر آکادمミック و ارائه خلاصه‌ای دقیق و تحلیلی از آن است.',
-    'religion-search': 'شما یک محقق و کارشناس مسائل دینی هستید. وظیفه شما جستجو در منابع معتبر دینی و ارائه اطلاعات دقیق، بی‌طرف و مستند در پاسخ به پرسش کاربر است.',
-    'telegram-bot': 'به عنوان ربات تلگرام، هنگام اشتراک‌گذاری اخبار، مختصر و مفید باشید و از قالب‌بندی مارک‌داون استفاده کنید. با عنوان به صورت بولد شروع کنید، سپس منبع و خلاصه کوتاه را بیاورید و با لینک به مقاله کامل تمام کنید.',
-    'discord-bot': 'به عنوان ربات دیسکورد، از امبد (embed) برای اشتراک‌گذاری اخبار استفاده کنید. عنوان خبر باید عنوان امبد و خلاصه خبر توضیحات آن باشد. فیلدهایی برای منبع، اعتبار و دسته‌بندی قرار دهید.',
-    'website-bot': 'به عنوان ربات چت وب‌سایت، به شیوه‌ای دوستانه و حرفه‌ای تعامل کنید. هنگام اشتراک‌گذاری اخبار، یک عنوان واضح، خلاصه کوتاه و لینک مستقیم ارائه دهید.',
-    'twitter-bot': 'به عنوان ربات توییتر، برای هر خبر یک رشته توییت (thread) ایجاد کنید. توییت اول باید شامل تیتر و لینک باشد. توییت‌های بعدی باید نکات کلیدی را خلاصه کنند. از هشتگ‌های مرتبط استفاده کنید.',
-    'music-search': 'شما یک دستیار هوشمند برای یافتن موسیقی هستید. بهترین آهنگ‌ها، آلبوم‌ها و هنرمندان را بر اساس درخواست کاربر از پلتفرم‌های موسیقی معتبر پیدا کنید.',
-    'dollar-search': 'شما یک تحلیلگر مالی متخصص در بازار ارز هستید. جدیدترین قیمت‌ها، تحلیل‌ها و اخبار مرتبط با دلار و سایر ارزها را بر اساس درخواست کاربر از منابع معتبر مالی و خبری پیدا کنید.',
-    'video-converter': 'شما یک دستیار هوشمند متخصص در تحلیل محتوای ویدئویی هستید. شما یک ویدئو را از طریق لینک آن "مشاهده" کرده و بر اساس درخواست کاربر، یکی از وظایف زیر را با دقت بالا انجام می‌دهید: خلاصه‌سازی، تحلیل جامع، راستی‌آزمایی عمیق ادعاها و اسناد، یا یافتن کلمات کلیدی در متن ویدئو. تمام خروجی‌ها باید به زبان فارسی و در قالب JSON درخواستی باشند.',
-    'analyzer-political': 'شما یک تحلیلگر و مناظره‌گر خبره سیاسی هستید. کاربر موضوعی را مشخص کرده و موضعی (موافق، مخالف، یا بی‌طرف) را برای شما تعیین می‌کند. وظیفه شما این است که از آن دیدگاه وارد یک گفتگوی دقیق و مبتنی بر شواهد شوید. در طول مکالمه، موضع تعیین‌شده خود را حفظ کنید. اگر بی‌طرف هستید، دیدگاه متعادلی از همه طرف‌ها ارائه دهید. استدلال‌های شما باید منطقی، مستند و به وضوح بیان شوند. کل مکالمه باید به زبان فارسی باشد.',
-    'analyzer-religious': 'شما یک محقق دینی و متخصص ادیان هستید. تحلیل‌ها باید بر اساس منابع معتبر دینی و با رویکردی آکادمیک و بی‌طرفانه باشد.',
-    'analyzer-logical': 'شما یک متخصص منطق و استدلال هستید. موضوعات را از دیدگاه منطق صوری و غیرصوری تحلیل کنید.',
-    'analyzer-philosophical': 'شما یک فیلسوف هستید. موضوعات را با رویکردهای مختلف فلسفی تحلیل کرده و ابعاد عمیق آن را بکاوید.',
-    'analyzer-philosophy-of-science': 'شما یک فیلسوف علم هستید. موضوعات را از منظر روش‌شناسی علمی، تاریخ علم و مبانی فلسفی علوم تجربی تحلیل کنید.',
-    'analyzer-historical': 'شما یک مورخ متخصص هستید. رویدادها را با توجه به زمینه تاریخی، منابع اولیه و دیدگاه‌های مختلف تاریخ‌نگاری تحلیل کنید.',
-    'analyzer-physics': 'شما یک فیزیکدان متخصص هستید. مفاهیم و پدیده‌های فیزیکی را با زبانی ساده و دقیق و بر اساس نظریه‌های معتبر علمی تحلیل کنید.',
-    'analyzer-theological': 'شما یک متکلم و متخصص الهیات هستید. موضوعات کلامی و اعتقادی را با استدلال‌های عقلی و نقلی از دیدگاه‌های مختلف بررسی کنید.',
-    'analyzer-fallacy-finder': 'شما یک متخصص شناسایی مغالطه‌های منطقی هستید. متن ورودی را برای یافتن هرگونه مغالطه بررسی کرده و آن را با توضیح کامل گزارش دهید.',
-    'analyzer-debate': 'شما یک هوش مصنوعی چند شخصیتی هستید که یک مناظره را شبیه‌سازی می‌کنید. شما باید نقش‌های محول شده (مدیر، موافق، مخالف، بی‌طرف) را به دقت ایفا کنید. مدیر جلسه باید بحث را هدایت کند، نوبت‌ها را رعایت کند و در نهایت جمع‌بندی نماید. سایر اعضا باید در چارچوب نقش خود و با توجه به تاریخچه بحث، استدلال کنند. تمام خروجی باید به زبان فارسی باشد.',
-    'browser-agent': 'شما یک عامل هوشمند وب (Web Agent) هستید. وظیفه شما درک عمیق درخواست کاربر، جستجو در وب برای یافتن اطلاعات مرتبط، و سپس اجرای وظیفه درخواستی (مانند خلاصه‌سازی، تحلیل، مقایسه و غیره) و ارائه یک گزارش جامع و ساختاریافته به زبان فارسی است.',
-    'general-topics': 'شما یک دستیار تحقیق هوشمند هستید. بر اساس موضوعات، کلمات کلیدی و حوزه‌های مشخص شده توسط کاربر، یک گزارش جامع و بی‌طرف با استفاده از جستجوی وب تهیه کنید. اگر موضوع مقایسه‌ای وجود دارد، تحلیل مقایسه‌ای ارائه دهید. در غیر این صورت، روی موضوع اصلی تمرکز کنید. همیشه منابع خود را ذکر کنید.',
-    'seo-keywords': 'شما یک متخصص سئو (SEO) هستید. بر اساس موضوع ورودی، لیستی از ۱۰ کلمه کلیدی اصلی و فرعی (long-tail) مرتبط، پر جستجو و مناسب برای بازار فارسی زبان تولید کنید. خروجی باید یک آرایه JSON از رشته‌ها باشد.',
-    'website-names': 'شما یک متخصص برندینگ و خلاقیت هستید. بر اساس موضوع ورودی، ۱۰ نام منحصر به فرد، کوتاه، و جذاب برای یک وب‌سایت فارسی پیشنهاد دهید. خروجی باید یک آرایه JSON از رشته‌ها باشد.',
-    'domain-names': 'شما یک دستیار هوشمند برای یافتن دامنه هستید. بر اساس موضوع ورودی، ۱۰ نام دامنه کوتاه و مرتبط با پسوندهای .com و .ir پیشنهاد دهید. نام‌ها باید خلاقانه و به یاد ماندنی باشند. خروجی باید یک آرایه JSON از رشته‌ها باشد.',
-    'article-generation': 'شما یک نویسنده محتوای حرفه‌ای و متخصص سئو هستید. وظیفه شما نوشتن یک مقاله جامع، روان و کاملاً منحصر به فرد به زبان فارسی بر اساس موضوع و تعداد کلمات درخواستی است. مقاله باید دارای مقدمه، بدنه با پاراگراف‌بندی مناسب و نتیجه‌گیری باشد.',
-    'page-builder': 'شما یک طراح وب و کپی رایتر متخصص هستید. وظیفه شما ایجاد یک صفحه جذاب "درباره من" است. کاربر توضیحات، پلتفرم هدف (مثلاً گیت‌هاب، وب‌سایت شخصی) و تصاویر اختیاری را ارائه می‌دهد. یک سند HTML کامل و خوش ساخت تولید کنید. از CSS داخلی (inline) برای استایل‌دهی استفاده کنید. طراحی باید مدرن، تمیز و واکنش‌گرا باشد. تصاویر ارائه شده را به صورت خلاقانه، به عنوان مثال در یک اسلایدشو یا گالری، بگنجانید. لحن و محتوا باید با پلتفرم هدف سازگار باشد. خروجی باید فقط کد HTML باشد.',
-    'podcast-search': 'شما یک متخصص یافتن پادکست هستید. وظیفه شما یافتن پادکست‌های مرتبط بر اساس درخواست کاربر است. برای هر پادکست، باید عنوان، خلاصه کوتاه، ناشر، موضوع اصلی، سال انتشار، لینک صفحه، یک لینک مستقیم به فایل صوتی (در صورت امکان)، و دیدگاه‌های موافقین و مخالفین محتوای آن را ارائه دهید. خروجی باید به زبان فارسی و مطابق با ساختار JSON درخواستی باشد.',
-    'crypto-data': 'شما یک دستیار متخصص در زمینه داده‌های ارز دیجیتال هستید. اطلاعات دقیق و به‌روز مانند قیمت لحظه‌ای به دلار و تومان، تغییرات و حجم معاملات را از منابع معتبر مالی مانند ramzarz.news و سایر منابع معتبر وب گردآوری کرده و در قالب JSON ارائه دهید. برای قیمت تومان، از آخرین نرخ دلار در بازار ایران استفاده کنید.',
-    'crypto-search': 'شما یک دستیار متخصص جستجوی ارز دیجیتال هستید. برای ارز درخواستی کاربر، قیمت لحظه‌ای به دلار و تومان، و خلاصه‌ای از وضعیت فعلی آن را پیدا کنید. همچنین، ۳ تا ۵ وب‌سایت معتبر که این قیمت را ارائه می‌دهند، به همراه لینک مستقیم و ارزیابی اعتبارشان لیست کنید. خروجی باید کاملاً به زبان فارسی و در قالب ساختار JSON درخواستی باشد.',
-    'crypto-analysis': 'شما یک تحلیلگر ارشد و حرفه‌ای ارزهای دیجیتال هستید. برای ارز درخواستی، یک تحلیل جامع، عمیق و چندوجهی به زبان فارسی ارائه دهید. تحلیل باید شامل بخش‌های مجزای تحلیل تکنیکال (با ذکر سطوح حمایت و مقاومت)، تحلیل فاندامنتال (با ذکر معیارهای کلیدی)، تحلیل احساسات بازار (با ارائه یک امتیاز از ۰ تا ۱۰۰)، چشم‌انداز آینده و فاکتورهای کلیدی تاثیرگذار باشد. تمام خروجی باید در قالب ساختار JSON درخواستی باشد.',
-    'wordpress-theme': 'شما یک توسعه‌دهنده ارشد وردپرس هستید. وظیفه شما تحلیل دقیق درخواست کاربر برای ساخت یک قالب وردپرس و ایجاد یک پلن جامع شامل نام، ویژگی‌ها، پالت رنگی و تایپوگرافی است. خروجی باید به زبان فارسی و در قالب JSON درخواستی باشد.',
-    'rss-feeds': 'شما یک گردآورنده هوشمند خبرخوان (RSS Aggregator) هستید. با دریافت لیستی از آدرس‌های RSS، محتوای آنها را "واکشی" کرده، مهم‌ترین و جدیدترین اخبار (۲۴ ساعت گذشته) را شناسایی کنید. نتایج را ادغام کرده، موارد تکراری را حذف و در نهایت ۱۵ خبر برتر را در قالب JSON مشخص شده برگردانید. اگر دستوری برای جستجو نیز دریافت کردید، نتایج را بر اساس آن فیلتر کنید.',
-  },
-  display: {
-    columns: 2,
-    articlesPerColumn: 8,
-    showImages: true,
-    slideshow: {
-        enabled: false,
-        delay: 5,
+    theme: THEMES[0],
+    customCss: '',
+    display: {
+        columns: 3,
+        articlesPerColumn: 10,
+        showImages: true,
+        allowedCategories: [],
     },
-    allowedCategories: [],
-  },
-  ticker: {
-      categories: ['ایران', 'جهان', 'فناوری'],
-      speed: 40,
-      direction: 'right',
-      textColor: '#67e8f9',
-      hoverColor: '#ffffff',
-      linkColor: '#67e8f9',
-      borderColor: 'rgba(6, 182, 212, 0.2)',
-      pauseOnHover: true,
-      effect: 'none',
-  },
-  liveNewsSpecifics: {
-    categories: ['ایران', 'جهان'],
-    newsGroups: ['فوری', 'تحلیلی'],
-    regions: ['خاورمیانه'],
-    selectedSources: {},
-    font: {
-      family: 'system-ui, sans-serif',
-      size: 14,
-      color: {
-        from: '#e5e7eb',
-        to: '#d1d5db'
-      }
+    ticker: {
+        speed: 40,
+        direction: 'right',
+        textColor: '#E5E7EB',
+        hoverColor: '#38BDF8',
+        borderColor: 'rgba(56, 189, 248, 0.2)',
+        effect: 'none',
+        pauseOnHover: true,
     },
-    updates: {
-      autoCheck: true,
-      interval: 60, // minutes
+    allTickerCategories: ['فوری', 'سیاسی', 'اقتصادی', 'ورزشی', 'فناوری'],
+    sources: {
+        'news-agencies': [],
+        'fact-check': [],
+        'social-media': [],
+        'financial': [],
+        'analytical': [],
     },
-    autoSend: false,
-  },
-  integrations: {
-      telegram: {
-          botToken: '',
-          chatId: ''
-      },
-      discord: {
-          webhookUrl: ''
-      },
-      website: {
-          apiUrl: '',
-          apiKey: '',
-          botUserId: '',
-          roomIds: []
-      },
-      twitter: {
-          apiKey: '',
-          apiSecretKey: '',
-          accessToken: '',
-          accessTokenSecret: ''
-      },
-      appwrite: {
-          endpoint: '',
-          projectId: '',
-          apiKey: '',
-          databaseId: '',
-          settingsCollectionId: '',
-          newsArticlesCollectionId: '',
-          chatHistoryCollectionId: '',
-          searchHistoryCollectionId: '',
-      },
-      supabase: {
-          projectUrl: '',
-          anonKey: ''
-      },
-      cloudflareWorkerUrl: '',
-      cloudflareWorkerToken: '',
-  },
-  database: {
-    name: '',
-    host: '',
-    password: ''
-  },
-  aiModelSettings: {
-    gemini: {
-        apiKey: '',
+    rssFeeds: {
+        'news-agencies': [],
+        'fact-check': [],
+        'social-media': [],
+        'financial': [],
+        'analytical': [],
     },
-    openai: {
-        apiKey: '',
+    aiInstructions: {
+        'news-ticker': 'You are an AI assistant for a news ticker. Your task is to find the most important, breaking news headlines. The output must be a JSON array of objects, with each object having "title" and "link" properties. Provide only real, verifiable news from the last 24 hours.',
+        'news-display': 'You are an AI assistant for a live news dashboard. Your task is to find the most relevant and recent news articles based on a given category. The output must be a JSON array of NewsArticle objects.',
+        'rss-feeds': 'You are an AI assistant that aggregates news from RSS feeds. Fetch content from the provided URLs, identify the most important articles, and format them into a JSON array of NewsArticle objects. If a query is provided, filter by it.',
+        'news-search': 'You are a powerful news search engine assistant. The user will provide a query and filters. Your job is to find the most relevant news articles and also provide 3 related search suggestions. The output must be a JSON object with "articles" and "suggestions" keys.',
+        'video-search': 'You are an AI assistant specialized in finding videos. Search the web for videos based on the user\'s query and filters. The output must be a JSON object containing "results" (an array of WebResult objects) and "suggestions".',
+        'audio-search': 'You are an AI assistant specialized in finding audio content like podcasts or sound clips. The output must be a JSON object containing "results" and "suggestions".',
+        'book-search': 'You are an AI assistant specialized in finding books, articles, and websites. The output must be a JSON object containing "results" and "suggestions".',
+        'music-search': 'You are an AI assistant specialized in finding music. The output must be a JSON object containing "results" and "suggestions".',
+        'dollar-search': 'You are an AI assistant for financial data, specifically currency. Find the latest prices for major currencies against IRR and USD. The output must be a JSON object containing "results" and "suggestions".',
+        'podcast-search': 'You are an AI assistant for finding and analyzing podcasts. The output must be a JSON array of PodcastResult objects.',
+        'fact-check': 'You are an expert fact-checker AI. Analyze the provided text, URL, or media file. Determine its credibility and provide a detailed summary and a list of verifying sources. The output must be a JSON object matching the FactCheckResult interface.',
+        'stats-search': 'You are a data scientist AI. Find reliable statistics for the user\'s query and present it with a chart, analysis, and source details. The output must be a JSON object matching the StatisticsResult interface.',
+        'science-search': 'You are a research assistant AI. Find relevant scientific articles for the user\'s query. The output must be a JSON object matching the ScientificArticleResult interface.',
+        'religion-search': 'You are an AI expert in religious studies. Find relevant information from credible religious texts or sources. The output must be a JSON object matching the ScientificArticleResult interface (re-using for structure).',
+        'general-topics': 'You are a research AI. The user wants to analyze a general topic, possibly with a comparison. Provide a detailed analysis. The output must be a JSON object matching the GeneralTopicResult interface.',
+        'video-converter': 'You are an AI assistant that analyzes video content from a URL. Perform the requested analysis type (summary, transcription, etc.) and return the result in the specified JSON format.',
+        'browser-agent': 'You are a web agent AI. Your first step is to analyze the user\'s request and determine if you need more information. If so, return a clarification request. If not, refine the prompt and confirm with the user. Then, execute the task and return a summary, steps taken, and sources.',
+        'seo-keywords': 'You are an SEO expert AI. Generate a list of relevant, high-traffic SEO keywords for the given topic. Return a JSON array of strings.',
+        'website-names': 'You are a branding expert AI. Suggest creative and available website names for the given topic. Return a JSON array of strings.',
+        'domain-names': 'You are a domain expert AI. Suggest available and relevant domain names (.com, .ir, .net, etc.) for the given topic. Return a JSON array of strings.',
+        'article-generation': 'You are a professional content writer AI. Write a well-structured, engaging, and informative article on the given topic with the specified word count. Use Google Search for grounding.',
+        'page-builder': 'You are a web developer AI. Create a complete, single-file HTML "About Me" page based on the user\'s description, images, and configuration. The HTML should be well-structured and include inline CSS for styling.',
+        'wordpress-theme': 'You are a WordPress developer AI. First, create a plan (WordPressThemePlan) for a new theme based on user input. Then, generate the code for individual theme files (like header.php, style.css) based on that plan.',
+        'crypto-data': 'You are a cryptocurrency data analyst AI. Fetch live data for cryptocurrencies based on the user\'s request (live, gainers, losers, etc.). Use Google Search to find reliable, up-to-the-minute data. The output must be a JSON array of CryptoCoin objects.',
+        'crypto-search': 'You are a crypto expert AI. The user will provide a coin name. Find its detailed information, a summary, and credible sources. The output must be a JSON object matching the CryptoSearchResult interface.',
+        'crypto-analysis': 'You are a senior crypto analyst AI. Provide a deep, multi-faceted analysis (technical, fundamental, sentiment) for the given cryptocurrency. The output must be a JSON object matching the CryptoAnalysisResult interface.',
+        'analyzer-political': 'You are a political analyst AI. Provide a deep, unbiased analysis of the given topic. The output must match the AnalysisResult JSON format.',
+        'analyzer-economic': 'You are an economic analyst AI. Provide a deep, data-driven analysis of the given topic. The output must match the AnalysisResult JSON format.',
+        'analyzer-social': 'You are a sociologist AI. Provide a deep analysis of the social implications of the given topic. The output must match the AnalysisResult JSON format.',
+        'analyzer-propaganda': 'You are a propaganda detection AI. Analyze the text for propaganda techniques. The output must match the AnalysisResult JSON format, focusing on identifying these techniques.',
+        'analyzer-fallacy-finder': 'You are a logician AI. Identify any logical fallacies in the provided text. The output must match the FallacyResult JSON format.',
+        'analyzer-debate': 'You are an AI debate simulator. You will be assigned a role (moderator, proponent, etc.) and must respond according to that role, the debate history, and the overall configuration.',
     },
-    openrouter: {
-        apiKey: '',
-        modelName: 'mistralai/mistral-7b-instruct',
+    aiModelSettings: {
+        gemini: { apiKey: process.env.API_KEY || '' },
+        openai: { apiKey: '' },
+        openrouter: { apiKey: '', modelName: '' },
+        groq: { apiKey: '' },
     },
-    groq: {
-        apiKey: '',
-    }
-  },
-  customCss: '',
-  searchOptions: {
-    news: {
-      categories: ['سیاسی', 'اقتصادی', 'ورزشی', 'حوادث', 'فناوری', 'خاورمیانه', 'جهان'],
-      regions: ['ایران', 'جهان', 'خاورمیانه'],
-      sources: ['داخلی', 'خارجی', 'شبکه‌های اجتماعی'],
+    defaultProvider: 'gemini',
+    modelAssignments: {},
+    liveNewsSpecifics: {
+        updates: { autoCheck: true, interval: 15 },
+        autoSend: false,
+        selectedSources: {},
+        font: { family: 'Vazirmatn, sans-serif', size: 14, color: { from: '#a5f3fc', to: '#e0e7ff' } },
+        categories: ['سیاسی', 'اقتصادی', 'فناوری'],
+        newsGroups: ['فوری', 'تحلیلی'],
+        regions: ['ایران', 'خاورمیانه'],
     },
-    video: {
-      categories: ['مستند', 'خبر', 'آموزشی', 'سرگرمی', 'گیمینگ'],
-      regions: ['جهان', 'ایران'],
-      sources: ['YouTube', 'Vimeo', 'Aparat', 'TikTok', 'Instagram'],
+    searchOptions: {
+        news: { categories: ['سیاسی', 'اقتصادی', 'ورزشی', 'فناوری'], regions: ['ایران', 'جهان', 'خاورمیانه'], sources: ['داخلی', 'خارجی'] },
+        video: { categories: ['خبری', 'مستند', 'آموزشی'], regions: [], sources: ['YouTube', 'Vimeo', 'Aparat'] },
+        audio: { categories: [], regions: [], sources: [] },
+        book: { categories: [], regions: [], sources: [] },
+        music: { categories: [], regions: [], sources: [] },
+        dollar: { categories: [], regions: [], sources: [] },
+        stats: { categories: [], regions: [], sources: [] },
+        science: { categories: [], regions: [], sources: [] },
+        religion: { categories: [], regions: [], sources: [] },
+        podcast: { categories: [], regions: [], sources: [] },
+        general_topics: { categories: [], regions: [], sources: [] },
     },
-    audio: {
-      categories: ['پادکست', 'کتاب صوتی', 'موسیقی', 'سخنرانی'],
-      regions: ['جهان', 'ایران'],
-      sources: ['Spotify', 'Apple Podcasts', 'Google Podcasts', 'Castbox', 'SoundCloud'],
+    structuredSearchDomains: ['آمار و ارقام', 'تحقیقات علمی', 'گزارش‌های اقتصادی', 'داده‌های تاریخی'],
+    generalTopicDomains: ['فلسفه', 'تاریخ', 'جامعه‌شناسی', 'روانشناسی', 'هنر و ادبیات'],
+    integrations: {
+        telegram: { botToken: '', chatId: '' },
+        discord: { webhookUrl: '' },
+        twitter: { apiKey: '', apiSecretKey: '', accessToken: '', accessTokenSecret: '' },
+        website: { apiUrl: '', apiKey: '', botUserId: '', roomIds: [] },
+        appwrite: { endpoint: '', projectId: '', apiKey: '', databaseId: '', settingsCollectionId: '', newsArticlesCollectionId: '', chatHistoryCollectionId: '' },
+        supabase: { projectUrl: '', anonKey: '' },
+        cloudflareWorkerUrl: '',
+        cloudflareWorkerToken: '',
     },
-    book: {
-      categories: ['علمی', 'تاریخی', 'رمان', 'فلسفه', 'روانشناسی'],
-      regions: ['جهان', 'ایران'],
-      sources: ['Goodreads', 'Amazon', 'فیدیبو', 'طاقچه', 'Google Books'],
-    },
-     podcast: {
-      categories: ['اجتماعی', 'فرهنگی', 'سیاسی', 'علمی', 'تکنولوژی', 'تاریخی'],
-      regions: ['ایران', 'جهان'],
-      sources: ['پادکست‌های معروف', 'پادکست‌های مستقل'],
-    },
-    music: {
-      categories: ['پاپ', 'راک', 'سنتی', 'رپ', 'کلاسیک', 'بی کلام'],
-      regions: ['ایران', 'جهان'],
-      sources: ['Spotify', 'Apple Music', 'SoundCloud', 'YouTube Music', 'رادیو جوان'],
-    },
-    dollar: {
-      categories: ['قیمت روز', 'قیمت تاریخی', 'تحلیل', 'اخبار دلار'],
-      regions: ['بازار ایران', 'بازار جهانی'],
-      sources: ['صرافی', 'بانک مرکزی', 'خبرگزاری اقتصادی', 'tgju.org', 'bonbast.com'],
-    },
-    // Keep these for StructuredSearch which uses a different filtering system for now
-    stats: { categories: [], regions: [], sources: [] },
-    science: { categories: [], regions: [], sources: [] },
-    religion: { categories: [], regions: [], sources: [] },
-    general_topics: { categories: [], regions: [], sources: [] },
-  },
-  allTickerCategories: ['ایران', 'جهان', 'سیاسی', 'اقتصادی', 'ورزشی', 'فناوری'],
-  password: '',
-  structuredSearchDomains: ['علمی', 'دینی', 'سیاسی', 'فرهنگی', 'تاریخی', 'اقتصادی', 'جمعیت'],
-  structuredSearchRegions: ['ایران', 'اروپا', 'چین', 'آمریکا', 'خاورمیانه', 'آفریقا', 'جهان'],
-  structuredSearchSources: ['مرکز آمار ایران', 'دانشگاه تهران', 'پژوهشگاه علوم انسانی', 'سازمان بهداشت جهانی (WHO)', 'صندوق بین‌المللی پول (IMF)'],
-  generalTopicDomains: ['تاریخی', 'جغرافیایی', 'اجتماعی', 'زیست شناسی', 'روانشناسی', 'پزشکی', 'هنر', 'سینما', 'فرهنگ'],
-  modelAssignments: {},
-  defaultProvider: 'gemini',
-  rssFeeds: {
-    'fact-check': [],
-    'news-agencies': [
-        { id: generateUUID(), name: 'ایسنا', url: 'https://www.isna.ir/rss', category: 'news-agencies' },
-        { id: generateUUID(), name: 'بی‌بی‌سی فارسی', url: 'http://feeds.bbci.co.uk/persian/rss.xml', category: 'news-agencies' }
-    ],
-    'social-media': [],
-    'financial': [],
-    'analytical': [],
-  },
+    password: '',
 };

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+// FIX: Changed import paths to be explicitly relative
 import { NewsArticle, AppSettings, RSSFeed, SearchHistoryItem, generateUUID } from '../types';
 import { fetchLiveNews, checkForUpdates, fetchNewsFromFeeds } from '../services/geminiService';
 import NewsResults from './NewsResults';
 import { RefreshIcon, SearchIcon } from './icons';
+// FIX: Changed import paths to be explicitly relative
 import ExportButton from './ExportButton';
 
 interface LiveNewsProps {

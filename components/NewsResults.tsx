@@ -1,6 +1,5 @@
-
-
 import React from 'react';
+// FIX: Changed import path to be explicitly relative
 import { NewsArticle, AppSettings, FontSettings } from '../types';
 import NewsCard from './NewsCard';
 

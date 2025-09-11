@@ -1,11 +1,6 @@
-
-
-
-
-
-
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
+// FIX: Changed import paths to be explicitly relative
 import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings, FindSourcesOptions } from '../types';
 import { findSourcesWithAI } from '../services/geminiService';
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';

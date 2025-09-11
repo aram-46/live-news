@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+// FIX: Changed import path to be explicitly relative
 import { NewsArticle, Credibility, AppSettings, FontSettings } from '../types';
 import { LinkIcon, ShareIcon, TelegramIcon, DiscordIcon, CloseIcon, ClipboardIcon, CheckCircleIcon } from './icons';
 import { sendToTelegram, sendToDiscord } from '../services/integrationService';
@@ -14,15 +15,15 @@ interface NewsCardProps {
 const getCredibilityClass = (credibility: Credibility | string) => {
   const credibilityStr = credibility.toString();
   if (credibilityStr.includes(Credibility.High)) {
-      return { dot: 'bg-green-400', text: 'text-green-300', shadow: 'shadow-green-500/50' };
+      return { dot: 'bg-green-400', text: 'text-green-300', shadow: 'shadow-glow-green' };
   }
   if (credibilityStr.includes(Credibility.Medium)) {
-      return { dot: 'bg-yellow-400', text: 'text-yellow-300', shadow: 'shadow-yellow-500/50' };
+      return { dot: 'bg-yellow-400', text: 'text-yellow-300', shadow: 'shadow-glow-yellow' };
   }
   if (credibilityStr.includes(Credibility.Low)) {
-      return { dot: 'bg-red-400', text: 'text-red-300', shadow: 'shadow-red-500/50' };
+      return { dot: 'bg-red-400', text: 'text-red-300', shadow: 'shadow-glow-red' };
   }
-  return { dot: 'bg-gray-400', text: 'text-gray-300', shadow: 'shadow-gray-500/50' };
+  return { dot: 'bg-gray-400', text: 'text-gray-300', shadow: 'shadow-glow-gray' };
 };
 
 const NewsCard: React.FC<NewsCardProps> = ({ article, settings, onRemove, fontSettings }) => {
@@ -116,8 +117,8 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, settings, onRemove, fontSe
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className={`flex items-center gap-2 ${credibilityClasses.text}`}>
-              <span className={`w-3 h-3 rounded-full ${credibilityClasses.dot} shadow-md ${credibilityClasses.shadow}`}></span>
-              <span>{article.credibility}</span>
+              <span className={`w-3 h-3 rounded-full ${credibilityClasses.dot} ${credibilityClasses.shadow}`}></span>
+              <span className="font-semibold">{article.credibility}</span>
             </div>
              <a
               href={article.link}

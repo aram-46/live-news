@@ -1,11 +1,19 @@
 import React, { useState, useRef } from 'react';
-import { AnalysisResult, FallacyResult, AnalysisStance, AnalysisExample } from '../types';
-import { ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, LinkIcon, DocumentTextIcon, CheckCircleIcon } from './icons';
+import { AnalysisResult, FallacyResult, AnalysisStance, AnalysisExample, MentionedSource, Credibility } from '../types';
+import { ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, LinkIcon, DocumentTextIcon } from './icons';
 import ExportButton from './ExportButton';
 
-interface AnalysisResultDisplayProps {
+interface DeepAnalysisResultDisplayProps {
     result: AnalysisResult | FallacyResult;
 }
+
+const getCredibilityClass = (credibility: Credibility | string) => {
+    const credStr = credibility.toString();
+    if (credStr.includes(Credibility.High)) return { text: 'text-green-300' };
+    if (credStr.includes(Credibility.Medium)) return { text: 'text-yellow-300' };
+    if (credStr.includes(Credibility.Low)) return { text: 'text-red-300' };
+    return { text: 'text-gray-300' };
+};
 
 const StanceView: React.FC<{ title: string; icon: React.ReactNode; stances: AnalysisStance[]; className: string }> = ({ title, icon, stances, className }) => (
     <div className="space-y-2">
@@ -27,7 +35,7 @@ const StanceView: React.FC<{ title: string; icon: React.ReactNode; stances: Anal
 );
 
 
-const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result }) => {
+const DeepAnalysisResultDisplay: React.FC<DeepAnalysisResultDisplayProps> = ({ result }) => {
     const resultRef = useRef<HTMLDivElement>(null);
     const [openExamples, setOpenExamples] = useState<Record<number, boolean>>({});
 
@@ -101,7 +109,7 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result })
             </div>
 
             {/* Examples */}
-            {analysisResult.examples.length > 0 && (
+            {analysisResult.examples && analysisResult.examples.length > 0 && (
                 <div className="space-y-2">
                     <h4 className="font-semibold text-cyan-200">مثال‌ها برای درک بهتر</h4>
                      {analysisResult.examples.map((ex, index) => (
@@ -116,6 +124,25 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result })
                 </div>
             )}
 
+             {/* Mentioned Sources */}
+            {analysisResult.mentionedSources && analysisResult.mentionedSources.length > 0 && (
+                <div>
+                    <h4 className="font-semibold text-cyan-200 mb-2">منابع ذکر شده در تحلیل</h4>
+                    <div className="space-y-2">
+                        {analysisResult.mentionedSources.map((source, i) => (
+                            <div key={i} className="p-3 bg-gray-900/30 rounded-lg text-xs space-y-1">
+                                <a href={source.url} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-400 hover:underline">{source.title}</a>
+                                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                    <span className={getCredibilityClass(source.sourceCredibility).text}>اعتبار منبع: {source.sourceCredibility}</span>
+                                    <span className={getCredibilityClass(source.argumentCredibility).text}>اعتبار استدلال: {source.argumentCredibility}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Grounding Sources */}
             {analysisResult.groundingSources && analysisResult.groundingSources.length > 0 && (
                 <div className="pt-3">
                     <h4 className="font-semibold text-cyan-200 text-sm">منابع اصلی جستجوی آنلاین (AI):</h4>
@@ -128,13 +155,22 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result })
             )}
 
             {/* Footer sections */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700">
-                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع ذکر شده در تحلیل</h5><ul className="space-y-2">{analysisResult.sources.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
-                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><DocumentTextIcon className="w-5 h-5"/>تکنیک‌های تحلیلی</h5><ul className="space-y-1 list-disc list-inside">{analysisResult.techniques.map((t, i) => <li key={i} className="text-sm">{t}</li>)}</ul></div>
-                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LightBulbIcon className="w-5 h-5"/>پیشنهادات مرتبط</h5><ul className="space-y-2">{analysisResult.suggestions.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-700">
+                <div>
+                    <h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><DocumentTextIcon className="w-5 h-5"/>تکنیک‌های تحلیلی</h5>
+                    <ul className="space-y-1 list-disc list-inside">
+                        {analysisResult.techniques.map((t, i) => <li key={i} className="text-sm">{t}</li>)}
+                    </ul>
+                </div>
+                <div>
+                    <h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LightBulbIcon className="w-5 h-5"/>پیشنهادات مرتبط</h5>
+                    <ul className="space-y-2">
+                        {analysisResult.suggestions.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}
+                    </ul>
+                </div>
             </div>
         </div>
     );
 };
 
-export default AnalysisResultDisplay;
+export default DeepAnalysisResultDisplay;

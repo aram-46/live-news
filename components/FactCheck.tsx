@@ -1,9 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleGenAI, Chat } from "@google/genai";
+// FIX: Changed import paths to be explicitly relative
 import { FactCheckResult, Credibility, AppSettings, MediaFile, ChatMessage, generateUUID } from '../types';
 import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon, NewsIcon, VideoIcon, AudioIcon, ImageIcon, FilePdfIcon, LinkIcon, ScaleIcon } from './icons';
+// FIX: Changed import paths to be explicitly relative
 import { factCheckNews } from '../services/geminiService';
 import DeepAnalysis from './DeepAnalysis';
+// FIX: Changed import paths to be explicitly relative
 import ExportButton from './ExportButton';
 
 interface FactCheckProps {

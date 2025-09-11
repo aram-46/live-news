@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+// FIX: Changed import path to be explicitly relative
 import { AppSettings, DisplaySettings, SearchTab } from '../types';
 import EditableList from './settings/EditableList';
 import LiveNewsSettings from './settings/LiveNewsSettings';

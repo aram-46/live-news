@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { AppSettings, MediaFile, AnalysisResult, FallacyResult } from '../types';
+import { AppSettings, MediaFile, AnalysisResult, FallacyResult, AnalyzerTabId, analyzerTabLabels, AIInstructionType } from '../types';
 import { analyzeContentDeeply, findFallacies } from '../services/geminiService';
 import { SearchIcon, UploadIcon, CloseIcon } from './icons';
 import DeepAnalysisResultDisplay from './DeepAnalysisResultDisplay';
@@ -11,7 +11,7 @@ interface DeepAnalysisProps {
 const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
     const [topic, setTopic] = useState('');
     const [mediaFile, setMediaFile] = useState<MediaFile | null>(null);
-    const [analysisType, setAnalysisType] = useState<'deep-analysis' | 'fallacy-finder'>('deep-analysis');
+    const [activeAnalysisTab, setActiveAnalysisTab] = useState<AnalyzerTabId>('political');
     
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -44,10 +44,18 @@ const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
         try {
             const fileData = mediaFile ? { data: mediaFile.data, mimeType: mediaFile.type } : null;
             let apiResult;
-            if (analysisType === 'deep-analysis') {
-                apiResult = await analyzeContentDeeply(topic, fileData, settings.aiInstructions['deep-analysis']);
+            
+            const isFallacyFinder = activeAnalysisTab === 'fallacy-finder';
+            const instructionKey = isFallacyFinder 
+                ? 'analyzer-fallacy-finder' 
+                : `analyzer-${activeAnalysisTab}` as AIInstructionType;
+            
+            const instruction = settings.aiInstructions[instructionKey] || `You are an expert ${analyzerTabLabels[activeAnalysisTab]} analyst.`;
+
+            if (isFallacyFinder) {
+                apiResult = await findFallacies(topic, fileData, instruction);
             } else {
-                apiResult = await findFallacies(topic, fileData, settings.aiInstructions['analyzer-fallacy-finder']);
+                apiResult = await analyzeContentDeeply(topic, fileData, instruction);
             }
             setResult(apiResult);
         } catch (err) {
@@ -69,14 +77,18 @@ const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
                     <form onSubmit={handleAnalyze} className="space-y-4">
-                        <select
-                            value={analysisType}
-                            onChange={(e) => setAnalysisType(e.target.value as any)}
-                            className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"
-                        >
-                            <option value="deep-analysis">تحلیل عمیق موضوع</option>
-                            <option value="fallacy-finder">شناسایی مغالطه‌های منطقی</option>
-                        </select>
+                         <div>
+                            <label className="block text-sm font-medium text-cyan-300 mb-2">نوع تحلیل</label>
+                            <select
+                                value={activeAnalysisTab}
+                                onChange={(e) => setActiveAnalysisTab(e.target.value as AnalyzerTabId)}
+                                className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"
+                            >
+                                {(Object.keys(analyzerTabLabels) as AnalyzerTabId[]).map(key => (
+                                     <option key={key} value={key}>{analyzerTabLabels[key]}</option>
+                                ))}
+                            </select>
+                        </div>
                         <textarea
                             value={topic}
                             onChange={(e) => setTopic(e.target.value)}
@@ -96,7 +108,7 @@ const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
                             onClick={() => fileInputRef.current?.click()}
                             className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-cyan-400 hover:text-cyan-300 transition-colors"
                         >
-                            <UploadIcon className="w-5 h-5"/> ضمیمه فایل (تصویر یا متن)
+                            <UploadIcon className="w-5 h-5"/> ضمیمه فایل (اختیاری)
                         </button>
 
                         {mediaFile && (

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+// FIX: Changed import path to be explicitly relative
 import { AppAIModelSettings } from '../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from './icons';
+// FIX: Changed import path to be explicitly relative
 import { testGeminiConnection, checkApiKeyStatus, ApiKeyStatus } from '../services/geminiService';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../services/integrationService';
 

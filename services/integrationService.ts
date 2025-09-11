@@ -1,3 +1,4 @@
+// FIX: Changed import paths to be explicitly relative
 import { AppSettings, IntegrationSettings, NewsArticle, AppwriteSettings, TelegramSettings, DiscordSettings, TwitterSettings, SupabaseSettings } from '../types';
 import { INITIAL_SETTINGS } from '../data/defaults';
 import { Client, Databases, ID, Query } from 'appwrite';

@@ -108,7 +108,8 @@ const AnalysisResultDisplay: React.FC<AnalysisResultDisplayProps> = ({ result })
 
             {/* Footer sections */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-700">
-                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع استفاده شده</h5><ul className="space-y-2">{analysisResult.sources.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
+                <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع استفاده شده</h5><ul className="space-y-2">{/* FIX: Use `mentionedSources` instead of `sources` and add an existence check. */}
+                {analysisResult.mentionedSources && analysisResult.mentionedSources.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
                 <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><DocumentTextIcon className="w-5 h-5"/>تکنیک‌های تحلیلی</h5><ul className="space-y-1 list-disc list-inside">{analysisResult.techniques.map((t, i) => <li key={i} className="text-sm">{t}</li>)}</ul></div>
                 <div><h5 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LightBulbIcon className="w-5 h-5"/>پیشنهادات مرتبط</h5><ul className="space-y-2">{analysisResult.suggestions.map((s, i) => <li key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title}</span></a></li>)}</ul></div>
             </div>

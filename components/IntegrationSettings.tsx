@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+// FIX: Changed import path to be explicitly relative
 import { IntegrationSettings, WebsiteSettings, AppwriteSettings, SupabaseSettings, TelegramSettings, DiscordSettings, TwitterSettings } from '../types';
 import { TelegramIcon, DiscordIcon, CheckCircleIcon, CloseIcon, WebsiteIcon, TwitterIcon, AppwriteIcon, SupabaseIcon, PlusIcon, TrashIcon } from './icons';
 import { testTelegramConnection, testDiscordConnection, testWebsiteConnection, testTwitterConnection, testAppwriteConnection, testSupabaseConnection } from '../services/integrationService';

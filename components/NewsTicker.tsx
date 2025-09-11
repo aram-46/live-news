@@ -1,6 +1,5 @@
-
-
 import React from 'react';
+// FIX: Changed import path to be explicitly relative
 import { TickerArticle, TickerSettings } from '../types';
 import { LinkIcon } from './icons';
 

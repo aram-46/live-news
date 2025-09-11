@@ -61,7 +61,8 @@ const TextFormatter: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             if (format === 'pdf') await exportToPdf(outputRef.current!, fileName);
             if (format === 'html') exportToHtml(currentHtml, fileName);
             if (format === 'docx') exportToDocx(currentHtml, fileName);
-            if (format === 'xlsx') exportToXlsx(currentHtml, fileName);
+            // FIX: The exportToXlsx function expects an array of objects. Wrap the HTML content to satisfy the type.
+            if (format === 'xlsx') exportToXlsx([{ content: currentHtml }], fileName);
         } catch (err) {
             console.error(`Export to ${format} failed`, err);
             alert(`خطا در خروجی گرفتن به فرمت ${format}.`);
