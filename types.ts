@@ -100,6 +100,14 @@ export interface LiveNewsSpecificSettings {
     categories: string[];
     newsGroups: string[];
     regions: string[];
+    articlesToDisplay: number;
+}
+
+export interface RSSFeedSpecificSettings {
+    columns: number;
+    articlesToDisplay: number;
+    sliderView: boolean;
+    font: FontSettings;
 }
 
 export type AIInstructionType =
@@ -112,7 +120,7 @@ export type AIInstructionType =
     | 'crypto-data' | 'crypto-search' | 'crypto-analysis'
     | 'analyzer-political' | 'analyzer-economic' | 'analyzer-social'
     | 'analyzer-propaganda' | 'analyzer-fallacy-finder' | 'analyzer-debate'
-    | 'analyzer-user-debate' | 'research-analysis';
+    | 'analyzer-user-debate' | 'research-analysis' | 'analyzer-media';
 
 export type AIInstructions = Record<AIInstructionType, string>;
 
@@ -151,6 +159,7 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
     'analyzer-debate': 'شبیه‌ساز مناظره',
     'analyzer-user-debate': 'تحلیلگر مناظره کاربر',
     'research-analysis': 'تحلیلگر تحقیقات',
+    'analyzer-media': 'تحلیلگر رسانه (ویدئو/تصویر)',
 };
 
 export type AIModelProvider = 'gemini' | 'openai' | 'openrouter' | 'groq';
@@ -243,6 +252,7 @@ export interface AppSettings {
     defaultProvider: AIModelProvider;
     modelAssignments: AIModelAssignments;
     liveNewsSpecifics: LiveNewsSpecificSettings;
+    rssFeedSpecifics: RSSFeedSpecificSettings;
     searchOptions: SearchOptions;
     structuredSearchDomains: string[];
     generalTopicDomains: string[];
@@ -269,7 +279,6 @@ export interface FactCheckResult {
         credibility: Credibility | string;
         summary: string;
     }[];
-    // FIX: Add optional 'groundingSources' property to align with geminiService logic.
     groundingSources?: GroundingSource[];
 }
 
@@ -411,7 +420,32 @@ export interface FallacyResult {
     groundingSources?: GroundingSource[];
 }
 
-export type AnalyzerTabId = 'political' | 'economic' | 'social' | 'propaganda' | 'fallacy-finder';
+export interface AnalyzedClaim {
+    claimText: string;
+    timestamp: string;
+    credibility: number; // 0-100
+    analysis: string;
+}
+
+export interface Critique {
+    logic: string;
+    science: string;
+    argumentation: string;
+    rhetoric: string;
+    grammar: string;
+    evidence: string;
+    philosophy: string;
+}
+
+export interface MediaAnalysisResult {
+    summary: string;
+    transcript: string;
+    analyzedClaims: AnalyzedClaim[];
+    critique: Critique;
+    groundingSources?: GroundingSource[];
+}
+
+export type AnalyzerTabId = 'political' | 'economic' | 'social' | 'propaganda' | 'fallacy-finder' | 'media';
 
 export const analyzerTabLabels: Record<AnalyzerTabId, string> = {
     'political': 'تحلیل سیاسی',
@@ -419,6 +453,7 @@ export const analyzerTabLabels: Record<AnalyzerTabId, string> = {
     'social': 'تحلیل اجتماعی',
     'propaganda': 'ردیابی پروپاگاندا',
     'fallacy-finder': 'شناسایی مغالطه‌ها',
+    'media': 'تحلیل رسانه',
 };
 
 // --- Web Agent ---

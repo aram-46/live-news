@@ -1,15 +1,56 @@
 import React, { useState } from 'react';
-// FIX: Changed import path to be explicitly relative
-import { AppSettings, DisplaySettings, SearchTab } from '../types';
+import { AppSettings, DisplaySettings, SearchTab, RSSFeedSpecificSettings } from '../types';
 import EditableList from './settings/EditableList';
 import LiveNewsSettings from './settings/LiveNewsSettings';
+import FontSettingsEditor from './settings/FontSettingsEditor';
 
 interface ContentSettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
 }
 
-type ContentTab = 'live' | 'display' | 'filters';
+type ContentTab = 'live' | 'display' | 'filters' | 'rss';
+
+const RSSFeedSettings: React.FC<{
+    settings: RSSFeedSpecificSettings;
+    onSettingsChange: (change: RSSFeedSpecificSettings) => void;
+}> = ({ settings, onSettingsChange }) => {
+    
+    const handleChange = <K extends keyof RSSFeedSpecificSettings>(key: K, value: RSSFeedSpecificSettings[K]) => {
+        onSettingsChange({ ...settings, [key]: value });
+    };
+
+    return (
+        <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
+            <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات بخش خبرخوان</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div>
+                    <label htmlFor="rss-columns" className={`block text-sm font-medium mb-2 ${settings.sliderView ? 'text-gray-500' : 'text-cyan-300'}`}>تعداد ستون‌ها: {settings.columns}</label>
+                    <input id="rss-columns" type="range" min="1" max="4" value={settings.columns} onChange={(e) => handleChange('columns', Number(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer disabled:opacity-50" disabled={settings.sliderView} />
+                </div>
+                <div>
+                    <label htmlFor="rss-articlesToDisplay" className="block text-sm font-medium text-cyan-300 mb-2">تعداد اخبار برای نمایش: {settings.articlesToDisplay}</label>
+                    <input id="rss-articlesToDisplay" type="range" min="1" max="20" value={settings.articlesToDisplay} onChange={(e) => handleChange('articlesToDisplay', Number(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"/>
+                </div>
+                <div className="flex items-center gap-3 md:col-span-2">
+                    <label htmlFor="rss-sliderView" className="text-sm font-medium text-cyan-300">نمایش به صورت اسلاید افقی</label>
+                    <button id="rss-sliderView" onClick={() => handleChange('sliderView', !settings.sliderView)} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${settings.sliderView ? 'bg-cyan-500' : 'bg-gray-600'}`}>
+                        <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${settings.sliderView ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                    {settings.sliderView && <span className="text-xs text-amber-400">در حالت اسلاید، تعداد ستون‌ها نادیده گرفته می‌شود.</span>}
+                </div>
+
+                <div className="md:col-span-2 pt-4 border-t border-cyan-400/20">
+                    <FontSettingsEditor
+                        fontSettings={settings.font}
+                        onFontSettingsChange={(font) => handleChange('font', font)}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsChange }) => {
     const [activeTab, setActiveTab] = useState<ContentTab>('live');
@@ -52,6 +93,7 @@ const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsC
         <div className="space-y-6">
             <div className="flex border-b border-cyan-400/20 mb-6 overflow-x-auto">
                 {renderTabButton('live', 'اخبار زنده')}
+                {renderTabButton('rss', 'خبرخوان')}
                 {renderTabButton('display', 'نمایش و جستجو')}
                 {renderTabButton('filters', 'گزینه‌های فیلتر')}
             </div>
@@ -60,6 +102,13 @@ const ContentSettings: React.FC<ContentSettingsProps> = ({ settings, onSettingsC
                 <LiveNewsSettings 
                     settings={settings}
                     onSettingsChange={onSettingsChange}
+                />
+            )}
+            
+            {activeTab === 'rss' && (
+                 <RSSFeedSettings
+                    settings={settings.rssFeedSpecifics}
+                    onSettingsChange={(rssFeedSpecifics) => handlePartialChange({ rssFeedSpecifics })}
                 />
             )}
             

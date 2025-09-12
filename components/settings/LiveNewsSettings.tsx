@@ -142,6 +142,19 @@ const LiveNewsSettings: React.FC<LiveNewsSettingsProps> = ({ settings, onSetting
                     </div>
                 </div>
 
+                <div className="space-y-3">
+                    <label htmlFor="articlesToDisplay" className="block text-sm font-medium text-cyan-300 mb-2">تعداد اخبار برای نمایش: {settings.liveNewsSpecifics.articlesToDisplay}</label>
+                    <input
+                        id="articlesToDisplay"
+                        type="range"
+                        min="3"
+                        max="20"
+                        value={settings.liveNewsSpecifics.articlesToDisplay}
+                        onChange={e => handleLiveNewsChange({ articlesToDisplay: Number(e.target.value) })}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                    />
+                </div>
+
                 <AiEditableList 
                     listType='categories'
                     title="دسته‌بندی‌های اخبار زنده"

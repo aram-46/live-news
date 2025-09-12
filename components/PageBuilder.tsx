@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useRef, useCallback } from 'react';
 import { AppSettings, MediaFile, generateUUID, PageConfig, MenuItem, Slide } from '../types';
 import { generateAboutMePage } from '../services/geminiService';
@@ -92,7 +89,6 @@ const PageBuilder: React.FC<{ settings: AppSettings }> = ({ settings }) => {
      const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files) return;
-        // FIX: Explicitly typed the 'file' parameter to 'File' to avoid it being inferred as 'unknown'.
         Array.from(files).forEach((file: File) => {
             if (!file.type.startsWith('image/')) return;
             const reader = new FileReader();
@@ -116,7 +112,6 @@ const PageBuilder: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setResultHtml('');
         setResultText('');
         try {
-            // FIX: Explicitly typed the 's' and 'img' parameters to 'Slide' to avoid them being inferred as 'unknown'.
             const imagePayload = pageConfig.slideshow.slides
                 .filter((s: Slide) => s.type === 'upload')
                 .map((img: Slide) => ({ data: img.content, mimeType: 'image/png' })); // Simplification for mime type
@@ -290,14 +285,7 @@ const PageBuilder: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                         <div className="flex items-center gap-2 mb-2"><input type="checkbox" checked={pageConfig.marquee.enabled} onChange={e => handleNestedConfigChange('marquee', 'enabled', e.target.checked)} id="cb-marquee-enabled" /><label htmlFor="cb-marquee-enabled">فعال‌سازی متن متحرک</label></div>
                         {pageConfig.marquee.enabled && (
                             <div className="space-y-4">
-                                <textarea value={pageConfig.marquee.text} onChange={e => handleNestedConfigChange('marquee', 'text', e.target.value)} rows={3} className="w-full bg-gray-900 p-1 rounded text-sm"/>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div><label>رنگ متن</label><input type="color" value={pageConfig.marquee.textColor} onChange={e => handleNestedConfigChange('marquee', 'textColor', e.target.value)} className="w-full h-8 p-0" /></div>
-                                    <div><label>پس‌زمینه</label><input type="color" value={pageConfig.marquee.bgColor} onChange={e => handleNestedConfigChange('marquee', 'bgColor', e.target.value)} className="w-full h-8 p-0" /></div>
-                                    <div><label>سرعت (ثانیه)</label><input type="number" min="5" max="100" value={pageConfig.marquee.speed} onChange={e => handleNestedConfigChange('marquee', 'speed', Number(e.target.value))} className="w-full bg-gray-900 p-1 rounded" /></div>
-                                    <div><label>جهت</label><select value={pageConfig.marquee.direction} onChange={e => handleNestedConfigChange('marquee', 'direction', e.target.value as any)} className="w-full bg-gray-900 p-1 rounded"><option value="left">چپ</option><option value="right">راست</option></select></div>
-                                    <div className="col-span-2"><label>حاشیه (Border)</label><input value={pageConfig.marquee.border} onChange={e => handleNestedConfigChange('marquee', 'border', e.target.value)} placeholder="e.g., 1px solid #fff" className="w-full bg-gray-900 p-1 rounded" /></div>
-                                </div>
+                                <textarea value={pageConfig.marquee.text} onChange={e => handleNestedConfigChange('marquee', 'text', e.target.value)} rows={3} placeholder="متن متحرک..." className="w-full bg-gray-900 p-1 rounded text-sm" />
                             </div>
                         )}
                     </CollapsibleSection>
@@ -305,25 +293,36 @@ const PageBuilder: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             </div>
 
             {/* Right Panel: Output */}
-            <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-xl shadow-cyan-500/10 flex flex-col min-h-[80vh]">
+            <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-xl shadow-cyan-500/10 flex flex-col min-h-[80vh]">
                 <div className="flex border-b border-cyan-400/20 mb-4">
-                    {['preview', 'html', 'text'].map(tab => <button key={tab} onClick={() => setOutputTab(tab as any)} className={`px-4 py-2 text-sm font-medium transition-colors ${outputTab === tab ? 'border-b-2 border-cyan-400 text-cyan-300' : 'text-gray-400'}`}>{tab.charAt(0).toUpperCase() + tab.slice(1)}</button>)}
+                    <button onClick={() => setOutputTab('preview')} className={`px-4 py-2 text-sm ${outputTab === 'preview' ? 'text-cyan-300 border-b-2 border-cyan-400' : 'text-gray-400'}`}>پیش‌نمایش</button>
+                    <button onClick={() => setOutputTab('html')} className={`px-4 py-2 text-sm ${outputTab === 'html' ? 'text-cyan-300 border-b-2 border-cyan-400' : 'text-gray-400'}`}>کد HTML</button>
+                    <button onClick={() => setOutputTab('text')} className={`px-4 py-2 text-sm ${outputTab === 'text' ? 'text-cyan-300 border-b-2 border-cyan-400' : 'text-gray-400'}`}>متن خالص</button>
                 </div>
-                 {isLoading && <div className="flex-grow flex items-center justify-center"><div className="w-8 h-8 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin"></div></div>}
-                 {error && <div className="text-red-400">{error}</div>}
-                 {!isLoading && !error && !resultHtml && <div className="flex-grow flex items-center justify-center text-gray-500">خروجی در اینجا نمایش داده می‌شود.</div>}
-                 {resultHtml && (
-                    <div className="flex-grow relative">
-                        {outputTab === 'preview' && <iframe srcDoc={resultHtml} title="preview" className="w-full h-full bg-white rounded"/>}
-                        {outputTab === 'html' && <pre className="w-full h-full bg-gray-900/50 rounded p-2 text-xs text-cyan-200 overflow-auto font-mono">{resultHtml}</pre>}
-                        {outputTab === 'text' && <pre className="w-full h-full bg-gray-900/50 rounded p-2 text-xs text-gray-300 overflow-auto whitespace-pre-wrap">{resultText}</pre>}
-                         {(outputTab === 'html' || outputTab === 'text') && (
-                            <button onClick={() => handleCopy(outputTab)} className="absolute top-2 right-2 p-1.5 bg-gray-800 rounded-full text-gray-300 hover:text-white">
-                                 {copyStatus === outputTab ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <ClipboardIcon className="w-5 h-5"/>}
-                            </button>
-                        )}
-                    </div>
-                )}
+                <div className="flex-grow bg-gray-900/50 rounded-lg relative">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-full"><div className="w-8 h-8 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin"></div></div>
+                    ) : error ? (
+                        <div className="p-4 text-red-300">{error}</div>
+                    ) : (
+                        <>
+                            {outputTab === 'preview' && (
+                                <iframe srcDoc={resultHtml} title="preview" className="w-full h-full bg-white rounded-lg" sandbox="allow-scripts"/>
+                            )}
+                            {outputTab === 'html' && (
+                                <pre className="w-full h-full overflow-auto p-2 text-sm"><code className="language-html">{resultHtml || 'نتیجه‌ای برای نمایش وجود ندارد.'}</code></pre>
+                            )}
+                             {outputTab === 'text' && (
+                                <pre className="w-full h-full overflow-auto p-2 text-sm whitespace-pre-wrap">{resultText || 'نتیجه‌ای برای نمایش وجود ندارد.'}</pre>
+                            )}
+                            {(resultHtml || resultText) && (
+                                <button onClick={() => handleCopy(outputTab === 'html' ? 'html' : 'text')} disabled={outputTab === 'preview'} className="absolute top-2 right-2 p-1.5 bg-gray-800/80 rounded-full text-gray-400 hover:text-white disabled:opacity-50">
+                                    {copyStatus === (outputTab === 'html' ? 'html' : 'text') ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <ClipboardIcon className="w-5 h-5"/>}
+                                </button>
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );

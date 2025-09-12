@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Changed import paths to be explicitly relative
 import { Filters, AppSettings, SearchTab } from '../types';
 import { SearchIcon, FilterIcon, MagicIcon } from './icons';
-// FIX: Changed import paths to be explicitly relative
 import { generateDynamicFilters } from '../services/geminiService';
 
 

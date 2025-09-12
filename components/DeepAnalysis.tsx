@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { AppSettings, MediaFile, AnalysisResult, FallacyResult, AnalyzerTabId, analyzerTabLabels, AIInstructionType } from '../types';
-import { analyzeContentDeeply, findFallacies } from '../services/geminiService';
+import { analyzeContentDeeply, findFallacies } from '../../services/geminiService';
 import { SearchIcon, UploadIcon, CloseIcon } from './icons';
 import DeepAnalysisResultDisplay from './DeepAnalysisResultDisplay';
+import MediaAnalyzer from './MediaAnalyzer';
 
 interface DeepAnalysisProps {
   settings: AppSettings;
@@ -72,69 +73,87 @@ const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
+    const renderTabButton = (tabId: AnalyzerTabId, label: string) => (
+        <button
+          key={tabId}
+          onClick={() => {
+            setActiveAnalysisTab(tabId);
+            setResult(null);
+            setError(null);
+            resetInputs();
+          }}
+          className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 whitespace-nowrap ${
+            activeAnalysisTab === tabId
+              ? 'border-cyan-400 text-cyan-300'
+              : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
+          }`}
+        >
+          {label}
+        </button>
+      );
+
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
-                    <form onSubmit={handleAnalyze} className="space-y-4">
-                         <div>
-                            <label className="block text-sm font-medium text-cyan-300 mb-2">نوع تحلیل</label>
-                            <select
-                                value={activeAnalysisTab}
-                                onChange={(e) => setActiveAnalysisTab(e.target.value as AnalyzerTabId)}
-                                className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"
-                            >
-                                {(Object.keys(analyzerTabLabels) as AnalyzerTabId[]).map(key => (
-                                     <option key={key} value={key}>{analyzerTabLabels[key]}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <textarea
-                            value={topic}
-                            onChange={(e) => setTopic(e.target.value)}
-                            rows={6}
-                            placeholder="موضوع، متن، یا ادعای مورد نظر برای تحلیل عمیق را اینجا وارد کنید..."
-                            className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"
-                        />
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept="image/*, .txt, .md"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-cyan-400 hover:text-cyan-300 transition-colors"
-                        >
-                            <UploadIcon className="w-5 h-5"/> ضمیمه فایل (اختیاری)
-                        </button>
-
-                        {mediaFile && (
-                            <div className="p-2 bg-gray-900/50 rounded-lg flex items-center justify-between gap-2">
-                                <p className="text-xs text-gray-400 truncate">فایل: {mediaFile.name}</p>
-                                <button type="button" onClick={resetInputs}><CloseIcon className="w-4 h-4 text-gray-500 hover:text-white"/></button>
-                            </div>
-                        )}
-                        
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition"
-                        >
-                            {isLoading ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <SearchIcon className="w-5 h-5"/>}
-                            {isLoading ? 'در حال تحلیل...' : 'شروع تحلیل'}
-                        </button>
-                    </form>
-                </div>
-                <div className="lg:col-span-2">
-                    {isLoading && <div className="p-6 bg-black/20 rounded-2xl border border-cyan-400/10 animate-pulse h-96"></div>}
-                    {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
-                    {!isLoading && !error && !result && <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400"><p>نتایج تحلیل عمیق شما در اینجا نمایش داده خواهد شد.</p></div>}
-                    {result && <DeepAnalysisResultDisplay result={result} />}
-                </div>
+             <div className="flex border-b border-cyan-400/20 mb-6 overflow-x-auto">
+                {(Object.keys(analyzerTabLabels) as AnalyzerTabId[]).map(key =>
+                    renderTabButton(key, analyzerTabLabels[key])
+                )}
             </div>
+
+            {activeAnalysisTab === 'media' ? (
+                <MediaAnalyzer settings={settings} />
+            ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
+                        <form onSubmit={handleAnalyze} className="space-y-4">
+                            <h3 className="text-lg font-semibold text-cyan-200">ورودی تحلیلگر {analyzerTabLabels[activeAnalysisTab]}</h3>
+                            <textarea
+                                value={topic}
+                                onChange={(e) => setTopic(e.target.value)}
+                                rows={6}
+                                placeholder={`موضوع، متن، یا ادعای مورد نظر برای ${analyzerTabLabels[activeAnalysisTab]} را اینجا وارد کنید...`}
+                                className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"
+                            />
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept="image/*, .txt, .md"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-600 rounded-lg text-gray-400 hover:border-cyan-400 hover:text-cyan-300 transition-colors"
+                            >
+                                <UploadIcon className="w-5 h-5"/> ضمیمه فایل (اختیاری)
+                            </button>
+
+                            {mediaFile && (
+                                <div className="p-2 bg-gray-900/50 rounded-lg flex items-center justify-between gap-2">
+                                    <p className="text-xs text-gray-400 truncate">فایل: {mediaFile.name}</p>
+                                    <button type="button" onClick={resetInputs}><CloseIcon className="w-4 h-4 text-gray-500 hover:text-white"/></button>
+                                </div>
+                            )}
+                            
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition"
+                            >
+                                {isLoading ? <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> : <SearchIcon className="w-5 h-5"/>}
+                                {isLoading ? 'در حال تحلیل...' : 'شروع تحلیل'}
+                            </button>
+                        </form>
+                    </div>
+                    <div className="lg:col-span-2">
+                        {isLoading && <div className="p-6 bg-black/20 rounded-2xl border border-cyan-400/10 animate-pulse h-96"></div>}
+                        {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
+                        {!isLoading && !error && !result && <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400"><p>نتایج تحلیل عمیق شما در اینجا نمایش داده خواهد شد.</p></div>}
+                        {result && <DeepAnalysisResultDisplay result={result} />}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// FIX: Changed import paths to be explicitly relative
 import { AIInstructions, AIInstructionType, aiInstructionLabels, AppSettings } from '../types';
 import { generateAIInstruction, testAIInstruction } from '../services/geminiService';
 import { MagicIcon, CheckCircleIcon, CloseIcon } from './icons';

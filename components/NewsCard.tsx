@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// FIX: Changed import path to be explicitly relative
 import { NewsArticle, Credibility, AppSettings, FontSettings } from '../types';
 import { LinkIcon, ShareIcon, TelegramIcon, DiscordIcon, CloseIcon, ClipboardIcon, CheckCircleIcon } from './icons';
 import { sendToTelegram, sendToDiscord } from '../services/integrationService';
@@ -12,7 +11,10 @@ interface NewsCardProps {
   fontSettings?: FontSettings;
 }
 
-const getCredibilityClass = (credibility: Credibility | string) => {
+const getCredibilityClass = (credibility: Credibility | string | null | undefined) => {
+  if (!credibility) {
+      return { badge: 'bg-gray-500/20 text-gray-300 border border-gray-500/30', shadow: 'shadow-glow-gray' };
+  }
   const credibilityStr = credibility.toString();
   if (credibilityStr.includes(Credibility.High)) {
       return { badge: 'bg-green-500/20 text-green-300 border border-green-500/30', shadow: 'shadow-glow-green' };
@@ -117,7 +119,7 @@ const NewsCard: React.FC<NewsCardProps> = ({ article, settings, onRemove, fontSe
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className={`px-2.5 py-1 font-bold rounded-full ${credibilityClasses.badge} ${credibilityClasses.shadow}`}>
-              {article.credibility}
+              {article.credibility || 'نامشخص'}
             </div>
              <a
               href={article.link}

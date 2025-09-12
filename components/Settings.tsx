@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// FIX: Changed import path to be explicitly relative
 import { AppSettings } from '../types';
 import SourcesManager from './SourcesManager';
 import RSSFeedManager from './RSSFeedManager';

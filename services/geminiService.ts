@@ -38,7 +38,8 @@ import {
     ConductDebateMessage,
     ConductDebateConfig,
     DebateAnalysisResult,
-    ResearchResult
+    ResearchResult,
+    MediaAnalysisResult
 } from '../types';
 
 let ai: GoogleGenAI;
@@ -195,11 +196,14 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
     const feedUrls = feeds.map(f => f.url);
     const prompt = `
         ${instruction}
-        Fetch the latest 10 news articles from these RSS feeds: ${JSON.stringify(feedUrls)}.
-        ${query ? `Filter the results by this query: "${query}"` : ''}
-        Your entire response MUST be a single, valid JSON array of article objects.
-        Each article object must have these keys: title, summary, link, source, publicationTime (in Persian Jalali format), credibility, category, imageUrl.
-        Do not include any other text or markdown formatting.
+        Search the web for the latest 10 news articles from the news sources associated with these RSS feed URLs: ${JSON.stringify(feedUrls)}.
+        Do not try to parse the RSS feeds directly. Instead, search for the latest news from their respective websites.
+        ${query ? `Filter the search results by this query: "${query}"` : ''}
+        Your entire response MUST be a single, valid JSON array of article objects. All text values in the JSON, including title, summary, source, credibility, and category, MUST be in Persian.
+        Each article object must have these keys: title, summary, link, source, publicationTime (in Persian Jalali format), credibility, category, and an optional imageUrl.
+        The 'credibility' field is mandatory and MUST be one of these exact Persian strings: "بسیار معتبر", "معتبر", or "نیازمند بررسی". Do not use English terms.
+        Ensure every field is populated. If an image is not found, the imageUrl can be null.
+        Do not include any other text or markdown formatting outside of the JSON array.
     `;
 
     const response = await ai.models.generateContent({
@@ -248,6 +252,72 @@ export async function factCheckNews(text: string, file: { data: string, mimeType
         parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
     }
 
+    return parsedResult;
+}
+
+export async function analyzeMedia(
+    url: string | null,
+    file: { data: string, mimeType: string } | null,
+    userPrompt: string,
+    instruction: string
+): Promise<MediaAnalysisResult> {
+    const ai = getAIClient();
+    const contentParts: any[] = [];
+    
+    let prompt = `
+        ${instruction}
+        تحلیل را بر اساس این درخواست کاربر انجام بده: "${userPrompt}"
+        ${url ? `محتوای اصلی در این آدرس قرار دارد: ${url}` : 'محتوای اصلی یک فایل ضمیمه شده است.'}
+    `;
+    contentParts.push({ text: prompt });
+
+    if (file) {
+        contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
+    }
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: { parts: contentParts },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    summary: { type: Type.STRING, description: 'خلاصه‌ای جامع از محتوای رسانه به زبان فارسی.' },
+                    transcript: { type: Type.STRING, description: 'متن کامل و دقیق گفتگوهای موجود در ویدئو به زبان فارسی. اگر تصویر است، این فیلد را خالی بگذار.' },
+                    analyzedClaims: {
+                        type: Type.ARRAY,
+                        description: 'لیستی از ادعاها، موضوعات و استدلال‌های اصلی مطرح شده در رسانه.',
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                claimText: { type: Type.STRING, description: 'متن دقیق ادعای مطرح شده.' },
+                                timestamp: { type: Type.STRING, description: 'زمان دقیق بیان ادعا در ویدئو (مثال: "02:35"). اگر تصویر است "N/A" بگذار.' },
+                                credibility: { type: Type.INTEGER, description: 'امتیاز اعتبار ادعا از ۰ تا ۱۰۰.' },
+                                analysis: { type: Type.STRING, description: 'تحلیل کوتاه و بی‌طرفانه از صحت و اعتبار این ادعا.' },
+                            },
+                        },
+                    },
+                    critique: {
+                        type: Type.OBJECT,
+                        description: 'نقد و بررسی محتوا از جنبه‌های مختلف.',
+                        properties: {
+                            logic: { type: Type.STRING, description: 'نقد ایرادات منطقی.' },
+                            science: { type: Type.STRING, description: 'نقد ایرادات علمی.' },
+                            argumentation: { type: Type.STRING, description: 'نقد ایرادات استدلالی.' },
+                            rhetoric: { type: Type.STRING, description: 'نقد ایرادات کلامی و فن بیان.' },
+                            grammar: { type: Type.STRING, description: 'نقد ایرادات دستوری.' },
+                            evidence: { type: Type.STRING, description: 'نقد ایرادات سندی و مدارک ارائه شده.' },
+                            philosophy: { type: Type.STRING, description: 'نقد ایرادات فلسفی.' },
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    const parsedResult = safeJsonParse(response.text, {} as MediaAnalysisResult);
+    // Grounding metadata is not available when using responseSchema
     return parsedResult;
 }
 

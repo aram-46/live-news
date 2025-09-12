@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// FIX: Changed import paths to be explicitly relative
 import { NewsArticle, AppSettings, RSSFeed, SearchHistoryItem, generateUUID } from '../types';
 import { fetchLiveNews, checkForUpdates, fetchNewsFromFeeds } from '../services/geminiService';
 import NewsResults from './NewsResults';
 import { RefreshIcon, SearchIcon } from './icons';
-// FIX: Changed import paths to be explicitly relative
 import ExportButton from './ExportButton';
 
 interface LiveNewsProps {
@@ -73,6 +71,15 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         e.preventDefault();
         loadFeedNews(searchQuery);
     };
+    
+    const rssSettingsForDisplay = {
+      ...settings,
+      display: {
+        ...settings.display,
+        columns: settings.rssFeedSpecifics.columns,
+        articlesPerColumn: settings.rssFeedSpecifics.articlesToDisplay,
+      }
+    };
 
     return (
         <div className="space-y-4">
@@ -103,8 +110,9 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                     news={articles} 
                     isLoading={isLoading} 
                     error={error}
-                    settings={settings}
-                    fontSettings={settings.liveNewsSpecifics.font}
+                    settings={rssSettingsForDisplay}
+                    fontSettings={settings.rssFeedSpecifics.font}
+                    sliderView={settings.rssFeedSpecifics.sliderView}
                 />
             </div>
         </div>
@@ -170,6 +178,15 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
     return () => clearInterval(timer);
   }, [settings.liveNewsSpecifics.updates, settings.sources]);
 
+  // Create a settings object specifically for live news display, overriding the article count
+  const liveNewsDisplaySettings = {
+    ...settings,
+    display: {
+      ...settings.display,
+      articlesPerColumn: settings.liveNewsSpecifics.articlesToDisplay,
+    },
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -212,7 +229,7 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
                 news={news[activeTab] || []} 
                 isLoading={loading[activeTab] || false} 
                 error={error[activeTab] || null}
-                settings={settings}
+                settings={liveNewsDisplaySettings}
                 fontSettings={settings.liveNewsSpecifics.font}
             />
         )}

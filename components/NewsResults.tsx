@@ -1,5 +1,4 @@
 import React from 'react';
-// FIX: Changed import path to be explicitly relative
 import { NewsArticle, AppSettings, FontSettings } from '../types';
 import NewsCard from './NewsCard';
 
@@ -10,6 +9,7 @@ interface NewsResultsProps {
   settings: AppSettings;
   onRemoveArticle?: (link: string) => void;
   fontSettings?: FontSettings;
+  sliderView?: boolean;
 }
 
 export const LoadingSkeleton: React.FC = () => (
@@ -25,7 +25,7 @@ export const LoadingSkeleton: React.FC = () => (
   </div>
 );
 
-const NewsResults: React.FC<NewsResultsProps> = ({ news, isLoading, error, settings, onRemoveArticle, fontSettings }) => {
+const NewsResults: React.FC<NewsResultsProps> = ({ news, isLoading, error, settings, onRemoveArticle, fontSettings, sliderView }) => {
   const gridClasses: Record<number, string> = {
       1: 'grid-cols-1',
       2: 'grid-cols-1 md:grid-cols-2',
@@ -40,6 +40,17 @@ const NewsResults: React.FC<NewsResultsProps> = ({ news, isLoading, error, setti
     : news;
 
   if (isLoading) {
+    if (sliderView) {
+      return (
+        <div className="flex overflow-x-auto space-x-5 pb-4 -mx-5 px-5">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="w-80 md:w-96 flex-shrink-0">
+              <LoadingSkeleton />
+            </div>
+          ))}
+        </div>
+      );
+    }
     return (
       <div className={`grid ${gridClass} gap-5`}>
         {[...Array(settings.display.articlesPerColumn)].map((_, i) => <LoadingSkeleton key={i} />)}
@@ -59,6 +70,23 @@ const NewsResults: React.FC<NewsResultsProps> = ({ news, isLoading, error, setti
     return (
       <div className="flex items-center justify-center h-full p-6 bg-gray-800/30 border border-gray-600/30 rounded-lg text-gray-400">
         <p>موردی برای نمایش یافت نشد. لطفاً جستجوی خود را تغییر دهید یا فیلتر دسته‌بندی‌ها را در تنظیمات بررسی کنید.</p>
+      </div>
+    );
+  }
+
+  if (sliderView) {
+    return (
+      <div className="flex overflow-x-auto space-x-5 pb-4 -mx-5 px-5" style={{ scrollbarWidth: 'thin' }}>
+        {newsToShow.slice(0, settings.display.articlesPerColumn).map((article, index) => (
+          <div key={`${article.link}-${index}`} className="w-80 md:w-96 flex-shrink-0">
+            <NewsCard 
+              article={article} 
+              settings={settings}
+              onRemove={onRemoveArticle}
+              fontSettings={fontSettings}
+            />
+          </div>
+        ))}
       </div>
     );
   }

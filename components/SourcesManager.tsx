@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-// FIX: Changed import paths to be explicitly relative
 import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings, FindSourcesOptions } from '../types';
 import { findSourcesWithAI } from '../services/geminiService';
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
@@ -164,7 +163,6 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
             const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet);
 
             const newSources: Sources = JSON.parse(JSON.stringify(sources));
-            // FIX: Explicitly typed the 's' parameter to 'Source' to avoid it being inferred as 'unknown'.
             const existingUrls = new Set(Object.values(sources).flat().map((s: Source) => s.url.toLowerCase().trim()));
             let addedCount = 0;
             let skippedCount = 0;

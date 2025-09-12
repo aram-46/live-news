@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// FIX: Add missing icon imports that will be added to the icons.tsx file
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon, BeakerIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
-// FIX: Changed import paths to be explicitly relative
 import { AppSettings } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
 import { fetchSettings, saveSettings } from './services/integrationService';
@@ -10,12 +8,10 @@ import Settings from './components/Settings';
 import AdvancedSearch from './components/AdvancedSearch';
 import LiveNews from './components/LiveNews';
 import FactCheck from './components/FactCheck';
-// FIX: Changed import paths to be explicitly relative
 import { INITIAL_SETTINGS } from './data/defaults';
 import Chatbot from './components/Chatbot';
 import PasswordPrompt from './components/PasswordPrompt';
 import BrowserUse from './components/BrowserUse';
-// FIX: Changed import paths to be explicitly relative
 import Analyzer from './components/Analyzer';
 import OnlineTools from './components/OnlineTools';
 import ConnectionStatus from './components/ConnectionStatus';

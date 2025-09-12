@@ -348,33 +348,35 @@ async function callGemini(prompt, response_mime_type = "text/plain") {
 }
 
 async function fetchNewsFromGemini() {
-    const text = await callGemini("Find the single most important recent world news article for a Persian-speaking user. Provide a JSON object with title, summary, source, and link.", "application/json");
-    return text ? JSON.parse(text.trim()) : null;
+    const text = await callGemini("مهم‌ترین مقاله خبری اخیر جهان را برای یک کاربر فارسی‌زبان پیدا کن. یک شیء JSON با کلیدهای title, summary, source و link ارائه بده.", "application/json");
+    const result = text ? JSON.parse(text.trim()) : null;
+    return Array.isArray(result) ? result : [result];
 }
 async function fetchRssNewsFromGemini() {
-    const text = await callGemini("Fetch the single most important news article from these RSS feeds: [\\"https://www.isna.ir/rss\\", \\"http://feeds.bbci.co.uk/persian/rss.xml\\"]. Provide JSON with title, summary, source, and link.", "application/json");
-    return text ? JSON.parse(text.trim()) : null;
+    const text = await callGemini("مهم‌ترین مقاله خبری را از این فیدهای RSS واکشی کن: [\\"https://www.isna.ir/rss\\", \\"http://feeds.bbci.co.uk/persian/rss.xml\\"]. یک خروجی JSON با کلیدهای title, summary, source و link ارائه بده.", "application/json");
+    const result = text ? JSON.parse(text.trim()) : null;
+    return Array.isArray(result) ? result : [result];
 }
 async function fetchCryptoFromGemini() {
-    const text = await callGemini("Find live price data for the top 3 cryptocurrencies. For each, provide its name, symbol, price in USD, price in Iranian Toman, and the 24-hour price change percentage. Return as a JSON array.", "application/json");
+    const text = await callGemini("داده‌های قیمت زنده ۳ ارز دیجیتال برتر را پیدا کن. برای هر کدام، نام، نماد، قیمت به دلار، قیمت به تومان و درصد تغییر ۲۴ ساعته را ارائه بده. به صورت یک آرایه JSON برگردان.", "application/json");
     return text ? JSON.parse(text.trim()) : null;
 }
 async function factCheckFromGemini(claim) {
-    const prompt = \`Fact-check this claim: "\\\${claim}". Provide a short summary of your findings and a credibility rating (High, Medium, Low) in Persian. Format as Markdown.\`;
+    const prompt = \`این ادعا را راستی‌آزمایی کن: "\\\${claim}". خلاصه‌ای کوتاه از یافته‌هایت و یک امتیاز اعتبار (بسیار معتبر، معتبر، نیازمند بررسی) به زبان فارسی ارائه بده. با فرمت Markdown.\`;
     return await callGemini(prompt) || "خطا در بررسی ادعا.";
 }
 async function analyzeFromGemini(topic) {
-    const prompt = \`Provide a brief, neutral analysis of this topic: "\\\${topic}". The response should be in Persian.\`;
+    const prompt = \`یک تحلیل کوتاه و بی‌طرفانه از این موضوع ارائه بده: "\\\${topic}". پاسخ باید به زبان فارسی باشد.\`;
     return await callGemini(prompt) || "خطا در تحلیل موضوع.";
 }
 async function suggestFromGemini(type, topic) {
     let prompt = '';
     if (type === 'keywords') {
-        prompt = \`Suggest 5 SEO keywords for: "\\\${topic}". List them.\`;
+        prompt = \`۵ کلمه کلیدی سئو برای این موضوع پیشنهاد بده: "\\\${topic}". آن‌ها را لیست کن.\`;
     } else if (type === 'webname') {
-        prompt = \`Suggest 5 creative website names for: "\\\${topic}". List them.\`;
+        prompt = \`۵ نام وب‌سایت خلاقانه برای این موضوع پیشنهاد بده: "\\\${topic}". آن‌ها را لیست کن.\`;
     } else if (type === 'domain') {
-        prompt = \`Suggest 5 available domain names for: "\\\${topic}". List them.\`;
+        prompt = \`۵ نام دامنه در دسترس برای این موضوع پیشنهاد بده: "\\\${topic}". آن‌ها را لیست کن.\`;
     } else {
         return "نوع پیشنهاد نامعتبر است.";
     }
@@ -754,7 +756,7 @@ async function urlToGenerativePart(url) {
 // --- GEMINI API INTERACTION FUNCTIONS ---
 async function fetchNews(env, filters) {
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  const prompt = \`IMPORTANT: All output text (titles, summaries, etc.) MUST be in Persian. Find the top 3 recent news articles based on these criteria for a Persian-speaking user. - Search Query: "\\\${filters.query || 'مهمترین اخبار روز'}" - Category: "\\\${filters.category || 'any'}" - Region: "\\\${filters.region || 'any'}" - Source: "\\\${filters.source || 'any reputable source'}". For each article, you MUST provide a relevant image URL.\`;
+  const prompt = \`مهم: تمام متون خروجی (عناوین، خلاصه‌ها و ...) باید به زبان فارسی باشد. ۳ مقاله خبری اخیر بر اساس این معیارها برای یک کاربر فارسی‌زبان پیدا کن: - عبارت جستجو: "\\\${filters.query || 'مهمترین اخبار روز'}" - دسته‌بندی: "\\\${filters.category || 'هر دسته‌بندی'}" - منطقه: "\\\${filters.region || 'هر منطقه'}" - منبع: "\\\${filters.source || 'هر منبع معتبر'}". برای هر مقاله، باید یک URL تصویر مرتبط ارائه دهی.\`;
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash", contents: prompt,
@@ -766,7 +768,7 @@ async function fetchNews(env, filters) {
 
 async function factCheck(env, claim, imageFile) {
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-    const textPrompt = \`As a world-class investigative journalist, conduct a deep analysis of the following content. Your entire output MUST be in Persian and structured as JSON. **Mission:** Verify the content and provide a clear, concise verdict and summary. **Content for Analysis:** - Text Context: "\\\${claim || 'No text provided, analyze the image.'}"\`;
+    const textPrompt = \`به عنوان یک روزنامه‌نگار تحقیقی در سطح جهانی، تحلیل عمیقی از محتوای زیر انجام بده. کل خروجی شما باید به زبان فارسی و با ساختار JSON باشد. **ماموریت:** محتوا را تأیید کرده و یک حکم و خلاصه واضح و مختصر ارائه بده. **محتوا برای تحلیل:** - متن: "\\\${claim || 'متنی ارائه نشده، تصویر را تحلیل کن.'}"\`;
     const contentParts = [{ text: textPrompt }];
     if (imageFile) contentParts.push({ inlineData: { data: imageFile.data, mimeType: imageFile.mimeType } });
     try {
@@ -782,10 +784,10 @@ async function fetchStructuredData(env, topic, type) {
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
     let prompt; let schema;
     if (type === 'stats') {
-        prompt = \`Find the most reliable statistical data for the query "\\\${topic}". Format it as JSON. The entire output must be in Persian.\`;
+        prompt = \`معتبرترین داده‌های آماری را برای عبارت "\\\${topic}" پیدا کن. آن را به صورت JSON فرمت‌بندی کن. کل خروجی باید به زبان فارسی باشد.\`;
         schema = { type: 'OBJECT', properties: { title: { type: 'STRING' }, summary: { type: 'STRING' }, sourceDetails: { type: 'OBJECT', properties: { name: { type: 'STRING' }, link: { type: 'STRING' }, publicationDate: { type: 'STRING' } } } } };
     } else {
-        prompt = \`Find a key scientific paper or religious text related to "\\\${topic}". Prioritize academic or primary sources. Format it as JSON. The entire output must be in Persian.\`;
+        prompt = \`یک مقاله علمی کلیدی یا متن دینی مرتبط با "\\\${topic}" پیدا کن. منابع آکادمیک یا اصلی را در اولویت قرار بده. آن را به صورت JSON فرمت‌بندی کن. کل خروجی باید به زبان فارسی باشد.\`;
         schema = { type: 'OBJECT', properties: { title: { type: 'STRING' }, summary: { type: 'STRING' }, sourceDetails: { type: 'OBJECT', properties: { name: { type: 'STRING' }, link: { type: 'STRING' }, author: { type: 'STRING' } } } } };
     }
     try {
@@ -796,7 +798,7 @@ async function fetchStructuredData(env, topic, type) {
 
 async function analyzeTopic(env, topic) {
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-    const prompt = \`Provide a deep, unbiased analysis of the given topic in Persian. The output must match the AnalysisResult JSON format, but simplify the content for a Discord embed. Provide a main "analysis" text and up to 3 "keyPoints" as an array of objects with a "title" and "description". Topic: \\\${topic}\`;
+    const prompt = \`یک تحلیل عمیق و بی‌طرفانه از موضوع داده شده به زبان فارسی ارائه بده. خروجی باید با فرمت JSON AnalysisResult مطابقت داشته باشد، اما محتوا را برای یک embed دیسکورد ساده‌سازی کن. یک متن اصلی "analysis" و حداکثر ۳ "keyPoints" به عنوان آرایه‌ای از اشیاء با یک "title" و "description" ارائه بده. موضوع: \\\${topic}\`;
     try {
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: 'OBJECT', properties: { analysis: { type: 'STRING' }, keyPoints: { type: 'ARRAY', items: { type: 'OBJECT', properties: { title: { type: 'STRING' }, description: { type: 'STRING' } } } } } } } });
         return JSON.parse(response.text.trim());
@@ -805,7 +807,7 @@ async function analyzeTopic(env, topic) {
 
 async function fetchCrypto(env, coinName) {
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-    const prompt = \`Search for the crypto coin "\\\${coinName}". Your response MUST be a single JSON object with these keys: name, symbol, price_usd, price_toman, price_change_percentage_24h, summary.\`;
+    const prompt = \`برای ارز دیجیتال "\\\${coinName}" جستجو کن. پاسخ شما باید یک شیء JSON واحد با این کلیدها باشد: name, symbol, price_usd, price_toman, price_change_percentage_24h, summary. تمام متون فارسی باشد.\`;
     try {
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { tools:[{googleSearch:{}}], responseMimeType: "application/json", responseSchema: { type: 'OBJECT', properties: { name: { type: 'STRING' }, symbol: { type: 'STRING' }, price_usd: { type: 'NUMBER' }, price_toman: { type: 'NUMBER' }, price_change_percentage_24h: { type: 'NUMBER' }, summary: { type: 'STRING' } } } } });
         return JSON.parse(response.text.trim());
@@ -815,10 +817,10 @@ async function fetchCrypto(env, coinName) {
 async function generateToolContent(env, type, topic) {
     const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
     let prompt;
-    if (type === 'keywords') prompt = \`Generate 10 relevant SEO keywords for "\\\${topic}". Separate them with commas.\`;
-    else if (type === 'webname') prompt = \`Suggest 5 creative website names for "\\\${topic}". List them on new lines.\`;
-    else if (type === 'domain') prompt = \`Suggest 5 available domain names (.com, .ir) for "\\\${topic}". List them on new lines.\`;
-    else if (type === 'article') prompt = \`Write a short, engaging article (about 150 words) on the topic of "\\\${topic}".\`;
+    if (type === 'keywords') prompt = \`۱۰ کلمه کلیدی سئو مرتبط برای "\\\${topic}" تولید کن. آنها را با کاما جدا کن.\`;
+    else if (type === 'webname') prompt = \`۵ نام وب‌سایت خلاقانه برای "\\\${topic}" پیشنهاد بده. آنها را در خطوط جدید لیست کن.\`;
+    else if (type === 'domain') prompt = \`۵ نام دامنه در دسترس (.com, .ir) برای "\\\${topic}" پیشنهاد بده. آنها را در خطوط جدید لیست کن.\`;
+    else if (type === 'article') prompt = \`یک مقاله کوتاه و جذاب (حدود ۱۵۰ کلمه) در مورد موضوع "\\\${topic}" بنویس.\`;
     else return null;
     try {
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { tools: type === 'article' ? [{googleSearch:{}}] : undefined } });
