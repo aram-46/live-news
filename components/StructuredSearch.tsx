@@ -28,8 +28,11 @@ const LoadingSkeleton = () => (
     </div>
 );
 
-const getCredibilityClass = (credibility: string) => {
-    const credStr = credibility.toString();
+const getCredibilityClass = (credibility: Credibility | string | null | undefined) => {
+    if (credibility == null || credibility === '') {
+        return { dot: 'bg-gray-400', text: 'text-gray-300' };
+    }
+    const credStr = String(credibility);
     if (credStr.includes(Credibility.High)) return { dot: 'bg-green-400', text: 'text-green-300' };
     if (credStr.includes(Credibility.Medium)) return { dot: 'bg-yellow-400', text: 'text-yellow-300' };
     if (credStr.includes(Credibility.Low)) return { dot: 'bg-red-400', text: 'text-red-300' };
@@ -242,7 +245,7 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                                      <p><strong>نام:</strong> <a href={result.sourceDetails.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{result.sourceDetails.name}</a></p>
                                      <p><strong>نویسنده:</strong> {result.sourceDetails.author}</p>
                                      <p><strong>تاریخ انتشار:</strong> {result.sourceDetails.publicationDate}</p>
-                                     <p className="flex items-center gap-2"><strong>اعتبار:</strong> <span className={`flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-gray-900/50 ${getCredibilityClass(result.sourceDetails.credibility).text}`}><span className={`w-2 h-2 rounded-full ${getCredibilityClass(result.sourceDetails.credibility).dot}`}></span>{result.sourceDetails.credibility}</span></p>
+                                     <p className="flex items-center gap-2"><strong>اعتبار:</strong> <span className={`flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-gray-900/50 ${getCredibilityClass(result.sourceDetails.credibility).text}`}><span className={`w-2 h-2 rounded-full ${getCredibilityClass(result.sourceDetails.credibility).dot}`}></span>{result.sourceDetails.credibility || 'نامشخص'}</span></p>
                                 </div>
                                 <div className="p-4 bg-gray-800/30 rounded-lg space-y-2 text-sm">
                                     <h4 className="font-semibold text-cyan-200 mb-3">تحلیل</h4>

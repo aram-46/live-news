@@ -10,8 +10,11 @@ interface SourcesManagerProps {
   settings: AppSettings;
 }
 
-const getCredibilityClass = (credibility: string) => {
-    const str = credibility.toLowerCase();
+const getCredibilityClass = (credibility: string | null | undefined) => {
+    if (credibility == null || credibility === '') {
+        return { dot: 'bg-gray-400', text: 'text-gray-300' };
+    }
+    const str = String(credibility).toLowerCase();
     if (str.includes('بسیار') || str.includes('high') || str.includes('بالا')) return {dot: 'bg-green-400', text: 'text-green-300' };
     if (str.includes('معتبر') || str.includes('medium') || str.includes('متوسط')) return {dot: 'bg-yellow-400', text: 'text-yellow-300' };
     if (str.includes('نیازمند') || str.includes('low') || str.includes('ضعیف')) return {dot: 'bg-red-400', text: 'text-red-300' };
@@ -338,7 +341,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
                                     <td className="px-4 py-3">
                                         <div className={`flex items-center gap-2 ${credibilityClasses.text}`}>
                                             <span className={`w-2.5 h-2.5 rounded-full ${credibilityClasses.dot}`}></span>
-                                            <span>{source.credibility}</span>
+                                            <span>{source.credibility || 'نامشخص'}</span>
                                         </div>
                                     </td>
                                     <td className="px-4 py-3">{source.region}</td>

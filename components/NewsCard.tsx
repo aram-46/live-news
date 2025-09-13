@@ -12,10 +12,12 @@ interface NewsCardProps {
 }
 
 const getCredibilityClass = (credibility: Credibility | string | null | undefined) => {
-  if (!credibility) {
+  // Using == null checks for both null and undefined.
+  if (credibility == null || credibility === '') {
       return { badge: 'bg-gray-500/20 text-gray-300 border border-gray-500/30', shadow: 'shadow-glow-gray' };
   }
-  const credibilityStr = credibility.toString();
+  // String() is a safe way to convert any value to a string, preventing crashes on null/undefined.
+  const credibilityStr = String(credibility);
   if (credibilityStr.includes(Credibility.High)) {
       return { badge: 'bg-green-500/20 text-green-300 border border-green-500/30', shadow: 'shadow-glow-green' };
   }

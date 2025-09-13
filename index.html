@@ -253,6 +253,69 @@
       @keyframes score-in {
         from { stroke-dashoffset: 251.2; }
       }
+      
+      /* --- STATISTICAL RESEARCH STYLES --- */
+      .perspective-container {
+        perspective: 1000px;
+      }
+
+      /* Metric Card Color Themes */
+      .metric-card-theme-cyan { --metric-color-rgb: 6, 182, 212; --metric-color: #06b6d4; }
+      .metric-card-theme-purple { --metric-color-rgb: 168, 85, 247; --metric-color: #a855f7; }
+      .metric-card-theme-green { --metric-color-rgb: 34, 197, 94; --metric-color: #22c55e; }
+      .metric-card-theme-amber { --metric-color-rgb: 245, 158, 11; --metric-color: #f59e0b; }
+
+      /* Updated Metric Card Styles to use variables */
+      .metric-card {
+          --metric-color-rgb: var(--accent-color-rgb);
+          --metric-color: var(--accent-color);
+          transform-style: preserve-3d;
+          transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          border: 1px solid rgba(var(--metric-color-rgb), 0.3);
+          box-shadow: 0 0 20px 2px rgba(var(--metric-color-rgb), 0.2), inset 0 0 15px rgba(var(--metric-color-rgb), 0.1);
+      }
+      .metric-card:hover {
+          transform: translateZ(20px) rotateY(5deg) scale(1.05);
+      }
+      .metric-card-inner {
+          background: radial-gradient(circle at 50% 0%, rgba(var(--metric-color-rgb), 0.15) 0%, rgba(var(--metric-color-rgb), 0) 70%);
+      }
+      .metric-title-container {
+          color: var(--metric-color);
+          text-shadow: 0 0 8px rgba(var(--metric-color-rgb), 0.6);
+      }
+      .metric-icon {
+          color: var(--metric-color);
+      }
+      .metric-value {
+          color: #fff;
+          text-shadow: 0 0 12px rgba(var(--metric-color-rgb), 0.7), 0 0 4px #fff;
+      }
+      .metric-unit {
+          color: var(--metric-color);
+          opacity: 0.8;
+      }
+      
+      .chart-container-shiny {
+        position: relative;
+        border-radius: 0.75rem;
+        overflow: hidden;
+        box-shadow: 0 0 20px 2px rgba(var(--accent-color-rgb), 0.3), inset 0 0 15px rgba(var(--accent-color-rgb), 0.2);
+      }
+      .chart-container-shiny::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(transparent, rgba(var(--accent-color-rgb), 0.2), transparent 30%);
+        animation: rotate-shine 6s linear infinite;
+      }
+      @keyframes rotate-shine {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
     </style>
 <script type="importmap">
 {

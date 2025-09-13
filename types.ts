@@ -120,7 +120,8 @@ export type AIInstructionType =
     | 'crypto-data' | 'crypto-search' | 'crypto-analysis'
     | 'analyzer-political' | 'analyzer-economic' | 'analyzer-social'
     | 'analyzer-propaganda' | 'analyzer-fallacy-finder' | 'analyzer-debate'
-    | 'analyzer-user-debate' | 'research-analysis' | 'analyzer-media';
+    | 'analyzer-user-debate' | 'research-analysis' | 'analyzer-media'
+    | 'statistical-research';
 
 export type AIInstructions = Record<AIInstructionType, string>;
 
@@ -160,6 +161,7 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
     'analyzer-user-debate': 'تحلیلگر مناظره کاربر',
     'research-analysis': 'تحلیلگر تحقیقات',
     'analyzer-media': 'تحلیلگر رسانه (ویدئو/تصویر)',
+    'statistical-research': 'تحلیلگر تحقیقات آماری',
 };
 
 export type AIModelProvider = 'gemini' | 'openai' | 'openrouter' | 'groq';
@@ -683,4 +685,29 @@ export interface ResearchResult {
         snippet: string;
     }[];
     webSources?: GroundingSource[];
+}
+
+// --- Statistical Research ---
+export interface StatisticalValidationMetrics {
+    credibilityValidation: string;
+    statisticalCredibilityScore: number; // 0-100
+    documentCredibility: string;
+    typeOfStatistics: string;
+    statisticalMethod: string;
+    participants: number | string;
+    samplingMethod: string;
+    methodCredibilityPercentage: number; // 0-100
+}
+
+export interface StatisticalResearchResult {
+    understanding: string;
+    summary: string;
+    validationMetrics: StatisticalValidationMetrics;
+    charts: ChartData[];
+    proponents: AnalysisStance[];
+    opponents: AnalysisStance[];
+    neutral: AnalysisStance[];
+    academicSources: { title: string; link: string; snippet: string; }[];
+    relatedTopics: { title: string; link: string; }[];
+    groundingSources?: GroundingSource[];
 }

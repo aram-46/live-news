@@ -423,3 +423,28 @@ export const BeakerIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.625a3.75 3.75 0 0 1-5.625 2.632V12a3.75 3.75 0 0 1 3.75-3.75h1.5M9.75 3.104c.132-.02.265-.032.401-.032h3.702c.136 0 .269.012.401.032M9.75 3.104 12 5.25m0 0 2.25-2.146M12 5.25v5.625a3.75 3.75 0 0 0 5.625 2.632V12a3.75 3.75 0 0 0-3.75-3.75h-1.5m-3.75 9.375c.03-.023.058-.047.087-.072a3.75 3.75 0 0 1 5.226 0c.029.025.057.049.087.072m-5.399 0c-.03.023-.058.047-.087.072a3.75 3.75 0 0 0 5.226 0c.029-.025.057-.049.087-.072m0 0a3.75 3.75 0 0 0-5.226 0" />
     </svg>
 );
+
+// --- Statistical Research Icons ---
+export const UsersIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m-7.289 2.72a3 3 0 0 1-4.682-2.72 9.094 9.094 0 0 1 3.741-.479m7.289 2.72a3 3 0 0 0-4.682-2.72m4.682 2.72-3.741-.479m3.741.479a9.094 9.094 0 0 1-3.741-.479m-7.289 2.72a9.094 9.094 0 0 0-3.741-.479m7.289 2.72-3.741-.479M12 12.75a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm-7.5 6.75a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm15 0a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" />
+    </svg>
+);
+
+export const ClipboardListIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 5.25 6h.008a2.25 2.25 0 0 1 2.242 2.124M5.25 6h.008a2.25 2.25 0 0 0 2.242-2.124M3.75 7.5h16.5M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5" />
+    </svg>
+);
+
+export const VariableIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m-15 0a3 3 0 1 1 6 0 3 3 0 0 1-6 0Zm15 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+  </svg>
+);
+
+export const ShieldCheckIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    </svg>
+);

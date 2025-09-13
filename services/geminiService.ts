@@ -1,3 +1,5 @@
+
+
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import {
     NewsArticle,
@@ -39,7 +41,8 @@ import {
     ConductDebateConfig,
     DebateAnalysisResult,
     ResearchResult,
-    MediaAnalysisResult
+    MediaAnalysisResult,
+    StatisticalResearchResult
 } from '../types';
 
 let ai: GoogleGenAI;
@@ -62,15 +65,55 @@ function safeJsonParse<T>(jsonString: string | undefined | null, fallback: T): T
         return fallback;
     }
     try {
-        // The model sometimes returns markdown code blocks ```json ... ```
-        const cleanJsonString = jsonString.replace(/^```json\s*|```\s*$/g, '').trim();
-        return JSON.parse(cleanJsonString) as T;
+        // The model can sometimes return conversational text before or after the JSON,
+        // or wrap it in markdown code blocks. This function attempts to extract the JSON part.
+        
+        // First, look for markdown block
+        const markdownMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
+        if (markdownMatch && markdownMatch[1]) {
+            return JSON.parse(markdownMatch[1]) as T;
+        }
+
+        // If no markdown, find the first '{' or '[' and the last '}' or ']'
+        const firstBracket = jsonString.indexOf('[');
+        const firstBrace = jsonString.indexOf('{');
+        
+        let start = -1;
+        
+        if (firstBracket === -1 && firstBrace === -1) {
+            // If no JSON structure is found, return fallback
+            console.error("No JSON object or array found in the string.", { input: jsonString });
+            return fallback;
+        }
+
+        // Find the earliest start of a JSON object or array
+        if (firstBracket === -1) {
+            start = firstBrace;
+        } else if (firstBrace === -1) {
+            start = firstBracket;
+        } else {
+            start = Math.min(firstBracket, firstBrace);
+        }
+
+        // Find the corresponding closing bracket/brace
+        const end = (jsonString[start] === '{') 
+            ? jsonString.lastIndexOf('}') 
+            : jsonString.lastIndexOf(']');
+
+        if (start === -1 || end === -1) {
+            console.error("Mismatched JSON brackets in the string.", { input: jsonString });
+            return fallback;
+        }
+
+        const jsonPart = jsonString.substring(start, end + 1);
+        return JSON.parse(jsonPart) as T;
     } catch (error) {
         console.error("Failed to parse JSON from model:", error);
         console.error("Original string:", jsonString);
         return fallback;
     }
 }
+
 
 // --- General Purpose & Helpers ---
 export type ApiKeyStatus = 'valid' | 'invalid_key' | 'not_set' | 'network_error';
@@ -892,6 +935,59 @@ export async function fetchResearchData(topic: string, field: string, keywords: 
     const parsedResult = safeJsonParse(response.text, {} as ResearchResult);
     if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
         parsedResult.webSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
+    }
+    return parsedResult;
+}
+
+export async function fetchStatisticalResearch(
+    topic: string,
+    comparisonTopics: string[],
+    keywords: string[]
+): Promise<StatisticalResearchResult> {
+    const ai = getAIClient();
+    const jsonStructure = `
+    {
+      "understanding": "string",
+      "summary": "string",
+      "validationMetrics": {
+        "credibilityValidation": "string",
+        "statisticalCredibilityScore": number (0-100),
+        "documentCredibility": "string",
+        "typeOfStatistics": "string",
+        "statisticalMethod": "string",
+        "participants": "string or number",
+        "samplingMethod": "string",
+        "methodCredibilityPercentage": number (0-100)
+      },
+      "charts": [{ "type": "bar" | "pie" | "line" | "table", "title": "string", "labels": ["string"], "datasets": [{ "label": "string", "data": [number] }] }],
+      "proponents": [{ "name": "string", "argument": "string", "scientificLevel": number (1-5) }],
+      "opponents": [{ "name": "string", "argument": "string", "scientificLevel": number (1-5) }],
+      "neutral": [{ "name": "string", "argument": "string", "scientificLevel": number (1-5) }],
+      "academicSources": [{ "title": "string", "link": "string", "snippet": "string" }],
+      "relatedTopics": [{ "title": "string", "link": "string" }]
+    }
+    `;
+    const prompt = `
+        Conduct a deep statistical research analysis on the primary topic: "${topic}".
+        ${comparisonTopics.filter(t => t.trim() !== '').length > 0 ? `Compare it statistically against: "${comparisonTopics.join(' and ')}".` : ''}
+        Use these keywords to guide your search: ${keywords.join(', ')}.
+        Search only reputable academic, scientific, university, and top-tier English-language sources.
+        Your entire response must be a single, valid JSON object in PERSIAN. Do not include any text, markdown, or explanations outside of the JSON object.
+        The JSON object must strictly follow this structure:
+        ${jsonStructure}
+    `;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            tools: [{ googleSearch: {} }],
+        }
+    });
+
+    const parsedResult = safeJsonParse(response.text, {} as StatisticalResearchResult);
+    if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+        parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
     }
     return parsedResult;
 }

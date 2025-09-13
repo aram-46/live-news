@@ -19,9 +19,9 @@ const TIMEFRAME_OPTIONS: { id: Timeframe, label: string }[] = [
     { id: '1y', label: '۱ سال' },
 ];
 
-const getCredibilityClass = (credibility?: Credibility | string) => {
-    if (!credibility) return { dot: 'bg-gray-400' };
-    const credStr = credibility.toString();
+const getCredibilityClass = (credibility?: Credibility | string | null) => {
+    if (credibility == null || credibility === '') return { dot: 'bg-gray-400' };
+    const credStr = String(credibility);
     if (credStr.includes(Credibility.High)) return { dot: 'bg-green-400' };
     if (credStr.includes(Credibility.Medium)) return { dot: 'bg-yellow-400' };
     if (credStr.includes(Credibility.Low)) return { dot: 'bg-red-400' };
@@ -184,7 +184,7 @@ const SearchTabComponent: React.FC<{ settings: AppSettings }> = ({ settings }) =
                                     </a>
                                     <div className="flex items-center gap-1.5 text-xs text-gray-300">
                                         <span className={`w-2.5 h-2.5 rounded-full ${getCredibilityClass(source.credibility).dot}`}></span>
-                                        {source.credibility}
+                                        {source.credibility || 'نامشخص'}
                                     </div>
                                 </li>
                             ))}

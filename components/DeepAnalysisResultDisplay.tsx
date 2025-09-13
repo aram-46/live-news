@@ -7,8 +7,11 @@ interface DeepAnalysisResultDisplayProps {
     result: AnalysisResult | FallacyResult;
 }
 
-const getCredibilityClass = (credibility: Credibility | string) => {
-    const credStr = credibility.toString();
+const getCredibilityClass = (credibility: Credibility | string | null | undefined) => {
+    if (credibility == null || credibility === '') {
+        return { text: 'text-gray-300' };
+    }
+    const credStr = String(credibility);
     if (credStr.includes(Credibility.High)) return { text: 'text-green-300' };
     if (credStr.includes(Credibility.Medium)) return { text: 'text-yellow-300' };
     if (credStr.includes(Credibility.Low)) return { text: 'text-red-300' };
@@ -133,8 +136,8 @@ const DeepAnalysisResultDisplay: React.FC<DeepAnalysisResultDisplayProps> = ({ r
                             <div key={i} className="p-3 bg-gray-900/30 rounded-lg text-xs space-y-1">
                                 <a href={source.url} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-400 hover:underline">{source.title}</a>
                                 <div className="flex flex-wrap gap-x-4 gap-y-1">
-                                    <span className={getCredibilityClass(source.sourceCredibility).text}>اعتبار منبع: {source.sourceCredibility}</span>
-                                    <span className={getCredibilityClass(source.argumentCredibility).text}>اعتبار استدلال: {source.argumentCredibility}</span>
+                                    <span className={getCredibilityClass(source.sourceCredibility).text}>اعتبار منبع: {source.sourceCredibility || 'نامشخص'}</span>
+                                    <span className={getCredibilityClass(source.argumentCredibility).text}>اعتبار استدلال: {source.argumentCredibility || 'نامشخص'}</span>
                                 </div>
                             </div>
                         ))}
