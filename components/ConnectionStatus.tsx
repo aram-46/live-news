@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { checkApiKeyStatus, ApiKeyStatus } from '../services/geminiService';
 import ApiKeyHelpModal from './ApiKeyHelpModal';
+import { AppSettings } from '../types';
 
-const ConnectionStatus: React.FC = () => {
+interface ConnectionStatusProps {
+    settings: AppSettings;
+}
+
+const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ settings }) => {
     const [status, setStatus] = useState<ApiKeyStatus | 'checking'>('checking');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
         const verifyConnection = async () => {
-            const result = await checkApiKeyStatus();
+            const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+            const result = await checkApiKeyStatus(keyToCheck);
             setStatus(result);
         };
         // Delay check slightly to not block initial render
         const timer = setTimeout(verifyConnection, 500);
         return () => clearTimeout(timer);
-    }, []);
+    }, [settings.aiModelSettings.gemini.apiKey]);
 
     const getStatusInfo = () => {
         switch (status) {

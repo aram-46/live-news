@@ -1,6 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { AppSettings, MediaFile, MediaAnalysisResult } from '../types';
 import { analyzeMedia } from '../services/geminiService';
+// FIX: Add missing icon imports
 import { SparklesIcon, UploadIcon, LinkIcon, CloseIcon } from './icons';
 import VideoAnalysisResultDisplay from './VideoAnalysisResultDisplay';
 
@@ -37,7 +39,8 @@ const MediaAnalyzer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
         try {
             const fileData = file ? { data: file.data, mimeType: file.type } : null;
-            const apiResult = await analyzeMedia(url, fileData, userPrompt, settings.aiInstructions['analyzer-media']);
+            // FIX: Pass settings as the fifth argument.
+            const apiResult = await analyzeMedia(url, fileData, userPrompt, settings.aiInstructions['analyzer-media'], settings);
             setResult(apiResult);
         } catch (err) {
             console.error(err);

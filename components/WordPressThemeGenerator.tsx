@@ -65,7 +65,7 @@ const WordPressThemeGenerator: React.FC<WordPressThemeGeneratorProps> = ({ setti
         setGeneratedCode({});
         try {
             const imageDesc = imageFile ? `An uploaded image showing a theme design with these characteristics: [Describe visual elements from image]` : '';
-            const generatedPlan = await generateWordPressThemePlan(themeType, inspirationUrl, description, imageDesc, settings.aiInstructions['wordpress-theme']);
+            const generatedPlan = await generateWordPressThemePlan(themeType, inspirationUrl, description, imageDesc, settings.aiInstructions['wordpress-theme'], settings);
             setPlan(generatedPlan);
             setState('done'); 
         } catch (err) {
@@ -78,14 +78,14 @@ const WordPressThemeGenerator: React.FC<WordPressThemeGeneratorProps> = ({ setti
         if (!plan || generatedCode[tab] || generatingTabs[tab]) return;
         setGeneratingTabs(prev => ({ ...prev, [tab]: true }));
         try {
-            const code = await generateWordPressThemeCode(plan, tab);
+            const code = await generateWordPressThemeCode(plan, tab, settings);
             setGeneratedCode(prev => ({...prev, [tab]: code}));
         } catch(err) {
             setError(`خطا در تولید کد برای ${tab}`);
         } finally {
             setGeneratingTabs(prev => ({ ...prev, [tab]: false }));
         }
-    }, [plan, generatedCode, generatingTabs]);
+    }, [plan, generatedCode, generatingTabs, settings]);
 
     const renderCodeOutput = () => {
         if (generatingTabs[activeCodeTab]) {

@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useCallback, useRef } from 'react';
 import { AppSettings, Filters, WebResult, GroundingSource, SearchTab } from '../types';
 import { fetchWebResults } from '../services/geminiService';
@@ -100,7 +101,8 @@ const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onSettingsC
                 dollar: 'dollar-search'
             };
             const instruction = settings.aiInstructions[instructionMap[searchType]];
-            const { results: apiResults, sources: apiSources, suggestions: apiSuggestions } = await fetchWebResults(searchType, filters, instruction);
+            // FIX: Pass the settings object as the fourth argument.
+            const { results: apiResults, sources: apiSources, suggestions: apiSuggestions } = await fetchWebResults(searchType, filters, instruction, settings);
             setResults(apiResults);
             setSources(apiSources);
             setSuggestions(apiSuggestions);
@@ -110,7 +112,7 @@ const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onSettingsC
         } finally {
             setIsLoading(false);
         }
-    }, [searchType, settings.aiInstructions]);
+    }, [searchType, settings]);
 
     const currentSearchOptions = settings.searchOptions[searchType];
 

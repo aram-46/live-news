@@ -1,7 +1,9 @@
+
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings, FindSourcesOptions } from '../types';
 import { findSourcesWithAI } from '../services/geminiService';
+// FIX: Add missing icon imports
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
 
 interface SourcesManagerProps {
@@ -72,7 +74,8 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
     setAiLoading(true);
     try {
         const existingSources = sources[activeAiCategory];
-        const newFoundSources = await findSourcesWithAI(activeAiCategory, existingSources, aiOptions);
+        // FIX: Pass settings as the fourth argument.
+        const newFoundSources = await findSourcesWithAI(activeAiCategory, existingSources, aiOptions, settings);
         
         if(newFoundSources.length === 0) {
             alert("منبع جدیدی توسط هوش مصنوعی یافت نشد.");

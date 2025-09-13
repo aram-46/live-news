@@ -1,7 +1,9 @@
+
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { RSSFeeds, RSSFeed, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings } from '../types';
 import { findFeedsWithAI } from '../services/geminiService';
+// FIX: Add missing icon imports
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
 
 interface RSSFeedManagerProps {
@@ -48,7 +50,8 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
   const handleFindWithAI = async (category: SourceCategory) => {
     setAiLoading(category);
     try {
-        const newFoundFeeds = await findFeedsWithAI(category, feeds[category]);
+        // FIX: Pass settings object as the third argument.
+        const newFoundFeeds = await findFeedsWithAI(category, feeds[category], settings);
         
         if(newFoundFeeds.length === 0) {
             alert("خبرخوان جدیدی توسط هوش مصنوعی یافت نشد.");

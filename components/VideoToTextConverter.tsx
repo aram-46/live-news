@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { AppSettings, VideoFactCheckResult, VideoTimestampResult, TranscriptionResult } from '../types';
 import { analyzeVideoFromUrl } from '../services/geminiService';
@@ -45,7 +43,7 @@ const VideoToTextConverter: React.FC<VideoToTextConverterProps> = ({ settings, o
         setResult(null);
 
         try {
-            const apiResult = await analyzeVideoFromUrl(videoUrl, analysisType, keywords, settings.aiInstructions['video-converter']);
+            const apiResult = await analyzeVideoFromUrl(videoUrl, analysisType, keywords, settings.aiInstructions['video-converter'], settings);
             setResult(apiResult);
         } catch (err) {
             console.error("Error during video analysis:", err);

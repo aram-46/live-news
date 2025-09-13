@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AIInstructions, AIInstructionType, aiInstructionLabels, AppSettings } from '../types';
 import { generateAIInstruction, testAIInstruction } from '../services/geminiService';
@@ -25,7 +26,8 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
   const handleGenerateWithAI = async (type: AIInstructionType) => {
     setLoadingInstruction(type);
     try {
-      const generatedInstruction = await generateAIInstruction(aiInstructionLabels[type]);
+      // FIX: Pass the settings object as the second argument.
+      const generatedInstruction = await generateAIInstruction(aiInstructionLabels[type], settings);
       handleChange(type, generatedInstruction);
     } catch (error) {
       console.error("Failed to generate instruction with AI", error);
@@ -37,7 +39,8 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
 
   const handleTestInstruction = async (type: AIInstructionType) => {
       setTestStatus(prev => ({...prev, [type]: 'testing'}));
-      const success = await testAIInstruction(instructions[type]);
+      // FIX: Pass the settings object as the second argument.
+      const success = await testAIInstruction(instructions[type], settings);
       setTestStatus(prev => ({...prev, [type]: success ? 'success' : 'error'}));
       setTimeout(() => setTestStatus(prev => ({...prev, [type]: 'idle'})), 4000);
   };

@@ -30,7 +30,7 @@ const LiveNewsSettings: React.FC<LiveNewsSettingsProps> = ({ settings, onSetting
                 regions: 'مناطق جغرافیایی مهم خبری'
             }[listType];
 
-            const newItems = await generateEditableListItems(listName, listType, 3);
+            const newItems = await generateEditableListItems(listName, listType, 3, settings);
             
             const updatedItems = [...new Set([...currentItems, ...newItems])];
             handleLiveNewsChange({ [listType]: updatedItems });

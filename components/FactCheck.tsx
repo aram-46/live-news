@@ -97,7 +97,7 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         try {
             const fileData = mediaFile ? { data: mediaFile.data, mimeType: mediaFile.type } : null;
             const checkUrl = inputType === 'url' ? url : undefined;
-            const apiResult = await factCheckNews(text, fileData, checkUrl, settings.aiInstructions['fact-check']);
+            const apiResult = await factCheckNews(text, fileData, settings, checkUrl, settings.aiInstructions['fact-check']);
             setInitialResult(apiResult);
             const summaryMessage: ChatMessage = { id: generateUUID(), role: 'model', text: `**نتیجه کلی: ${apiResult.overallCredibility}**\n\n${apiResult.summary}`, timestamp: Date.now() };
             setChatHistory([summaryMessage]);
@@ -108,12 +108,12 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         } finally {
             setIsLoading(false);
         }
-    }, [text, mediaFile, url, inputType, settings.aiInstructions]);
+    }, [text, mediaFile, url, inputType, settings]);
 
     const handleSendMessage = async (messageText: string) => {
         if (!messageText.trim() || isLoading) return;
         setIsLoading(true);
-        const apiKey = process.env.API_KEY;
+        const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
         if (!apiKey || !initialResult) { setError("خطا: امکان شروع گفتگو وجود ندارد."); return; }
         const ai = new GoogleGenAI({ apiKey });
         const chat = chatSession || ai.chats.create({ model: 'gemini-2.5-flash', config: { systemInstruction: settings.aiInstructions['fact-check'] } });
@@ -309,7 +309,7 @@ const SpecializedFactCheck: React.FC<{ settings: AppSettings }> = ({ settings })
             const mainContent = activeSubTabInfo.inputType === 'text' ? text : activeSubTabInfo.inputType === 'url' ? '' : 'Attached file';
             const fullPrompt = `${promptPrefix}\n${mainContent}`;
 
-            const apiResult = await factCheckNews(fullPrompt, fileData, url || undefined, settings.aiInstructions['fact-check']);
+            const apiResult = await factCheckNews(fullPrompt, fileData, settings, url || undefined, settings.aiInstructions['fact-check']);
             setResult(apiResult);
         } catch (err) {
             console.error(err);

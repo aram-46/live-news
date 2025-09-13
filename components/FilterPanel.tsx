@@ -80,7 +80,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onSearch, isLoading, categori
       setIsAiLoading(listType);
       try {
           const count = aiCounts[listType];
-          const newItems = await generateDynamicFilters(query, listType, count);
+          const newItems = await generateDynamicFilters(query, listType, count, settings);
           
           if (listType === 'categories') {
             setDynamicCategories(prev => [...new Set([...prev, ...newItems])]);

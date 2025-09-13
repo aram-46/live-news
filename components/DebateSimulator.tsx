@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppSettings, DebateConfig, DebateParticipant, DebateRole, debateRoleLabels, TranscriptEntry, AIModelProvider } from '../types';
 import { getDebateTurnResponse } from '../services/geminiService';
-import { GavelIcon, PlusCircleIcon, MinusCircleIcon, CircleIcon, UploadImageIcon, PlayIcon, PauseIcon } from './icons';
+// FIX: Add missing icon imports.
+import { GavelIcon, PlusCircleIcon, MinusCircleIcon, CircleIcon, UploadIcon, PlayIcon, PauseIcon } from './icons';
 import ExportButton from './ExportButton';
 
 interface DebateSimulatorProps {
@@ -125,7 +127,8 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
         try {
             const isFinalTurn = Object.values(turnCountRef.current).reduce((a, b) => a + b, 0) >= config.participants.length * config.turnLimit;
             const speaker = config.participants.find(p => p.role === speakerRole)!;
-            const response = await getDebateTurnResponse(transcript, speakerRole, turnCountRef.current[speakerRole], config, isFinalTurn, settings.aiInstructions['analyzer-debate'], speaker.modelProvider);
+            // FIX: Pass settings as the last argument.
+            const response = await getDebateTurnResponse(transcript, speakerRole, turnCountRef.current[speakerRole], config, isFinalTurn, settings.aiInstructions['analyzer-debate'], speaker.modelProvider, settings);
 
             const newEntry: TranscriptEntry = { participant: speaker, text: response.text };
             setTranscript(prev => [...prev, newEntry]);
@@ -145,7 +148,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
             setError('یک خطا در حین شبیه‌سازی رخ داد.');
             setDebateState('error');
         }
-    }, [config, transcript, getNextSpeaker, settings.aiInstructions, debateState]);
+    }, [config, transcript, getNextSpeaker, settings, debateState]);
 
 
     useEffect(() => {
@@ -246,7 +249,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
                         {config.participants.map(p => (
                             <div key={p.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
                                 <button onClick={() => handleAvatarUploadClick(p.id)} className="w-10 h-10 bg-gray-700/50 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-600">
-                                    {p.avatar ? <img src={p.avatar} alt="avatar" className="w-full h-full object-cover rounded-lg"/> : <UploadImageIcon className="w-5 h-5"/>}
+                                    {p.avatar ? <img src={p.avatar} alt="avatar" className="w-full h-full object-cover rounded-lg"/> : <UploadIcon className="w-5 h-5"/>}
                                 </button>
                                 <input type="text" value={p.name} onChange={e => handleParticipantChange(p.id, 'name', e.target.value)} placeholder={debateRoleLabels[p.role]} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-sm"/>
                                 <select value={p.modelProvider} onChange={e => handleParticipantChange(p.id, 'modelProvider', e.target.value)} className="bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2 text-xs">

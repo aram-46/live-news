@@ -125,7 +125,8 @@ const SearchTabComponent: React.FC<{ settings: AppSettings }> = ({ settings }) =
         setError(null);
         setResult(null);
         try {
-            const data = await searchCryptoCoin(query, settings.aiInstructions['crypto-search']);
+            // FIX: Pass the settings object as the third argument.
+            const data = await searchCryptoCoin(query, settings.aiInstructions['crypto-search'], settings);
             setResult(data);
         } catch (err) {
             setError('خطا در جستجوی ارز. لطفاً دوباره تلاش کنید.');
@@ -214,7 +215,8 @@ const AnalysisTabComponent: React.FC<{ settings: AppSettings; allCoins: SimpleCo
         setError(null);
         setResult(null);
         try {
-            const data = await fetchCryptoAnalysis(coin.name, settings.aiInstructions['crypto-analysis']);
+            // FIX: Pass the settings object as the third argument.
+            const data = await fetchCryptoAnalysis(coin.name, settings.aiInstructions['crypto-analysis'], settings);
             setResult(data);
         } catch(err) {
             setError('خطا در دریافت تحلیل. لطفا دوباره تلاش کنید.');
@@ -317,7 +319,8 @@ const CryptoTracker: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     useEffect(() => {
         const getCoinList = async () => {
             try {
-                const data = await fetchCoinList(settings.aiInstructions['crypto-data']);
+                // FIX: Pass the settings object as the second argument.
+                const data = await fetchCoinList(settings.aiInstructions['crypto-data'], settings);
                 setAllCoins(data);
             } catch (err) { console.error("Failed to fetch coin list", err); }
         };
@@ -385,7 +388,8 @@ const LivePricesTab: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const data = await fetchCryptoData('live', '24h', 50, settings.aiInstructions['crypto-data']);
+                // FIX: Pass the settings object as the fifth argument.
+                const data = await fetchCryptoData('live', '24h', 50, settings.aiInstructions['crypto-data'], settings);
                 const randomCoins = data.sort(() => 0.5 - Math.random()).slice(0, 20);
                 setCoins(randomCoins);
             } catch (err) { console.error("Failed to fetch live prices", err); }
@@ -426,7 +430,8 @@ const MarketMoversTab: React.FC<{ mode: 'gainers' | 'losers' | 'newest'; setting
         const fetchData = async () => {
             setIsLoading(true);
             try {
-                const data = await fetchCryptoData(mode, timeframe, 15, settings.aiInstructions['crypto-data']);
+                // FIX: Pass the settings object as the fifth argument.
+                const data = await fetchCryptoData(mode, timeframe, 15, settings.aiInstructions['crypto-data'], settings);
                 setCoins(data);
             } catch (err) { console.error(`Failed to fetch ${mode}`, err); }
             finally { setIsLoading(false); }
@@ -477,7 +482,8 @@ const FavoritesTab: React.FC<{ settings: AppSettings; favoriteIds: string[]; onT
             }
             setIsLoading(true);
             try {
-                const data = await fetchCryptoData('favorites', '24h', favoriteIds.length, settings.aiInstructions['crypto-data'], favoriteIds);
+                // FIX: Pass the settings object as the fifth argument and favoriteIds as the sixth.
+                const data = await fetchCryptoData('favorites', '24h', favoriteIds.length, settings.aiInstructions['crypto-data'], settings, favoriteIds);
                 setCoins(data);
             } catch (err) { console.error("Failed to fetch favorites", err); }
             finally { setIsLoading(false); }

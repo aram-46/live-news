@@ -1,58 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { AppAIModelSettings, AppSettings } from '../../types';
+
+import React, { useState } from 'react';
+import { AppSettings, AIModelProvider } from '../../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from '../icons';
-import { testGeminiConnection, checkApiKeyStatus, ApiKeyStatus } from '../../services/geminiService';
+import { checkApiKeyStatus, ApiKeyStatus } from '../../services/geminiService';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../../services/integrationService';
 
 interface AIModelSettingsProps {
-  settings: AppSettings; // Changed to full AppSettings
-  onSettingsChange: (settings: AppSettings) => void; // Changed to full AppSettings
+  settings: AppSettings;
+  onSettingsChange: (settings: AppSettings) => void;
 }
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsChange }) => {
     const { aiModelSettings, defaultProvider } = settings;
-    const [geminiRealStatus, setGeminiRealStatus] = useState<ApiKeyStatus | 'checking'>('checking');
+    const [geminiStatus, setGeminiStatus] = useState<ApiKeyStatus | 'checking' | 'idle'>('idle');
     const [openaiStatus, setOpenaiStatus] = useState<TestStatus>('idle');
     const [openrouterStatus, setOpenrouterStatus] = useState<TestStatus>('idle');
     const [groqStatus, setGroqStatus] = useState<TestStatus>('idle');
-
-    useEffect(() => {
-        const checkStatus = async () => {
-            const status = await checkApiKeyStatus();
-            setGeminiRealStatus(status);
-        };
-        checkStatus();
-    }, []);
 
     const handleSettingsChange = (change: Partial<AppSettings>) => {
         onSettingsChange({ ...settings, ...change });
     };
 
     const handleApiKeyChange = (
-        provider: keyof AppAIModelSettings, 
+        provider: keyof typeof aiModelSettings, 
         field: string,
         value: string,
-        statusSetter: React.Dispatch<React.SetStateAction<TestStatus>>
+        statusSetter: React.Dispatch<React.SetStateAction<any>>
     ) => {
-        if (provider === 'gemini' && field === 'apiKey') {
-            console.warn("Attempted to change Gemini API key from UI. This is not allowed.");
-            return;
-        }
         statusSetter('idle');
         handleSettingsChange({
             aiModelSettings: {
                 ...aiModelSettings,
-                [provider]: { ...aiModelSettings[provider], [field]: value }
+                [provider]: { ...aiModelSettings[provider as keyof typeof aiModelSettings], [field]: value }
             }
         });
     };
 
     const handleTestGemini = async () => {
-        setGeminiRealStatus('checking');
-        const status = await checkApiKeyStatus();
-        setGeminiRealStatus(status);
+        setGeminiStatus('checking');
+        const keyToTest = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+        const status = await checkApiKeyStatus(keyToTest);
+        setGeminiStatus(status);
+        setTimeout(() => setGeminiStatus('idle'), 5000);
     };
 
     const handleTestOpenAI = async () => {
@@ -76,33 +67,22 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
         setTimeout(() => setGroqStatus('idle'), 4000);
     };
     
-    const isProviderEnabled = (provider: keyof AppAIModelSettings): boolean => {
-        if (provider === 'gemini') return geminiRealStatus === 'valid';
+    const isProviderEnabled = (provider: AIModelProvider): boolean => {
+        if (provider === 'gemini') return !!(settings.aiModelSettings.gemini.apiKey || process.env.API_KEY);
         if (provider === 'openai') return !!aiModelSettings.openai.apiKey;
         if (provider === 'openrouter') return !!aiModelSettings.openrouter.apiKey;
         if (provider === 'groq') return !!aiModelSettings.groq.apiKey;
         return false;
     }
 
-    const renderStatusIcon = (status: TestStatus) => {
-        if (status === 'testing') return <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>;
-        if (status === 'success') return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
-        if (status === 'error') return <CloseIcon className="w-5 h-5 text-red-400" />;
+    // FIX: Add 'checking' to the status type to handle all possible states.
+    const renderStatusIcon = (status: TestStatus | ApiKeyStatus | 'checking') => {
+        if (status === 'testing' || status === 'checking') return <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>;
+        if (status === 'success' || status === 'valid') return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
+        if (status === 'error' || status === 'invalid_key' || status === 'not_set') return <CloseIcon className="w-5 h-5 text-red-400" />;
+        // FIX: Removed invalid 'title' prop from CloseIcon component.
+        if (status === 'network_error') return <CloseIcon className="w-5 h-5 text-yellow-400" />;
         return null;
-    }
-
-    const renderGeminiStatusBadge = () => {
-        switch (geminiRealStatus) {
-            case 'valid':
-                return <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full">متصل</span>;
-            case 'invalid_key':
-            case 'not_set':
-                return <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded-full">پیکربندی نشده</span>;
-            case 'network_error':
-                 return <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">خطای شبکه</span>;
-            case 'checking':
-                 return <span className="text-xs bg-gray-500/20 text-gray-300 px-2 py-1 rounded-full">در حال بررسی...</span>;
-        }
     }
     
     return (
@@ -131,28 +111,20 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Gemini Settings */}
                 <div className="space-y-4 p-4 border border-cyan-500 rounded-lg bg-gray-900/30 ring-2 ring-cyan-500/50">
-                    <h3 className="flex items-center justify-between text-lg font-semibold text-cyan-200">
-                        <div className="flex items-center gap-2">
-                            <BrainIcon className="w-6 h-6"/>
-                            <span>Google Gemini (اصلی)</span>
-                        </div>
-                        {renderGeminiStatusBadge()}
+                    <h3 className="flex items-center gap-2 text-lg font-semibold text-cyan-200">
+                        <BrainIcon className="w-6 h-6"/>
+                        <span>Google Gemini (اصلی)</span>
                     </h3>
                     <div>
-                        <label className="block text-sm font-medium text-cyan-300 mb-2">وضعیت کلید API</label>
-                        <div className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 text-sm">
-                            {geminiRealStatus === 'not_set' || geminiRealStatus === 'invalid_key' ? (
-                                <span className="text-red-400">کلید API برای Gemini تنظیم نشده است. برای راهنمایی، فایل README.md را مطالعه کنید.</span>
-                            ) : (
-                                <span className="text-green-400">کلید API از طریق متغیر محیطی برنامه تنظیم شده است.</span>
-                            )}
-                        </div>
+                        <label htmlFor="gemini-apiKey" className="block text-sm font-medium text-cyan-300 mb-2">کلید API</label>
+                        <input id="gemini-apiKey" name="apiKey" type="password" value={aiModelSettings.gemini.apiKey} onChange={(e) => handleApiKeyChange('gemini', 'apiKey', e.target.value, setGeminiStatus)} placeholder="کلید API خود را اینجا وارد کنید" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5"/>
                         <p className="text-xs text-amber-400 mt-2">
-                            <strong>توجه:</strong> مطابق با راهنمای امنیتی، کلید API جمینای باید **فقط** از طریق متغیرهای محیطی (environment variables) در هنگام اجرای برنامه تنظیم شود و از این پنل قابل تغییر نیست.
+                            <strong>توجه:</strong> اگر کلیدی در اینجا وارد کنید، بر کلید API تعریف شده در محیط برنامه (environment variable) اولویت خواهد داشت.
                         </p>
                     </div>
                      <div className="flex items-center gap-2">
-                        <button onClick={handleTestGemini} disabled={geminiRealStatus === 'checking'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست مجدد اتصال</button>
+                        <button onClick={handleTestGemini} disabled={geminiStatus === 'checking'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
+                        <div className="w-5 h-5">{renderStatusIcon(geminiStatus)}</div>
                     </div>
                 </div>
 

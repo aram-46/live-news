@@ -1,5 +1,4 @@
 
-
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import {
     NewsArticle,
@@ -45,18 +44,10 @@ import {
     StatisticalResearchResult
 } from '../types';
 
-let ai: GoogleGenAI;
-
-const getAIClient = () => {
-    if (!ai) {
-        if (!process.env.API_KEY) {
-            console.error("API_KEY environment variable not set!");
-            throw new Error("API_KEY environment variable not set!");
-        }
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    }
-    return ai;
-};
+// Helper to get the API key, prioritizing settings over environment variables.
+const getApiKey = (settings: AppSettings): string | undefined => {
+    return settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+}
 
 // A helper to safely parse JSON from the model
 function safeJsonParse<T>(jsonString: string | undefined | null, fallback: T): T {
@@ -65,46 +56,25 @@ function safeJsonParse<T>(jsonString: string | undefined | null, fallback: T): T
         return fallback;
     }
     try {
-        // The model can sometimes return conversational text before or after the JSON,
-        // or wrap it in markdown code blocks. This function attempts to extract the JSON part.
-        
-        // First, look for markdown block
         const markdownMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
         if (markdownMatch && markdownMatch[1]) {
             return JSON.parse(markdownMatch[1]) as T;
         }
-
-        // If no markdown, find the first '{' or '[' and the last '}' or ']'
         const firstBracket = jsonString.indexOf('[');
         const firstBrace = jsonString.indexOf('{');
-        
         let start = -1;
-        
         if (firstBracket === -1 && firstBrace === -1) {
-            // If no JSON structure is found, return fallback
             console.error("No JSON object or array found in the string.", { input: jsonString });
             return fallback;
         }
-
-        // Find the earliest start of a JSON object or array
-        if (firstBracket === -1) {
-            start = firstBrace;
-        } else if (firstBrace === -1) {
-            start = firstBracket;
-        } else {
-            start = Math.min(firstBracket, firstBrace);
-        }
-
-        // Find the corresponding closing bracket/brace
-        const end = (jsonString[start] === '{') 
-            ? jsonString.lastIndexOf('}') 
-            : jsonString.lastIndexOf(']');
-
+        if (firstBracket === -1) start = firstBrace;
+        else if (firstBrace === -1) start = firstBracket;
+        else start = Math.min(firstBracket, firstBrace);
+        const end = (jsonString[start] === '{') ? jsonString.lastIndexOf('}') : jsonString.lastIndexOf(']');
         if (start === -1 || end === -1) {
             console.error("Mismatched JSON brackets in the string.", { input: jsonString });
             return fallback;
         }
-
         const jsonPart = jsonString.substring(start, end + 1);
         return JSON.parse(jsonPart) as T;
     } catch (error) {
@@ -118,13 +88,14 @@ function safeJsonParse<T>(jsonString: string | undefined | null, fallback: T): T
 // --- General Purpose & Helpers ---
 export type ApiKeyStatus = 'valid' | 'invalid_key' | 'not_set' | 'network_error';
 
-export async function checkApiKeyStatus(): Promise<ApiKeyStatus> {
-    if (!process.env.API_KEY) {
+export async function checkApiKeyStatus(apiKey?: string): Promise<ApiKeyStatus> {
+    // FIX: Use environment variable as a fallback if no key is provided.
+    const keyToCheck = apiKey || process.env.API_KEY;
+    if (!keyToCheck) {
         return 'not_set';
     }
     try {
-        const ai = getAIClient();
-        // A simple, low-cost call to check validity
+        const ai = new GoogleGenAI({ apiKey: keyToCheck });
         await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: "test"
@@ -134,7 +105,6 @@ export async function checkApiKeyStatus(): Promise<ApiKeyStatus> {
         if (error.message.includes('API key not valid')) {
             return 'invalid_key';
         }
-        // Could be a network error or other issue
         console.error("API key status check failed:", error);
         return 'network_error';
     }
@@ -144,8 +114,11 @@ export const testGeminiConnection = checkApiKeyStatus;
 
 // --- News & Search ---
 
-export async function fetchNews(filters: Filters, instruction: string, articlesPerColumn: number, showImages: boolean): Promise<{ articles: NewsArticle[], suggestions: string[] }> {
-    const ai = getAIClient();
+export async function fetchNews(filters: Filters, instruction: string, articlesPerColumn: number, showImages: boolean, settings: AppSettings): Promise<{ articles: NewsArticle[], suggestions: string[] }> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}
         Find the top ${articlesPerColumn} news articles matching these criteria:
@@ -170,8 +143,11 @@ export async function fetchNews(filters: Filters, instruction: string, articlesP
     return safeJsonParse(response.text, { articles: [], suggestions: [] });
 }
 
-export async function fetchLiveNews(tabId: string, sources: any, instruction: string, showImages: boolean, specifics: any): Promise<NewsArticle[]> {
-    const ai = getAIClient();
+export async function fetchLiveNews(tabId: string, sources: any, instruction: string, showImages: boolean, specifics: any, settings: AppSettings): Promise<NewsArticle[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}
         Find the latest top 5 news articles for the category: "${tabId}".
@@ -193,8 +169,11 @@ export async function fetchLiveNews(tabId: string, sources: any, instruction: st
 }
 
 
-export async function fetchTickerHeadlines(categories: string[], instruction: string): Promise<any[]> {
-    const ai = getAIClient();
+export async function fetchTickerHeadlines(categories: string[], instruction: string, settings: AppSettings): Promise<any[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}. Find 10 top headlines from these categories: ${categories.join(', ')}.
         Your entire response MUST be a single, valid JSON array of objects. Each object must have "title" and "link" properties.
@@ -210,8 +189,11 @@ export async function fetchTickerHeadlines(categories: string[], instruction: st
     return safeJsonParse(response.text, []);
 }
 
-export async function generateDynamicFilters(query: string, listType: 'categories' | 'regions' | 'sources', count: number): Promise<string[]> {
-    const ai = getAIClient();
+export async function generateDynamicFilters(query: string, listType: 'categories' | 'regions' | 'sources', count: number, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         Based on the search query "${query}", suggest ${count} relevant ${listType} for filtering news.
         Your entire response MUST be a single, valid JSON array of strings.
@@ -227,15 +209,17 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
     return safeJsonParse(response.text, []);
 }
 
-export async function checkForUpdates(sources: any): Promise<boolean> {
-    // This is a simplified simulation. A real implementation would be more complex.
+export async function checkForUpdates(sources: any, settings: AppSettings): Promise<boolean> {
     console.log("Checking for updates...", sources);
     await new Promise(resolve => setTimeout(resolve, 2000));
-    return Math.random() > 0.7; // 30% chance of finding an update
+    return Math.random() > 0.7;
 }
 
-export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, query?: string): Promise<NewsArticle[]> {
-    const ai = getAIClient();
+export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, settings: AppSettings, query?: string): Promise<NewsArticle[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const feedUrls = feeds.map(f => f.url);
     const prompt = `
         ${instruction}
@@ -253,7 +237,7 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
         model: "gemini-2.5-flash",
         contents: prompt,
         config: {
-            tools: [{ googleSearch: {} }] // Use search to access live RSS feeds
+            tools: [{ googleSearch: {} }]
         }
     });
     return safeJsonParse(response.text, []);
@@ -261,8 +245,11 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
 
 // --- Fact Check & Analysis ---
 
-export async function factCheckNews(text: string, file: { data: string, mimeType: string } | null, url?: string, instruction?: string): Promise<FactCheckResult> {
-    const ai = getAIClient();
+export async function factCheckNews(text: string, file: { data: string, mimeType: string } | null, settings: AppSettings, url?: string, instruction?: string): Promise<FactCheckResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const contentParts: any[] = [];
     
     let prompt = `
@@ -290,7 +277,6 @@ export async function factCheckNews(text: string, file: { data: string, mimeType
 
     const parsedResult: FactCheckResult = safeJsonParse(response.text, { overallCredibility: "Error", summary: "Failed to parse model response.", sources: [] });
     
-    // Add grounding metadata if available
     if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
         parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
     }
@@ -302,9 +288,13 @@ export async function analyzeMedia(
     url: string | null,
     file: { data: string, mimeType: string } | null,
     userPrompt: string,
-    instruction: string
+    instruction: string,
+    settings: AppSettings
 ): Promise<MediaAnalysisResult> {
-    const ai = getAIClient();
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const contentParts: any[] = [];
     
     let prompt = `
@@ -360,13 +350,14 @@ export async function analyzeMedia(
     });
 
     const parsedResult = safeJsonParse(response.text, {} as MediaAnalysisResult);
-    // Grounding metadata is not available when using responseSchema
     return parsedResult;
 }
 
-// ... Add all other geminiService functions here following the same pattern ...
-export async function generateAIInstruction(taskLabel: string): Promise<string> {
-    const ai = getAIClient();
+export async function generateAIInstruction(taskLabel: string, settings: AppSettings): Promise<string> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+    
     const prompt = `Create a detailed, expert-level system instruction prompt in Persian for an AI model. The task is: "${taskLabel}". The prompt should be clear, concise, and guide the model to produce high-quality, structured output.`;
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -375,9 +366,12 @@ export async function generateAIInstruction(taskLabel: string): Promise<string> 
     return response.text;
 }
 
-export async function testAIInstruction(instruction: string): Promise<boolean> {
+export async function testAIInstruction(instruction: string, settings: AppSettings): Promise<boolean> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) return false;
+    
     try {
-        const ai = getAIClient();
+        const ai = new GoogleGenAI({ apiKey });
         await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: "Test prompt",
@@ -390,8 +384,11 @@ export async function testAIInstruction(instruction: string): Promise<boolean> {
     }
 }
 
-export async function findSourcesWithAI(category: SourceCategory, existingSources: Source[], options: FindSourcesOptions): Promise<Partial<Source>[]> {
-    const ai = getAIClient();
+export async function findSourcesWithAI(category: SourceCategory, existingSources: Source[], options: FindSourcesOptions, settings: AppSettings): Promise<Partial<Source>[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         Find ${options.count} new, high-quality news sources for the category "${category}".
         - Region: ${options.region}
@@ -413,8 +410,11 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
 }
 
 
-export async function fetchPodcasts(query: string, instruction: string): Promise<PodcastResult[]> {
-    const ai = getAIClient();
+export async function fetchPodcasts(query: string, instruction: string, settings: AppSettings): Promise<PodcastResult[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}\nFind podcasts related to: "${query}"
         Your entire response MUST be a single, valid JSON array of PodcastResult objects.
@@ -439,8 +439,11 @@ export async function fetchPodcasts(query: string, instruction: string): Promise
     return parsedResult;
 }
 
-export async function fetchWebResults(searchType: string, filters: Filters, instruction: string): Promise<{ results: WebResult[], sources: GroundingSource[], suggestions: string[] }> {
-    const ai = getAIClient();
+export async function fetchWebResults(searchType: string, filters: Filters, instruction: string, settings: AppSettings): Promise<{ results: WebResult[], sources: GroundingSource[], suggestions: string[] }> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
       ${instruction}\nSearch for ${searchType} about "${filters.query}" with these filters: ${JSON.stringify(filters)}. Also provide related suggestions.
       Your entire response MUST be a single, valid JSON object with two keys: "results" (an array of WebResult objects) and "suggestions" (an array of strings).
@@ -463,8 +466,10 @@ export async function fetchWebResults(searchType: string, filters: Filters, inst
 
 // --- Content Generation ---
 
-export async function generateSeoKeywords(topic: string, instruction: string): Promise<string[]> {
-    const ai = getAIClient();
+export async function generateSeoKeywords(topic: string, instruction: string, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `${instruction}\nGenerate SEO keywords for: "${topic}"`;
     const response = await ai.models.generateContent({ 
         model: "gemini-2.5-flash", 
@@ -474,22 +479,29 @@ export async function generateSeoKeywords(topic: string, instruction: string): P
     return response.text.split(',').map(k => k.trim());
 }
 
-export async function suggestWebsiteNames(topic: string, instruction: string): Promise<string[]> {
-     const ai = getAIClient();
+export async function suggestWebsiteNames(topic: string, instruction: string, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `${instruction}\nSuggest website names for: "${topic}"`;
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
     return response.text.split('\n').map(k => k.trim().replace(/^- /, ''));
 }
 
-export async function suggestDomainNames(topic: string, instruction: string): Promise<string[]> {
-    const ai = getAIClient();
+export async function suggestDomainNames(topic: string, instruction: string, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `${instruction}\nSuggest domain names for: "${topic}"`;
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
     return response.text.split('\n').map(k => k.trim());
 }
 
-export async function generateArticle(topic: string, wordCount: number, instruction: string): Promise<{articleText: string, groundingSources: GroundingSource[]}> {
-    const ai = getAIClient();
+export async function generateArticle(topic: string, wordCount: number, instruction: string, settings: AppSettings): Promise<{articleText: string, groundingSources: GroundingSource[]}> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `${instruction}\nWrite an article about "${topic}" with approximately ${wordCount} words.`;
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -504,8 +516,11 @@ export async function generateArticle(topic: string, wordCount: number, instruct
     return { articleText: response.text, groundingSources };
 }
 
-export async function generateImagesForArticle(prompt: string, count: number, style: string): Promise<string[]> {
-    const ai = getAIClient();
+export async function generateImagesForArticle(prompt: string, count: number, style: string, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const response = await ai.models.generateImages({
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
@@ -514,8 +529,11 @@ export async function generateImagesForArticle(prompt: string, count: number, st
     return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
 }
 
-export async function generateAboutMePage(description: string, siteUrl: string, platform: string, images: {data: string, mimeType: string}[], pageConfig: PageConfig, instruction: string): Promise<string> {
-    const ai = getAIClient();
+export async function generateAboutMePage(description: string, siteUrl: string, platform: string, images: {data: string, mimeType: string}[], pageConfig: PageConfig, instruction: string, settings: AppSettings): Promise<string> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}
         Description: ${description}
@@ -535,9 +553,11 @@ export async function generateAboutMePage(description: string, siteUrl: string, 
     return response.text.replace(/^```html\s*|```\s*$/g, '').trim();
 }
 
-// ... stubs for the rest of the functions
-export async function fetchStatistics(query: string, instruction: string): Promise<StatisticsResult> {
-    const ai = getAIClient();
+export async function fetchStatistics(query: string, instruction: string, settings: AppSettings): Promise<StatisticsResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
       ${instruction}\nFind statistics for: "${query}"
       Your entire response MUST be a single, valid JSON object matching the StatisticsResult structure.
@@ -553,8 +573,11 @@ export async function fetchStatistics(query: string, instruction: string): Promi
     });
     return safeJsonParse(response.text, {} as StatisticsResult);
 }
-export async function fetchScientificArticle(query: string, instruction: string): Promise<ScientificArticleResult> {
-    const ai = getAIClient();
+export async function fetchScientificArticle(query: string, instruction: string, settings: AppSettings): Promise<ScientificArticleResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}\nFind scientific articles for: "${query}"
         Your entire response MUST be a single, valid JSON object matching the ScientificArticleResult structure.
@@ -569,8 +592,10 @@ export async function fetchScientificArticle(query: string, instruction: string)
     });
     return safeJsonParse(response.text, {} as ScientificArticleResult);
 }
-export async function fetchReligiousText(query: string, instruction: string): Promise<ScientificArticleResult> {
-     const ai = getAIClient();
+export async function fetchReligiousText(query: string, instruction: string, settings: AppSettings): Promise<ScientificArticleResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         ${instruction}\nFind religious text for: "${query}"
         Your entire response MUST be a single, valid JSON object matching the ScientificArticleResult structure.
@@ -585,8 +610,11 @@ export async function fetchReligiousText(query: string, instruction: string): Pr
     });
     return safeJsonParse(response.text, {} as ScientificArticleResult);
 }
-export async function generateContextualFilters(listType: string, context: any): Promise<string[]> {
-    const ai = getAIClient();
+export async function generateContextualFilters(listType: string, context: any, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         Based on this context: ${JSON.stringify(context)}, generate 5 relevant filters for "${listType}".
         Your entire response MUST be a single, valid JSON array of strings.
@@ -601,9 +629,10 @@ export async function generateContextualFilters(listType: string, context: any):
     });
     return safeJsonParse(response.text, []);
 }
-export async function analyzeVideoFromUrl(url: string, type: string, keywords: string, instruction: string): Promise<any> {
-    // This is a placeholder, video analysis is more complex.
-    const ai = getAIClient();
+export async function analyzeVideoFromUrl(url: string, type: string, keywords: string, instruction: string, settings: AppSettings): Promise<any> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         ${instruction}\nAnalyze video from URL: ${url}\nAnalysis type: ${type}\nKeywords: ${keywords}
         Your entire response MUST be a single, valid JSON object.
@@ -618,14 +647,18 @@ export async function analyzeVideoFromUrl(url: string, type: string, keywords: s
     });
     return safeJsonParse(response.text, {});
 }
-export async function formatTextContent(text: string | null, url: string | null, instruction: string): Promise<string> {
-    const ai = getAIClient();
+export async function formatTextContent(text: string | null, url: string | null, instruction: string, settings: AppSettings): Promise<string> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `${instruction}\nFormat this content:\n${text || `Content from URL: ${url}`}`;
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt});
     return response.text;
 }
-export async function analyzeAgentRequest(topic: string, request: string, instruction: string): Promise<AgentClarificationRequest> {
-     const ai = getAIClient();
+export async function analyzeAgentRequest(topic: string, request: string, instruction: string, settings: AppSettings): Promise<AgentClarificationRequest> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         ${instruction}\nAnalyze this agent request.\nTopic: ${topic}\nRequest: ${request}
         Your entire response MUST be a single, valid JSON object matching the AgentClarificationRequest structure.
@@ -634,8 +667,10 @@ export async function analyzeAgentRequest(topic: string, request: string, instru
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json" }});
     return safeJsonParse(response.text, { isClear: true });
 }
-export async function executeAgentTask(prompt: string, instruction: string): Promise<AgentExecutionResult> {
-     const ai = getAIClient();
+export async function executeAgentTask(prompt: string, instruction: string, settings: AppSettings): Promise<AgentExecutionResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: `
@@ -647,8 +682,11 @@ export async function executeAgentTask(prompt: string, instruction: string): Pro
     });
     return safeJsonParse(response.text, {} as AgentExecutionResult);
 }
-export async function generateKeywordsForTopic(mainTopic: string, comparisonTopic: string): Promise<string[]> {
-     const ai = getAIClient();
+export async function generateKeywordsForTopic(mainTopic: string, comparisonTopic: string, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         Generate keywords for topic "${mainTopic}" ${comparisonTopic ? `and comparison topic "${comparisonTopic}"` : ''}
         Your entire response MUST be a single, valid JSON array of strings.
@@ -663,8 +701,11 @@ export async function generateKeywordsForTopic(mainTopic: string, comparisonTopi
     });
     return safeJsonParse(response.text, []);
 }
-export async function fetchGeneralTopicAnalysis(mainTopic: string, comparisonTopic: string, keywords: string[], domains: string[], instruction: string): Promise<GeneralTopicResult> {
-    const ai = getAIClient();
+export async function fetchGeneralTopicAnalysis(mainTopic: string, comparisonTopic: string, keywords: string[], domains: string[], instruction: string, settings: AppSettings): Promise<GeneralTopicResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}\nTopic: ${mainTopic}\nComparison: ${comparisonTopic}\nKeywords: ${keywords.join(', ')}\nDomains: ${domains.join(', ')}
         Your entire response MUST be a single, valid JSON object matching the GeneralTopicResult structure.
@@ -673,8 +714,11 @@ export async function fetchGeneralTopicAnalysis(mainTopic: string, comparisonTop
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}});
     return safeJsonParse(response.text, {} as GeneralTopicResult);
 }
-export async function fetchCryptoData(type: string, timeframe: string, count: number, instruction: string, ids?: string[]): Promise<CryptoCoin[]> {
-    const ai = getAIClient();
+export async function fetchCryptoData(type: string, timeframe: string, count: number, instruction: string, settings: AppSettings, ids?: string[]): Promise<CryptoCoin[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const prompt = `
         ${instruction}\nFetch ${count} crypto coins. Type: ${type}. Timeframe: ${timeframe}. ${ids ? `IDs: ${ids.join(', ')}` : ''}
         Your entire response MUST be a single, valid JSON array of CryptoCoin objects.
@@ -683,8 +727,10 @@ export async function fetchCryptoData(type: string, timeframe: string, count: nu
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}});
     return safeJsonParse(response.text, []);
 }
-export async function fetchCoinList(instruction: string): Promise<SimpleCoin[]> {
-    const ai = getAIClient();
+export async function fetchCoinList(instruction: string, settings: AppSettings): Promise<SimpleCoin[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         ${instruction}\nFetch a list of all major crypto coins.
         Your entire response MUST be a single, valid JSON array of SimpleCoin objects.
@@ -699,8 +745,10 @@ export async function fetchCoinList(instruction: string): Promise<SimpleCoin[]> 
     });
     return safeJsonParse(response.text, []);
 }
-export async function searchCryptoCoin(query: string, instruction: string): Promise<CryptoSearchResult> {
-    const ai = getAIClient();
+export async function searchCryptoCoin(query: string, instruction: string, settings: AppSettings): Promise<CryptoSearchResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         ${instruction}\nSearch for crypto coin: "${query}"
         Your entire response MUST be a single, valid JSON object matching the CryptoSearchResult structure.
@@ -709,8 +757,10 @@ export async function searchCryptoCoin(query: string, instruction: string): Prom
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
     return safeJsonParse(response.text, {} as CryptoSearchResult);
 }
-export async function fetchCryptoAnalysis(coinName: string, instruction: string): Promise<CryptoAnalysisResult> {
-    const ai = getAIClient();
+export async function fetchCryptoAnalysis(coinName: string, instruction: string, settings: AppSettings): Promise<CryptoAnalysisResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         ${instruction}\nAnalyze crypto coin: "${coinName}"
         Your entire response MUST be a single, valid JSON object matching the CryptoAnalysisResult structure.
@@ -719,8 +769,11 @@ export async function fetchCryptoAnalysis(coinName: string, instruction: string)
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
     return safeJsonParse(response.text, {} as CryptoAnalysisResult);
 }
-export async function analyzeContentDeeply(topic: string, file: any, instruction: string): Promise<AnalysisResult> {
-    const ai = getAIClient();
+export async function analyzeContentDeeply(topic: string, file: any, instruction: string, settings: AppSettings): Promise<AnalysisResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const contentParts: any[] = [{ text: `
         ${instruction}\nAnalyze topic: ${topic}
         Your entire response MUST be a single, valid JSON object matching the AnalysisResult structure.
@@ -730,8 +783,10 @@ export async function analyzeContentDeeply(topic: string, file: any, instruction
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
     return safeJsonParse(response.text, {} as AnalysisResult);
 }
-export async function findFallacies(topic: string, file: any, instruction: string): Promise<FallacyResult> {
-    const ai = getAIClient();
+export async function findFallacies(topic: string, file: any, instruction: string, settings: AppSettings): Promise<FallacyResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const contentParts: any[] = [{ text: `
         ${instruction}\nFind fallacies in: ${topic}
         Your entire response MUST be a single, valid JSON object matching the FallacyResult structure.
@@ -741,20 +796,26 @@ export async function findFallacies(topic: string, file: any, instruction: strin
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
     return safeJsonParse(response.text, {} as FallacyResult);
 }
-export async function generateWordPressThemePlan(themeType: string, url: string, desc: string, imgDesc: string, instruction: string): Promise<WordPressThemePlan> {
-    const ai = getAIClient();
+export async function generateWordPressThemePlan(themeType: string, url: string, desc: string, imgDesc: string, instruction: string, settings: AppSettings): Promise<WordPressThemePlan> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `${instruction}\nType: ${themeType}\nInspiration URL: ${url}\nDescription: ${desc}\nImage Desc: ${imgDesc}`;
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json" }});
     return safeJsonParse(response.text, {} as WordPressThemePlan);
 }
-export async function generateWordPressThemeCode(plan: WordPressThemePlan, file: string): Promise<string> {
-    const ai = getAIClient();
+export async function generateWordPressThemeCode(plan: WordPressThemePlan, file: string, settings: AppSettings): Promise<string> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `Based on this plan: ${JSON.stringify(plan)}\nGenerate the code for the file: ${file}`;
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt});
     return response.text.replace(/^```(php|css|js)?\s*|```\s*$/g, '').trim();
 }
-export async function getDebateTurnResponse(transcript: TranscriptEntry[], role: DebateRole, turn: number, config: DebateConfig, isFinal: boolean, instruction: string, provider: AIModelProvider): Promise<GenerateContentResponse> {
-    const ai = getAIClient();
+export async function getDebateTurnResponse(transcript: TranscriptEntry[], role: DebateRole, turn: number, config: DebateConfig, isFinal: boolean, instruction: string, provider: AIModelProvider, settings: AppSettings): Promise<GenerateContentResponse> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
 
     const transcriptText = transcript.map(t => `${t.participant.name} (${debateRoleLabels[t.participant.role]}): ${t.text}`).join('\n\n');
     
@@ -791,9 +852,12 @@ export async function getDebateTurnResponse(transcript: TranscriptEntry[], role:
 export async function getAIOpponentResponse(
     transcript: ConductDebateMessage[],
     config: ConductDebateConfig,
-    instruction: string
+    instruction: string,
+    settings: AppSettings
 ): Promise<GenerateContentResponse> {
-    const ai = getAIClient();
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const transcriptText = transcript.map(t => `${t.role === 'user' ? 'شما' : 'هوش مصنوعی'}: ${t.text}`).join('\n\n');
 
     const prompt = `
@@ -819,9 +883,13 @@ export async function getAIOpponentResponse(
 export async function analyzeUserDebate(
     transcript: ConductDebateMessage[],
     topic: string,
-    instruction: string
+    instruction: string,
+    settings: AppSettings
 ): Promise<DebateAnalysisResult> {
-    const ai = getAIClient();
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
     const transcriptText = transcript.map(t => `${t.role === 'user' ? 'User' : 'AI'}: ${t.text}`).join('\n\n');
 
     const prompt = `
@@ -873,8 +941,10 @@ export async function analyzeUserDebate(
     return safeJsonParse(response.text, {} as DebateAnalysisResult);
 }
 
-export async function findFeedsWithAI(category: SourceCategory, existing: RSSFeed[]): Promise<Partial<RSSFeed>[]> {
-     const ai = getAIClient();
+export async function findFeedsWithAI(category: SourceCategory, existing: RSSFeed[], settings: AppSettings): Promise<Partial<RSSFeed>[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         Find 5 new RSS feeds for category "${category}", excluding these URLs: ${existing.map(f => f.url).join(', ')}
         Your entire response MUST be a single, valid JSON array of objects. Each object MUST have "name" and "url" properties.
@@ -884,15 +954,19 @@ export async function findFeedsWithAI(category: SourceCategory, existing: RSSFee
     return safeJsonParse(response.text, []);
 }
 
-export async function generateEditableListItems(listName: string, listType: string, count: number): Promise<string[]> {
-    const ai = getAIClient();
+export async function generateEditableListItems(listName: string, listType: string, count: number, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `Generate a list of ${count} items for a settings page. The list is for "${listName}". Return a JSON array of strings.`;
     const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }});
     return safeJsonParse(response.text, []);
 }
 
-export async function generateResearchKeywords(topic: string, field: string): Promise<string[]> {
-    const ai = getAIClient();
+export async function generateResearchKeywords(topic: string, field: string, settings: AppSettings): Promise<string[]> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `Based on the research topic "${topic}" in the field of "${field}", generate 5 to 7 highly relevant academic and scientific keywords for database searches. Your response MUST be a single, valid JSON array of strings. Do not include any other text or markdown formatting.`;
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -902,8 +976,10 @@ export async function generateResearchKeywords(topic: string, field: string): Pr
     return safeJsonParse(response.text, []);
 }
 
-export async function fetchResearchData(topic: string, field: string, keywords: string[]): Promise<ResearchResult> {
-    const ai = getAIClient();
+export async function fetchResearchData(topic: string, field: string, keywords: string[], settings: AppSettings): Promise<ResearchResult> {
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `
         Conduct a deep academic analysis on the following topic for a Persian-speaking audience.
         - Topic: "${topic}"
@@ -928,7 +1004,6 @@ export async function fetchResearchData(topic: string, field: string, keywords: 
         contents: prompt,
         config: {
             tools: [{ googleSearch: {} }],
-            // Removed responseMimeType and responseSchema which are incompatible with the googleSearch tool
         }
     });
 
@@ -942,9 +1017,12 @@ export async function fetchResearchData(topic: string, field: string, keywords: 
 export async function fetchStatisticalResearch(
     topic: string,
     comparisonTopics: string[],
-    keywords: string[]
+    keywords: string[],
+    settings: AppSettings
 ): Promise<StatisticalResearchResult> {
-    const ai = getAIClient();
+    const apiKey = getApiKey(settings);
+    if (!apiKey) throw new Error("Gemini API key not configured.");
+    const ai = new GoogleGenAI({ apiKey });
     const jsonStructure = `
     {
       "understanding": "string",

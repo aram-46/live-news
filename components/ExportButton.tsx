@@ -1,6 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
+// FIX: Add all missing icon imports.
 import { DownloadIcon, CameraIcon, FilePdfIcon, FileWordIcon, FileExcelIcon, FileCodeIcon } from './icons';
 
 interface ExportButtonProps {

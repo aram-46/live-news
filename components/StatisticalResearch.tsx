@@ -22,7 +22,7 @@ const StatisticalResearch: React.FC<{ settings: AppSettings }> = ({ settings }) 
         }
         setIsKeywordsLoading(true);
         try {
-            const newKeywords = await generateResearchKeywords(mainTopic, '');
+            const newKeywords = await generateResearchKeywords(mainTopic, '', settings);
             setKeywords(prev => [...new Set([...prev, ...newKeywords])]);
         } catch (err) {
             console.error(err);
@@ -30,7 +30,7 @@ const StatisticalResearch: React.FC<{ settings: AppSettings }> = ({ settings }) 
         } finally {
             setIsKeywordsLoading(false);
         }
-    }, [mainTopic]);
+    }, [mainTopic, settings]);
 
     const handleSearch = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,7 +42,7 @@ const StatisticalResearch: React.FC<{ settings: AppSettings }> = ({ settings }) 
 
         try {
             const comparisonTopics = [comparisonTopic1, comparisonTopic2].filter(t => t.trim() !== '');
-            const apiResult = await fetchStatisticalResearch(mainTopic, comparisonTopics, keywords);
+            const apiResult = await fetchStatisticalResearch(mainTopic, comparisonTopics, keywords, settings);
             setResult(apiResult);
         } catch (err) {
             console.error("Error during statistical research:", err);
@@ -50,7 +50,7 @@ const StatisticalResearch: React.FC<{ settings: AppSettings }> = ({ settings }) 
         } finally {
             setIsLoading(false);
         }
-    }, [mainTopic, comparisonTopic1, comparisonTopic2, keywords, settings.aiInstructions]);
+    }, [mainTopic, comparisonTopic1, comparisonTopic2, keywords, settings]);
 
     return (
         <div className="space-y-8">

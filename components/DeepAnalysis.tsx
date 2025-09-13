@@ -54,9 +54,9 @@ const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
             const instruction = settings.aiInstructions[instructionKey] || `You are an expert ${analyzerTabLabels[activeAnalysisTab]} analyst.`;
 
             if (isFallacyFinder) {
-                apiResult = await findFallacies(topic, fileData, instruction);
+                apiResult = await findFallacies(topic, fileData, instruction, settings);
             } else {
-                apiResult = await analyzeContentDeeply(topic, fileData, instruction);
+                apiResult = await analyzeContentDeeply(topic, fileData, instruction, settings);
             }
             setResult(apiResult);
         } catch (err) {

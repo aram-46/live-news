@@ -36,7 +36,6 @@ const ScoreCircle: React.FC<{ score: number }> = ({ score }) => {
     );
 };
 
-// FIX: Correctly destructure settings from props to make it available within the component.
 const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     const [config, setConfig] = useState<ConductDebateConfig>({
         topic: '',
@@ -80,7 +79,7 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setIsLoading(true);
 
         try {
-            const response = await getAIOpponentResponse(newTranscript, config, "You are a skilled debater. Respond to the user's argument according to your assigned role.");
+            const response = await getAIOpponentResponse(newTranscript, config, "You are a skilled debater. Respond to the user's argument according to your assigned role.", settings);
             const aiMessage: ConductDebateMessage = { id: generateUUID(), role: 'model', text: response.text, timestamp: Date.now() };
             setTranscript(prev => [...prev, aiMessage]);
         } catch (err) {
@@ -116,7 +115,7 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setDebateState('analyzing');
         if (config.analyzePerformance) {
             try {
-                const result = await analyzeUserDebate(transcript, config.topic, settings.aiInstructions['analyzer-user-debate']);
+                const result = await analyzeUserDebate(transcript, config.topic, settings.aiInstructions['analyzer-user-debate'], settings);
                 setAnalysisResult(result);
                 saveDebateToHistory(result);
             } catch (err) {
@@ -129,7 +128,7 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     };
     
     const isProviderEnabled = (provider: AIModelProvider): boolean => {
-        if (provider === 'gemini') return !!process.env.API_KEY;
+        if (provider === 'gemini') return !!(settings.aiModelSettings.gemini.apiKey || process.env.API_KEY);
         const modelSettings = settings.aiModelSettings[provider as keyof typeof settings.aiModelSettings];
         // @ts-ignore
         return 'apiKey' in modelSettings && !!modelSettings.apiKey;

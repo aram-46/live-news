@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
+// FIX: Add missing icon imports
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon, BeakerIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 import { AppSettings } from './types';
@@ -92,7 +94,7 @@ const App: React.FC = () => {
   const loadTicker = useCallback(async () => {
       if (!settings) return;
       try {
-        const headlines = await fetchTickerHeadlines(settings.allTickerCategories, settings.aiInstructions['news-ticker']);
+        const headlines = await fetchTickerHeadlines(settings.allTickerCategories, settings.aiInstructions['news-ticker'], settings);
         setTickerHeadlines(headlines);
       } catch (error) {
         console.error("Error loading ticker headlines:", error);
@@ -151,7 +153,7 @@ const App: React.FC = () => {
             {renderNavButton('history', <DocumentTextIcon className="w-5 h-5" />, 'تاریخچه')}
             {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
             <div className="border-l border-gray-600/50 h-6 mx-2"></div>
-            <ConnectionStatus />
+            <ConnectionStatus settings={settings} />
           </nav>
         </div>
       </header>

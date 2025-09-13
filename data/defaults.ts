@@ -1,9 +1,12 @@
+
 import { AppSettings, generateUUID } from '../types';
 
 export const THEMES = [
     { id: 'ocean-breeze', name: 'نسیم اقیانوس (پیش‌فرض)', className: 'theme-base' },
     { id: 'neon-dreams', name: 'رویای نئونی', className: 'theme-neon-dreams' },
     { id: 'solar-flare', name: 'شراره خورشیدی', className: 'theme-solar-flare' },
+    { id: 'emerald-forest', name: 'جنگل زمرد', className: 'theme-emerald-forest' },
+    { id: 'royal-gold', name: 'طلای سلطنتی', className: 'theme-royal-gold' },
 ];
 
 export const INITIAL_SETTINGS: AppSettings = {

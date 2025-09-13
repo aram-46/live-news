@@ -116,7 +116,7 @@ const PageBuilder: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 .filter((s: Slide) => s.type === 'upload')
                 .map((img: Slide) => ({ data: img.content, mimeType: 'image/png' })); // Simplification for mime type
             
-            const html = await generateAboutMePage(description, siteUrl, platform, imagePayload, pageConfig, settings.aiInstructions['page-builder']);
+            const html = await generateAboutMePage(description, siteUrl, platform, imagePayload, pageConfig, settings.aiInstructions['page-builder'], settings);
             setResultHtml(html);
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;

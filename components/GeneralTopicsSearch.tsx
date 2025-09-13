@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useRef } from 'react';
 import { AppSettings, GeneralTopicResult } from '../types';
 import { generateKeywordsForTopic, fetchGeneralTopicAnalysis } from '../services/geminiService';
@@ -40,7 +38,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
         }
         setIsKeywordsLoading(true);
         try {
-            const newKeywords = await generateKeywordsForTopic(mainTopic, comparisonTopic);
+            const newKeywords = await generateKeywordsForTopic(mainTopic, comparisonTopic, settings);
             setKeywords(prev => [...new Set([...prev, ...newKeywords])]);
         } catch (err) {
             console.error(err);
@@ -48,7 +46,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
         } finally {
             setIsKeywordsLoading(false);
         }
-    }, [mainTopic, comparisonTopic]);
+    }, [mainTopic, comparisonTopic, settings]);
 
     const handleSearch = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,7 +58,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
 
         try {
             const instructions = settings.aiInstructions['general-topics'];
-            const apiResult = await fetchGeneralTopicAnalysis(mainTopic, comparisonTopic, keywords, selectedDomains, instructions);
+            const apiResult = await fetchGeneralTopicAnalysis(mainTopic, comparisonTopic, keywords, selectedDomains, instructions, settings);
             setResult(apiResult);
         } catch (err) {
             console.error("Error during general topic search:", err);
@@ -68,7 +66,7 @@ const GeneralTopicsSearch: React.FC<GeneralTopicsSearchProps> = ({ settings, onO
         } finally {
             setIsLoading(false);
         }
-    }, [mainTopic, comparisonTopic, keywords, selectedDomains, settings.aiInstructions]);
+    }, [mainTopic, comparisonTopic, keywords, selectedDomains, settings.aiInstructions, settings]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

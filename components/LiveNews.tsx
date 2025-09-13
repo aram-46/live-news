@@ -50,7 +50,7 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 setError("هیچ آدرس خبرخوانی در تنظیمات ثبت نشده است.");
                 return;
             }
-            const results = await fetchNewsFromFeeds(allFeeds, settings.aiInstructions['rss-feeds'], query);
+            const results = await fetchNewsFromFeeds(allFeeds, settings.aiInstructions['rss-feeds'], settings, query);
             setArticles(results);
             if (query) {
                 saveSearchToHistory(query, results);
@@ -141,7 +141,7 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
     setError(prev => ({ ...prev, [tabId]: null }));
     setUpdateAvailable(false);
     try {
-      const results = await fetchLiveNews(tabId, settings.sources, settings.aiInstructions['news-display'], settings.display.showImages, settings.liveNewsSpecifics);
+      const results = await fetchLiveNews(tabId, settings.sources, settings.aiInstructions['news-display'], settings.display.showImages, settings.liveNewsSpecifics, settings);
       setNews(prev => ({ ...prev, [tabId]: results }));
       setLastUpdated(new Date());
     } catch (err) {
@@ -166,7 +166,7 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
     }
 
     const check = async () => {
-        const hasUpdate = await checkForUpdates(settings.sources);
+        const hasUpdate = await checkForUpdates(settings.sources, settings);
         if(hasUpdate) {
             setUpdateAvailable(true);
         }

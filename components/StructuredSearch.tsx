@@ -92,11 +92,11 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
             const instruction = settings.aiInstructions[`${searchType}-search`];
 
             if (searchType === 'stats') {
-                apiResult = await fetchStatistics(fullQuery, instruction);
+                apiResult = await fetchStatistics(fullQuery, instruction, settings);
             } else if (searchType === 'science') {
-                apiResult = await fetchScientificArticle(fullQuery, instruction);
+                apiResult = await fetchScientificArticle(fullQuery, instruction, settings);
             } else { // religion
-                apiResult = await fetchReligiousText(fullQuery, instruction);
+                apiResult = await fetchReligiousText(fullQuery, instruction, settings);
             }
             setResult(apiResult);
         } catch (err) {
@@ -118,7 +118,7 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                 topic: query,
                 fields: selectedFields,
                 regions: selectedRegions,
-            });
+            }, settings);
 
             if (listType === 'fields') setFields(prev => [...new Set([...prev, ...newItems])]);
             if (listType === 'regions') setRegions(prev => [...new Set([...prev, ...newItems])]);

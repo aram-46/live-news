@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { AppSettings, GroundingSource } from '../types';
 import { generateSeoKeywords, suggestWebsiteNames, suggestDomainNames, generateArticle, generateImagesForArticle } from '../services/geminiService';
@@ -95,9 +96,9 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setSeoLoading(type);
         try {
             let result: string[] = [];
-            if (type === 'keywords') result = await generateSeoKeywords(seoTopic, settings.aiInstructions['seo-keywords']);
-            if (type === 'names') result = await suggestWebsiteNames(seoTopic, settings.aiInstructions['website-names']);
-            if (type === 'domains') result = await suggestDomainNames(seoTopic, settings.aiInstructions['domain-names']);
+            if (type === 'keywords') result = await generateSeoKeywords(seoTopic, settings.aiInstructions['seo-keywords'], settings);
+            if (type === 'names') result = await suggestWebsiteNames(seoTopic, settings.aiInstructions['website-names'], settings);
+            if (type === 'domains') result = await suggestDomainNames(seoTopic, settings.aiInstructions['domain-names'], settings);
             
             if (type === 'keywords') setSeoKeywords(result);
             if (type === 'names') setWebsiteNames(result);
@@ -113,12 +114,12 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setArticleSources([]);
         try {
             // FIX: The generateArticle function now returns an object. Destructure it correctly.
-            const { articleText, groundingSources } = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation']);
+            const { articleText, groundingSources } = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation'], settings);
             setArticleText(articleText);
             setArticleSources(groundingSources || []);
             
             // Also generate keywords for the article
-            const keywords = await generateSeoKeywords(articleTopic, settings.aiInstructions['seo-keywords']);
+            const keywords = await generateSeoKeywords(articleTopic, settings.aiInstructions['seo-keywords'], settings);
             setArticleKeywords(keywords);
         } catch (err) { console.error(err); } finally { setArticleLoading(null); }
     }, [articleTopic, wordCount, settings]);
@@ -129,10 +130,10 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setImages([]);
         try {
             const prompt = `یک تصویر برای مقاله‌ای با موضوع "${articleTopic}". سبک تصویر: ${imageType}. توضیحات بیشتر: ${articleText.substring(0, 200)}`;
-            const resultImages = await generateImagesForArticle(prompt, imageCount, "");
+            const resultImages = await generateImagesForArticle(prompt, imageCount, "", settings);
             setImages(resultImages);
         } catch (err) { console.error(err); } finally { setArticleLoading(null); }
-    }, [articleTopic, articleText, imageCount, imageType]);
+    }, [articleTopic, articleText, imageCount, imageType, settings]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

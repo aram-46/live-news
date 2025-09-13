@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Filters, NewsArticle, AppSettings, SearchTab, PodcastResult, StanceHolder, HostingSite, GroundingSource } from '../types';
-import { fetchNews, fetchPodcasts } from '../services/geminiService';
+import { fetchNews, fetchPodcasts, fetchWebResults } from '../services/geminiService';
 import FilterPanel from './FilterPanel';
 import NewsResults from './NewsResults';
 import { RefreshIcon, SparklesIcon, SpeakerWaveIcon, SearchIcon, ThumbsUpIcon, ThumbsDownIcon, LinkIcon, ClipboardIcon, CheckCircleIcon } from './icons';
@@ -122,7 +122,7 @@ const PodcastSearch: React.FC<{ settings: AppSettings; }> = ({ settings }) => {
         setError(null);
         setResults([]);
         try {
-            const apiResults = await fetchPodcasts(query, settings.aiInstructions['podcast-search']);
+            const apiResults = await fetchPodcasts(query, settings.aiInstructions['podcast-search'], settings);
             setResults(apiResults);
         } catch (err) {
             setError('خطا در جستجوی پادکست. لطفا دوباره تلاش کنید.');
@@ -201,7 +201,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onSettingsCha
     setNews([]);
     setSuggestions([]);
     try {
-      const { articles, suggestions: apiSuggestions } = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages);
+      const { articles, suggestions: apiSuggestions } = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages, settings);
       setNews(articles);
       setSuggestions(apiSuggestions);
     } catch (error) {
