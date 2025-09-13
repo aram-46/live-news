@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { AppSettings, AIModelProvider } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { AppSettings, AppAIModelSettings } from '../../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from '../icons';
 import { checkApiKeyStatus, ApiKeyStatus } from '../../services/geminiService';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../../services/integrationService';
@@ -13,118 +12,114 @@ interface AIModelSettingsProps {
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsChange }) => {
-    const { aiModelSettings, defaultProvider } = settings;
-    const [geminiStatus, setGeminiStatus] = useState<ApiKeyStatus | 'checking' | 'idle'>('idle');
+    const [geminiRealStatus, setGeminiRealStatus] = useState<ApiKeyStatus | 'checking'>('checking');
     const [openaiStatus, setOpenaiStatus] = useState<TestStatus>('idle');
     const [openrouterStatus, setOpenrouterStatus] = useState<TestStatus>('idle');
     const [groqStatus, setGroqStatus] = useState<TestStatus>('idle');
 
-    const handleSettingsChange = (change: Partial<AppSettings>) => {
-        onSettingsChange({ ...settings, ...change });
-    };
+    useEffect(() => {
+        const checkStatus = async () => {
+            const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+            const status = await checkApiKeyStatus(keyToCheck);
+            setGeminiRealStatus(status);
+        };
+        checkStatus();
+    }, [settings.aiModelSettings.gemini.apiKey]);
 
     const handleApiKeyChange = (
-        provider: keyof typeof aiModelSettings, 
+        provider: keyof AppAIModelSettings, 
         field: string,
         value: string,
-        statusSetter: React.Dispatch<React.SetStateAction<any>>
+        statusSetter: React.Dispatch<React.SetStateAction<TestStatus>>
     ) => {
         statusSetter('idle');
-        handleSettingsChange({
-            aiModelSettings: {
-                ...aiModelSettings,
-                [provider]: { ...aiModelSettings[provider as keyof typeof aiModelSettings], [field]: value }
-            }
+        const newAiModelSettings = {
+            ...settings.aiModelSettings,
+            [provider]: { ...settings.aiModelSettings[provider], [field]: value }
+        };
+        onSettingsChange({
+            ...settings,
+            aiModelSettings: newAiModelSettings
         });
     };
 
     const handleTestGemini = async () => {
-        setGeminiStatus('checking');
-        const keyToTest = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
-        const status = await checkApiKeyStatus(keyToTest);
-        setGeminiStatus(status);
-        setTimeout(() => setGeminiStatus('idle'), 5000);
+        setGeminiRealStatus('checking');
+        const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+        const status = await checkApiKeyStatus(keyToCheck);
+        setGeminiRealStatus(status);
+        setTimeout(() => setGeminiRealStatus('checking'), 5000); // Reset after a while
     };
 
     const handleTestOpenAI = async () => {
         setOpenaiStatus('testing');
-        const success = await testOpenAIConnection(aiModelSettings.openai.apiKey);
+        const success = await testOpenAIConnection(settings.aiModelSettings.openai.apiKey);
         setOpenaiStatus(success ? 'success' : 'error');
         setTimeout(() => setOpenaiStatus('idle'), 4000);
     };
 
     const handleTestOpenRouter = async () => {
         setOpenrouterStatus('testing');
-        const success = await testOpenRouterConnection(aiModelSettings.openrouter.apiKey);
+        const success = await testOpenRouterConnection(settings.aiModelSettings.openrouter.apiKey);
         setOpenrouterStatus(success ? 'success' : 'error');
         setTimeout(() => setOpenrouterStatus('idle'), 4000);
     };
 
     const handleTestGroq = async () => {
         setGroqStatus('testing');
-        const success = await testGroqConnection(aiModelSettings.groq.apiKey);
+        const success = await testGroqConnection(settings.aiModelSettings.groq.apiKey);
         setGroqStatus(success ? 'success' : 'error');
         setTimeout(() => setGroqStatus('idle'), 4000);
     };
     
-    const isProviderEnabled = (provider: AIModelProvider): boolean => {
-        if (provider === 'gemini') return !!(settings.aiModelSettings.gemini.apiKey || process.env.API_KEY);
-        if (provider === 'openai') return !!aiModelSettings.openai.apiKey;
-        if (provider === 'openrouter') return !!aiModelSettings.openrouter.apiKey;
-        if (provider === 'groq') return !!aiModelSettings.groq.apiKey;
-        return false;
-    }
-
-    // FIX: Add 'checking' to the status type to handle all possible states.
     const renderStatusIcon = (status: TestStatus | ApiKeyStatus | 'checking') => {
         if (status === 'testing' || status === 'checking') return <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>;
         if (status === 'success' || status === 'valid') return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
         if (status === 'error' || status === 'invalid_key' || status === 'not_set') return <CloseIcon className="w-5 h-5 text-red-400" />;
-        // FIX: Removed invalid 'title' prop from CloseIcon component.
         if (status === 'network_error') return <CloseIcon className="w-5 h-5 text-yellow-400" />;
         return null;
     }
+
+    const renderGeminiStatusBadge = () => {
+        switch (geminiRealStatus) {
+            case 'valid':
+                return <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full">متصل</span>;
+            case 'invalid_key':
+            case 'not_set':
+                return <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded-full">پیکربندی نشده</span>;
+            case 'network_error':
+                 return <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">خطای شبکه</span>;
+            case 'checking':
+                 return <span className="text-xs bg-gray-500/20 text-gray-300 px-2 py-1 rounded-full">در حال بررسی...</span>;
+        }
+    }
     
     return (
-        <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-8">
-            <div>
-                 <h2 className="text-xl font-bold mb-2 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
-                 <p className="text-sm text-gray-400 mb-6">سرویس‌دهنده‌های مختلف هوش مصنوعی را مدیریت کرده و مدل پیش‌فرض برنامه را انتخاب کنید.</p>
-            </div>
-
-            <div className="p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20">
-                <label htmlFor="default-provider" className="block text-base font-medium text-cyan-300 mb-2">مدل پیش‌فرض برنامه</label>
-                 <select
-                    id="default-provider"
-                    value={defaultProvider}
-                    onChange={(e) => handleSettingsChange({ defaultProvider: e.target.value as any })}
-                    className="w-full max-w-xs bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"
-                >
-                    <option value="gemini" disabled={!isProviderEnabled('gemini')}>Google Gemini (پیشنهادی)</option>
-                    <option value="openai" disabled={!isProviderEnabled('openai')}>OpenAI</option>
-                    <option value="openrouter" disabled={!isProviderEnabled('openrouter')}>OpenRouter</option>
-                    <option value="groq" disabled={!isProviderEnabled('groq')}>Groq</option>
-                </select>
-                <p className="text-xs text-gray-400 mt-2">این مدل به صورت پیش‌فرض برای تمام قابلیت‌ها استفاده می‌شود، مگر اینکه در تب "تخصیص مدل‌ها" تنظیم دیگری اعمال شود.</p>
-            </div>
-
+        <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
+            <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Gemini Settings */}
                 <div className="space-y-4 p-4 border border-cyan-500 rounded-lg bg-gray-900/30 ring-2 ring-cyan-500/50">
-                    <h3 className="flex items-center gap-2 text-lg font-semibold text-cyan-200">
-                        <BrainIcon className="w-6 h-6"/>
-                        <span>Google Gemini (اصلی)</span>
+                    <h3 className="flex items-center justify-between text-lg font-semibold text-cyan-200">
+                        <div className="flex items-center gap-2">
+                            <BrainIcon className="w-6 h-6"/>
+                            <span>Google Gemini (اصلی)</span>
+                        </div>
+                        {renderGeminiStatusBadge()}
                     </h3>
                     <div>
-                        <label htmlFor="gemini-apiKey" className="block text-sm font-medium text-cyan-300 mb-2">کلید API</label>
-                        <input id="gemini-apiKey" name="apiKey" type="password" value={aiModelSettings.gemini.apiKey} onChange={(e) => handleApiKeyChange('gemini', 'apiKey', e.target.value, setGeminiStatus)} placeholder="کلید API خود را اینجا وارد کنید" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5"/>
-                        <p className="text-xs text-amber-400 mt-2">
-                            <strong>توجه:</strong> اگر کلیدی در اینجا وارد کنید، بر کلید API تعریف شده در محیط برنامه (environment variable) اولویت خواهد داشت.
-                        </p>
+                        <label className="block text-sm font-medium text-cyan-300 mb-2">وضعیت کلید API</label>
+                        <div className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 text-sm">
+                            {geminiRealStatus === 'not_set' ? (
+                                <span className="text-red-400">کلید API برای Gemini تنظیم نشده است. برای راهنمایی، فایل README.md را مطالعه کنید.</span>
+                            ) : (
+                                <span className="text-green-400">کلید API از طریق متغیر محیطی برنامه یا فیلد زیر تنظیم شده است.</span>
+                            )}
+                        </div>
+                         <input id="gemini-apiKey" name="apiKey" type="password" value={settings.aiModelSettings.gemini.apiKey} onChange={(e) => { const newSettings = {...settings, aiModelSettings: {...settings.aiModelSettings, gemini: {apiKey: e.target.value}}}; onSettingsChange(newSettings); }} placeholder="برای اولویت دادن، کلید را اینجا وارد کنید" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5 mt-2"/>
                     </div>
                      <div className="flex items-center gap-2">
-                        <button onClick={handleTestGemini} disabled={geminiStatus === 'checking'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
-                        <div className="w-5 h-5">{renderStatusIcon(geminiStatus)}</div>
+                        <button onClick={handleTestGemini} disabled={geminiRealStatus === 'checking'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست مجدد اتصال</button>
                     </div>
                 </div>
 
@@ -136,10 +131,10 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
                     </h3>
                     <div>
                         <label htmlFor="openai-apiKey" className="block text-sm font-medium text-gray-300 mb-2">کلید API</label>
-                        <input id="openai-apiKey" name="apiKey" type="password" value={aiModelSettings.openai.apiKey} onChange={(e) => handleApiKeyChange('openai', 'apiKey', e.target.value, setOpenaiStatus)} placeholder="کلید API خود را وارد کنید (sk-...)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5"/>
+                        <input id="openai-apiKey" name="apiKey" type="password" value={settings.aiModelSettings.openai.apiKey} onChange={(e) => handleApiKeyChange('openai', 'apiKey', e.target.value, setOpenaiStatus)} placeholder="کلید API خود را وارد کنید (sk-...)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5"/>
                     </div>
                      <div className="flex items-center gap-2">
-                        <button onClick={handleTestOpenAI} disabled={!aiModelSettings.openai.apiKey || openaiStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
+                        <button onClick={handleTestOpenAI} disabled={!settings.aiModelSettings.openai.apiKey || openaiStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
                         <div className="w-5 h-5">{renderStatusIcon(openaiStatus)}</div>
                     </div>
                     <p className="text-xs text-gray-400 pt-2 border-t border-gray-700/50">
@@ -156,16 +151,16 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="openrouter-apiKey" className="block text-sm font-medium text-gray-300 mb-2">کلید API</label>
-                            <input id="openrouter-apiKey" name="apiKey" type="password" value={aiModelSettings.openrouter.apiKey} onChange={(e) => handleApiKeyChange('openrouter', 'apiKey', e.target.value, setOpenrouterStatus)} placeholder="کلید API خود را وارد کنید (sk-or-...)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5" />
+                            <input id="openrouter-apiKey" name="apiKey" type="password" value={settings.aiModelSettings.openrouter.apiKey} onChange={(e) => handleApiKeyChange('openrouter', 'apiKey', e.target.value, setOpenrouterStatus)} placeholder="کلید API خود را وارد کنید (sk-or-...)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5" />
                         </div>
                          <div>
                             <label htmlFor="openrouter-modelName" className="block text-sm font-medium text-gray-300 mb-2">نام کامل مدل</label>
-                            <input id="openrouter-modelName" name="modelName" type="text" value={aiModelSettings.openrouter.modelName} onChange={(e) => handleApiKeyChange('openrouter', 'modelName', e.target.value, setOpenrouterStatus)} placeholder="mistralai/mistral-7b-instruct" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5" />
+                            <input id="openrouter-modelName" name="modelName" type="text" value={settings.aiModelSettings.openrouter.modelName} onChange={(e) => handleApiKeyChange('openrouter', 'modelName', e.target.value, setOpenrouterStatus)} placeholder="mistralai/mistral-7b-instruct" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5" />
                         </div>
                     </div>
                     <p className="text-xs text-gray-400">برای استفاده از مدل‌های خاص یا رایگان، نام کامل مدل را از سایت OpenRouter کپی کرده و در فیلد بالا وارد کنید.</p>
                      <div className="flex items-center gap-2">
-                        <button onClick={handleTestOpenRouter} disabled={!aiModelSettings.openrouter.apiKey || openrouterStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
+                        <button onClick={handleTestOpenRouter} disabled={!settings.aiModelSettings.openrouter.apiKey || openrouterStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
                         <div className="w-5 h-5">{renderStatusIcon(openrouterStatus)}</div>
                     </div>
                      <p className="text-xs text-gray-400 pt-2 border-t border-gray-700/50">
@@ -181,10 +176,10 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
                     </h3>
                     <div>
                         <label htmlFor="groq-apiKey" className="block text-sm font-medium text-gray-300 mb-2">کلید API</label>
-                        <input id="groq-apiKey" name="apiKey" type="password" value={aiModelSettings.groq.apiKey} onChange={(e) => handleApiKeyChange('groq', 'apiKey', e.target.value, setGroqStatus)} placeholder="کلید API خود را وارد کنید (gsk_...)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5"/>
+                        <input id="groq-apiKey" name="apiKey" type="password" value={settings.aiModelSettings.groq.apiKey} onChange={(e) => handleApiKeyChange('groq', 'apiKey', e.target.value, setGroqStatus)} placeholder="کلید API خود را وارد کنید (gsk_...)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5"/>
                     </div>
                      <div className="flex items-center gap-2">
-                        <button onClick={handleTestGroq} disabled={!aiModelSettings.groq.apiKey || groqStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
+                        <button onClick={handleTestGroq} disabled={!settings.aiModelSettings.groq.apiKey || groqStatus === 'testing'} className="text-sm bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست اتصال</button>
                         <div className="w-5 h-5">{renderStatusIcon(groqStatus)}</div>
                     </div>
                      <p className="text-xs text-gray-400 pt-2 border-t border-gray-700/50">

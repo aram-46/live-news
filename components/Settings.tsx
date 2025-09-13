@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import SourcesManager from './SourcesManager';
@@ -14,6 +15,7 @@ import TelegramBotSettings from './settings/TelegramBotSettings';
 import TwitterBotSettings from './settings/TwitterBotSettings';
 import IntegrationSettings from './IntegrationSettings';
 import AboutTab from './settings/AboutTab';
+import DataManagementSettings from './settings/DataManagementSettings';
 
 
 interface SettingsProps {
@@ -61,7 +63,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         {renderTabButton('discord-bot', 'ربات دیسکورد')}
         {renderTabButton('twitter-bot', 'ربات توییتر')}
         {renderTabButton('integrations', 'اتصالات دیگر')}
-        {renderTabButton('security', 'امنیت')}
+        {renderTabButton('security', 'امنیت و داده‌ها')}
         {renderTabButton('about', 'درباره برنامه')}
       </div>
 
@@ -143,10 +145,13 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         )}
 
         {activeTab === 'security' && (
-            <PasswordSettings
-                password={settings.password || ''}
-                onPasswordChange={(password) => handlePartialChange({ password })}
-            />
+            <div className="space-y-8">
+                <PasswordSettings
+                    password={settings.password || ''}
+                    onPasswordChange={(password) => handlePartialChange({ password })}
+                />
+                <DataManagementSettings />
+            </div>
         )}
         
         {activeTab === 'about' && <AboutTab />}
