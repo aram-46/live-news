@@ -24,12 +24,6 @@ const DownloadButton: React.FC<{ content: string; filename: string; mimeType?: s
     );
 };
 
-const CodeBlock: React.FC<{ code: string; lang: string }> = ({ code, lang }) => (
-    <pre className="bg-gray-900 rounded-md p-3 my-2 overflow-x-auto">
-        <code className={`language-${lang} text-sm text-cyan-200`}>{code}</code>
-    </pre>
-);
-
 const InstallationGuide: React.FC = () => {
     // A simple markdown-like renderer for the guide
     const renderGuide = (markdown: string) => {

@@ -135,6 +135,7 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
   const [error, setError] = useState<Record<string, string | null>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const liveNewsResultsRef = useRef<HTMLDivElement>(null);
 
   const loadNewsForTab = useCallback(async (tabId: string, force = false) => {
     setLoading(prev => ({ ...prev, [tabId]: true }));
@@ -187,6 +188,9 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
     },
   };
 
+  const currentNews = news[activeTab] || [];
+  const isLoadingCurrent = loading[activeTab] || false;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -206,8 +210,15 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
           ))}
         </div>
         {activeTab !== 'خبرخوان' && (
-            <div className="flex items-center gap-4">
-                {lastUpdated && <p className="text-xs text-gray-500">آخرین بروزرسانی: {lastUpdated.toLocaleString('fa-IR')}</p>}
+            <div className="flex items-center gap-2">
+                {lastUpdated && <p className="text-xs text-gray-500 hidden md:block">آخرین بروزرسانی: {lastUpdated.toLocaleString('fa-IR')}</p>}
+                 <ExportButton
+                    elementRef={liveNewsResultsRef}
+                    data={currentNews}
+                    title={`live-news-${activeTab}`}
+                    type="news"
+                    disabled={isLoadingCurrent || currentNews.length === 0}
+                 />
                  <button
                     onClick={() => loadNewsForTab(activeTab, true)}
                     disabled={loading[activeTab]}
@@ -225,13 +236,15 @@ const LiveNews: React.FC<LiveNewsProps> = ({ settings }) => {
         {activeTab === 'خبرخوان' ? (
             <RSSFeedReader settings={settings} />
         ) : (
-            <NewsResults 
-                news={news[activeTab] || []} 
-                isLoading={loading[activeTab] || false} 
-                error={error[activeTab] || null}
-                settings={liveNewsDisplaySettings}
-                fontSettings={settings.liveNewsSpecifics.font}
-            />
+            <div ref={liveNewsResultsRef}>
+                <NewsResults 
+                    news={currentNews} 
+                    isLoading={isLoadingCurrent} 
+                    error={error[activeTab] || null}
+                    settings={liveNewsDisplaySettings}
+                    fontSettings={settings.liveNewsSpecifics.font}
+                />
+            </div>
         )}
       </div>
     </div>

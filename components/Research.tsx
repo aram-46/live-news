@@ -10,7 +10,7 @@ import StatisticalResearch from './StatisticalResearch';
 type ResearchTab = 'general' | 'statistical';
 
 const Research: React.FC<{ settings: AppSettings }> = ({ settings }) => {
-    const [activeTab, setActiveTab] = useState<ResearchTab>('general');
+    const [activeTab, setActiveTab] = useState<ResearchTab>('statistical');
     
     // State for General Research
     const [topic, setTopic] = useState('');
@@ -50,7 +50,6 @@ const Research: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                      <div className="lg:col-span-1 p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
                         <form onSubmit={async (e) => { e.preventDefault(); setIsLoading(true); setError(null); setResult(null); try { 
-                            // FIX: Pass settings as the fourth argument.
                             const res = await fetchResearchData(topic, field, keywords, settings); setResult(res); } catch (err) { setError('Error fetching data'); } finally { setIsLoading(false); } }} className="space-y-4">
                             <textarea value={topic} onChange={e => setTopic(e.target.value)} rows={3} placeholder="موضوع تحقیق..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
                              <input value={field} onChange={e => setField(e.target.value)} placeholder="حوزه (مثلا: پزشکی)" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>

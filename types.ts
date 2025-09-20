@@ -638,6 +638,7 @@ export interface CryptoSearchResult {
         link: string;
         credibility: Credibility | string;
     }[];
+    groundingSources?: GroundingSource[];
 }
 export interface CryptoAnalysisResult {
     coinName: string;

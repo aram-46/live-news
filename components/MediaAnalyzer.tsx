@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef } from 'react';
 import { AppSettings, MediaFile, MediaAnalysisResult } from '../types';
 import { analyzeMedia } from '../services/geminiService';

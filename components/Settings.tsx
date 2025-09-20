@@ -4,7 +4,7 @@ import { AppSettings } from '../types';
 import SourcesManager from './SourcesManager';
 import RSSFeedManager from './RSSFeedManager';
 import AIInstructionsSettings from './AIInstructions';
-import AIModelSettings from './settings/AIModelSettings';
+import AIModelSettings from './AIModelSettings';
 import ContentSettings from './ContentSettings';
 import PasswordSettings from './settings/PasswordSettings';
 import ThemeSettings from './settings/ThemeSettings';

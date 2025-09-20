@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useCallback, useRef } from 'react';
 import { AppSettings, Filters, WebResult, GroundingSource, SearchTab } from '../types';
 import { fetchWebResults } from '../services/geminiService';

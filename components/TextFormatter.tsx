@@ -1,8 +1,9 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
-import { AppSettings } from '../types';
-import { formatTextContent } from '../services/geminiService';
-import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
+import { AppSettings } from '../../types';
+import { formatTextContent } from '../../services/geminiService';
+import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../../services/exportService';
 // FIX: Add missing icon imports
 import { SparklesIcon, ClipboardIcon, CheckCircleIcon, CameraIcon, FilePdfIcon, FileWordIcon, FileExcelIcon, FileCodeIcon } from './icons';
 
@@ -63,7 +64,8 @@ const TextFormatter: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         try {
             if (format === 'image') await exportToImage(outputRef.current!, fileName);
             if (format === 'pdf') await exportToPdf(outputRef.current!, fileName);
-            if (format === 'html') exportToHtml(currentHtml, fileName);
+            // FIX: The exportToHtml function expects an HTMLElement, not an HTML string. Pass the ref's current element.
+            if (format === 'html') exportToHtml(editableContentRef.current, fileName);
             if (format === 'docx') exportToDocx(currentHtml, fileName);
             // FIX: The exportToXlsx function expects an array of objects. Wrap the HTML content to satisfy the type.
             if (format === 'xlsx') exportToXlsx([{ content: editableContentRef.current.innerText }], fileName);

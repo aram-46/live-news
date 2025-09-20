@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { AppSettings, MediaFile, AnalysisResult, FallacyResult, AnalyzerTabId, analyzerTabLabels, AIInstructionType } from '../types';
 import { analyzeContentDeeply, findFallacies } from '../services/geminiService';
 import { SearchIcon, UploadIcon, CloseIcon } from './icons';
-import DeepAnalysisResultDisplay from './DeepAnalysisResultDisplay';
+import DeepAnalysisResultDisplay from './AnalysisResult';
 import MediaAnalyzer from './MediaAnalyzer';
 
 interface DeepAnalysisProps {

@@ -25,7 +25,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({ elementRef, data, title, ty
         try {
             if (format === 'image') await exportToImage(elementRef.current!, fileName);
             if (format === 'pdf') await exportToPdf(elementRef.current!, fileName);
-            if (format === 'html') exportToHtml(elementRef.current!.innerHTML, fileName);
+            if (format === 'html') exportToHtml(elementRef.current!, fileName);
             if (format === 'docx') exportToDocx(elementRef.current!.innerHTML, fileName);
             if (format === 'xlsx') {
                 if(type === 'news') { // A simple example for one type

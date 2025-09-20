@@ -29,20 +29,23 @@ export const exportToPdf = async (element: HTMLElement, fileName: string): Promi
 };
 
 // --- HTML Export ---
-export const exportToHtml = (htmlContent: string, fileName: string): void => {
+export const exportToHtml = (element: HTMLElement, fileName: string): void => {
+    const styleContent = document.querySelector('head > style')?.innerHTML || '';
+    const themeClass = document.querySelector('.min-h-screen[class*="theme-"]')?.className.match(/theme-\S+/)?.[0] || 'theme-base';
+    
     const blob = new Blob([`
         <!DOCTYPE html>
         <html lang="fa" dir="rtl">
         <head>
             <meta charset="UTF-8">
             <title>${fileName}</title>
-            <style>
-                body { font-family: sans-serif; background-color: #111827; color: #d1d5db; padding: 20px; }
-                /* Add basic styles from the app if needed */
-            </style>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>${styleContent}</style>
         </head>
-        <body>
-            ${htmlContent}
+        <body class="${themeClass} bg-main-gradient p-8">
+            <div class="container mx-auto">
+                ${element.innerHTML}
+            </div>
         </body>
         </html>
     `], { type: 'text/html;charset=utf-8' });

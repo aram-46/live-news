@@ -1,9 +1,11 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Add missing icon imports
 import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon, BeakerIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
-import { AppSettings } from './types';
+// FIX: Import TickerArticle type for improved type safety.
+import { AppSettings, TickerArticle } from './types';
 import { fetchTickerHeadlines } from './services/geminiService';
 import { fetchSettings, saveSettings } from './services/integrationService';
 import Settings from './components/Settings';
@@ -46,7 +48,8 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  const [tickerHeadlines, setTickerHeadlines] = useState<any[]>([]);
+  // FIX: Use specific TickerArticle[] type instead of any[].
+  const [tickerHeadlines, setTickerHeadlines] = useState<TickerArticle[]>([]);
   const [isSettingsLocked, setIsSettingsLocked] = useState(false);
   const [dialogUrl, setDialogUrl] = useState<string | null>(null);
   const handleOpenUrl = (url: string) => {

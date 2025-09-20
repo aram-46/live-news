@@ -52,6 +52,17 @@ const StatisticalResearchResultDisplay: React.FC<{ result: StatisticalResearchRe
 
     const chartToDisplay = charts.find(c => c.type === chartTab) || charts[0];
 
+    const renderChart = (chartData: ChartData) => {
+        const type = chartData.type;
+        switch (type) {
+            case 'bar': return <BarChart data={chartData} />;
+            case 'pie': return <PieChart data={chartData} />;
+            case 'line': return <LineChart data={chartData} />;
+            case 'table': return <TableChart data={chartData} />;
+            default: return <p>نوع نمودار پشتیبانی نمی‌شود.</p>;
+        }
+    };
+
     return (
         <div ref={resultRef} className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-8 animate-fade-in">
              <div className="flex justify-between items-start">
@@ -95,10 +106,7 @@ const StatisticalResearchResultDisplay: React.FC<{ result: StatisticalResearchRe
                         </div>
                     </div>
                     <div className="h-[350px]">
-                        {chartToDisplay.type === 'bar' && <BarChart data={chartToDisplay} />}
-                        {chartToDisplay.type === 'pie' && <PieChart data={chartToDisplay} />}
-                        {chartToDisplay.type === 'line' && <LineChart data={chartToDisplay} />}
-                        {chartToDisplay.type === 'table' && <TableChart data={chartToDisplay} />}
+                        {chartToDisplay && renderChart(chartToDisplay)}
                     </div>
                 </div>
             )}

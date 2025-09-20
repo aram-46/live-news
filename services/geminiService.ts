@@ -1,4 +1,6 @@
 
+
+
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import * as cache from './cacheService';
 import {
@@ -42,7 +44,9 @@ import {
     DebateAnalysisResult,
     ResearchResult,
     MediaAnalysisResult,
-    StatisticalResearchResult
+    StatisticalResearchResult,
+    Sources,
+    TickerArticle
 } from '../types';
 
 // Helper to get the API key, prioritizing settings over environment variables.
@@ -54,7 +58,9 @@ const getApiKey = (settings: AppSettings): string | undefined => {
 function safeJsonParse<T>(data: any, fallback: T): T {
     // If the SDK already parsed the JSON, return it directly.
     if (typeof data === 'object' && data !== null) {
-        return data as T;
+        // FIX: Use a double assertion to bypass strict type checking when the response is already a JSON object.
+        // This resolves issues where TypeScript infers array types as 'unknown[]' which cannot be assigned to more specific types like 'string[]'.
+        return data as unknown as T;
     }
 
     const jsonString = data as string | undefined | null;
@@ -66,7 +72,8 @@ function safeJsonParse<T>(data: any, fallback: T): T {
     try {
         const markdownMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
         if (markdownMatch && markdownMatch[1]) {
-            return JSON.parse(markdownMatch[1]) as T;
+            // FIX: Use a double assertion to bypass strict type checking after parsing.
+            return JSON.parse(markdownMatch[1]) as unknown as T;
         }
         const firstBracket = jsonString.indexOf('[');
         const firstBrace = jsonString.indexOf('{');
@@ -84,7 +91,8 @@ function safeJsonParse<T>(data: any, fallback: T): T {
             return fallback;
         }
         const jsonPart = jsonString.substring(start, end + 1);
-        return JSON.parse(jsonPart) as T;
+        // FIX: Use a double assertion to bypass strict type checking after parsing.
+        return JSON.parse(jsonPart) as unknown as T;
     } catch (error) {
         console.error("Failed to parse JSON from model:", error);
         console.error("Original string:", jsonString);
@@ -173,7 +181,15 @@ export async function fetchNews(filters: Filters, instruction: string, articlesP
             }
         });
 
-        const result = safeJsonParse(response.text, { articles: [], suggestions: [] });
+        const result = safeJsonParse<{ articles: NewsArticle[], suggestions: string[] }>(response.text, { articles: [], suggestions: [] });
+        
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
+        if (groundingSources) {
+            result.articles.forEach(article => {
+                article.groundingSources = groundingSources;
+            });
+        }
+
         cache.set(cacheKey, result);
         return result;
     } catch (error) {
@@ -181,7 +197,7 @@ export async function fetchNews(filters: Filters, instruction: string, articlesP
     }
 }
 
-export async function fetchLiveNews(tabId: string, sources: any, instruction: string, showImages: boolean, specifics: any, settings: AppSettings): Promise<NewsArticle[]> {
+export async function fetchLiveNews(tabId: string, sources: Sources, instruction: string, showImages: boolean, specifics: any, settings: AppSettings): Promise<NewsArticle[]> {
     const cacheKey = `live-news-${tabId}`;
     const cached = cache.get<NewsArticle[]>(cacheKey, 10 * 60 * 1000); // 10 minute TTL for live news
     if (cached) return cached;
@@ -191,14 +207,31 @@ export async function fetchLiveNews(tabId: string, sources: any, instruction: st
         if (!apiKey) throw new Error("Gemini API key not configured.");
         const ai = new GoogleGenAI({ apiKey });
 
+        const allSourcesList: Source[] = Object.values(sources).flat();
+        const selectedSourceIds: string[] = Object.values(specifics.selectedSources || {}).flat();
+        
+        const selectedSourceNames = allSourcesList
+            .filter(source => selectedSourceIds.includes(source.id))
+            .map(source => source.name);
+
+        // Cap the number of sources to prevent an overly long prompt which can cause a 500 error.
+        const MAX_SOURCES_IN_PROMPT = 30;
+        const truncatedSourceNames = selectedSourceNames.slice(0, MAX_SOURCES_IN_PROMPT);
+
+        const sourcePromptPart = truncatedSourceNames.length > 0
+            ? `Prioritize news from these sources if relevant: ${truncatedSourceNames.join(', ')}.`
+            : 'Search from a wide variety of reliable news sources.';
+
         const prompt = `
             ${instruction}
             Find the latest top ${specifics.articlesToDisplay} news articles for the category: "${tabId}".
-            Prioritize sources from this list if relevant: ${JSON.stringify(specifics.selectedSources)}.
+            ${sourcePromptPart}
             Images: ${showImages ? 'Required' : 'Not required'}.
-            Your entire response MUST be a single, valid JSON array of article objects.
-            Each article object must have these keys: title, summary, link, source, publicationTime (in Persian Jalali format), credibility, category, imageUrl.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON array of article objects. All text values in the JSON, including title, summary, source, credibility, and category, MUST be in Persian.
+            Each article object must have these keys: title, summary, link, source, publicationTime (in Persian Jalali format), credibility, category, and an optional imageUrl.
+            The 'credibility' field is mandatory and MUST be one of these exact Persian strings: "بسیار معتبر", "معتبر", or "نیازمند بررسی". Do not use English terms.
+            Ensure every field is populated. If an image is not found, the imageUrl can be null.
+            Do not include any other text or markdown formatting outside of the JSON array.
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -208,7 +241,15 @@ export async function fetchLiveNews(tabId: string, sources: any, instruction: st
             }
         });
 
-        const result = safeJsonParse(response.text, []);
+        const result = safeJsonParse<NewsArticle[]>(response.text, []);
+        
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
+        if (groundingSources) {
+            result.forEach(article => {
+                article.groundingSources = groundingSources;
+            });
+        }
+
         cache.set(cacheKey, result, 10 * 60 * 1000);
         return result;
     } catch (error) {
@@ -217,9 +258,9 @@ export async function fetchLiveNews(tabId: string, sources: any, instruction: st
 }
 
 
-export async function fetchTickerHeadlines(categories: string[], instruction: string, settings: AppSettings): Promise<any[]> {
+export async function fetchTickerHeadlines(categories: string[], instruction: string, settings: AppSettings): Promise<TickerArticle[]> {
     const cacheKey = `ticker-headlines-${categories.join(',')}`;
-    const cached = cache.get<any[]>(cacheKey, 30 * 60 * 1000); // 30 minute TTL for ticker
+    const cached = cache.get<TickerArticle[]>(cacheKey, 30 * 60 * 1000); // 30 minute TTL for ticker
     if (cached) return cached;
 
     try {
@@ -227,8 +268,11 @@ export async function fetchTickerHeadlines(categories: string[], instruction: st
         if (!apiKey) throw new Error("Gemini API key not configured.");
         const ai = new GoogleGenAI({ apiKey });
 
+        const MAX_CATEGORIES_IN_PROMPT = 20;
+        const truncatedCategories = categories.slice(0, MAX_CATEGORIES_IN_PROMPT);
+
         const prompt = `
-            ${instruction}. Find 10 top headlines from these categories: ${categories.join(', ')}.
+            ${instruction}. Find 10 top headlines from these categories: ${truncatedCategories.join(', ')}.
             Your entire response MUST be a single, valid JSON array of objects. Each object must have "title" and "link" properties.
             Do not include any other text or markdown formatting.
         `;
@@ -239,7 +283,7 @@ export async function fetchTickerHeadlines(categories: string[], instruction: st
                 tools: [{ googleSearch: {} }]
             }
         });
-        const result = safeJsonParse(response.text, []);
+        const result = safeJsonParse<TickerArticle[]>(response.text, []);
         cache.set(cacheKey, result, 30 * 60 * 1000);
         return result;
     } catch (error) {
@@ -265,7 +309,15 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
                 tools: [{ googleSearch: {} }] 
             }
         });
-        return safeJsonParse(response.text, []);
+        // FIX: The type from `safeJsonParse` is not guaranteed to be `string[]`.
+        // To fix the "Type 'unknown[]' is not assignable to type 'string[]'" error, the response is first parsed to `unknown`,
+        // then validated as an array, and finally filtered with a type guard to ensure all elements are strings.
+        const parsed = safeJsonParse<unknown>(response.text, []);
+        if (!Array.isArray(parsed)) {
+            console.error("generateDynamicFilters expected an array but got object:", parsed);
+            return [];
+        }
+        return parsed.filter((item): item is string => typeof item === 'string');
     } catch (error) {
         handleGeminiError(error, 'generateDynamicFilters');
     }
@@ -286,10 +338,26 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
         if (!apiKey) throw new Error("Gemini API key not configured.");
         const ai = new GoogleGenAI({ apiKey });
 
-        const feedUrls = feeds.map(f => f.url);
+        const getDomainFromUrl = (url: string): string => {
+            try {
+                const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+                const hostname = new URL(fullUrl).hostname;
+                return hostname.replace(/^www\./, '');
+            } catch (e) {
+                const domainMatch = url.match(/^([^:\/\n?]+)/);
+                return domainMatch ? domainMatch[1] : url;
+            }
+        };
+        
+        const sourceDomains = [...new Set(feeds.map(feed => getDomainFromUrl(feed.url)))];
+        
+        // Cap the number of domains to prevent an overly long prompt which can cause a 500 error.
+        const MAX_DOMAINS_IN_PROMPT = 30;
+        const truncatedDomains = sourceDomains.slice(0, MAX_DOMAINS_IN_PROMPT);
+
         const prompt = `
             ${instruction}
-            Search the web for the latest ${settings.rssFeedSpecifics.articlesToDisplay} news articles from the news sources associated with these RSS feed URLs: ${JSON.stringify(feedUrls)}.
+            Search the web for the latest ${settings.rssFeedSpecifics.articlesToDisplay} news articles from these news websites: ${truncatedDomains.join(', ')}.
             Do not try to parse the RSS feeds directly. Instead, search for the latest news from their respective websites.
             ${query ? `Filter the search results by this query: "${query}"` : ''}
             Your entire response MUST be a single, valid JSON array of article objects. All text values in the JSON, including title, summary, source, credibility, and category, MUST be in Persian.
@@ -306,7 +374,15 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
                 tools: [{ googleSearch: {} }]
             }
         });
-        const result = safeJsonParse(response.text, []);
+        const result = safeJsonParse<NewsArticle[]>(response.text, []);
+        
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
+        if (groundingSources) {
+            result.forEach(article => {
+                article.groundingSources = groundingSources;
+            });
+        }
+        
         cache.set(cacheKey, result, 20 * 60 * 1000);
         return result;
     } catch (error) {
@@ -347,7 +423,7 @@ export async function factCheckNews(text: string, file: { data: string, mimeType
             }
         });
 
-        const parsedResult: FactCheckResult = safeJsonParse(response.text, { overallCredibility: "Error", summary: "Failed to parse model response.", sources: [] });
+        const parsedResult: FactCheckResult = safeJsonParse<FactCheckResult>(response.text, { overallCredibility: "Error", summary: "Failed to parse model response.", sources: [] });
         
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
             parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
@@ -425,7 +501,7 @@ export async function analyzeMedia(
             },
         });
 
-        const parsedResult = safeJsonParse(response.text, {} as MediaAnalysisResult);
+        const parsedResult = safeJsonParse<MediaAnalysisResult>(response.text, {} as MediaAnalysisResult);
         return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'analyzeMedia');
@@ -490,7 +566,7 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
                 tools: [{ googleSearch: {} }]
             }
         });
-        return safeJsonParse(response.text, []);
+        return safeJsonParse<Partial<Source>[]>(response.text, []);
     } catch (error) {
         handleGeminiError(error, 'findSourcesWithAI');
     }
@@ -516,7 +592,7 @@ export async function fetchPodcasts(query: string, instruction: string, settings
             }
         });
 
-        const parsedResult = safeJsonParse(response.text, []);
+        const parsedResult = safeJsonParse<PodcastResult[]>(response.text, []);
 
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
             if(parsedResult.length > 0){
@@ -549,7 +625,7 @@ export async function fetchWebResults(searchType: string, filters: Filters, inst
             }
         });
         
-        const parsedResult = safeJsonParse(response.text, { results: [], suggestions: [] });
+        const parsedResult = safeJsonParse<{ results: WebResult[], suggestions: string[] }>(response.text, { results: [], suggestions: [] });
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web) || [];
         
         return { ...parsedResult, sources };
@@ -659,7 +735,10 @@ export async function generateAboutMePage(description: string, siteUrl: string, 
             Number of images provided: ${images.length}
             Generate a complete, single HTML file.
         `;
-        const contentParts: any[] = [{ text: prompt }, ...images.map(img => ({ inlineData: img }))]
+        const contentParts: any[] = [{ text: prompt }];
+        images.forEach(img => {
+            contentParts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
+        });
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -686,12 +765,17 @@ export async function fetchStatistics(query: string, instruction: string, settin
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', 
-            contents: prompt, 
+            contents: prompt,
             config: { 
                 tools: [{googleSearch: {}}]
             }
         });
-        return safeJsonParse(response.text, {} as StatisticsResult);
+        const parsedResult = safeJsonParse<StatisticsResult>(response.text, {} as StatisticsResult);
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
+        if (groundingSources) {
+            parsedResult.groundingSources = groundingSources;
+        }
+        return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'fetchStatistics');
     }
@@ -709,12 +793,17 @@ export async function fetchScientificArticle(query: string, instruction: string,
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: prompt, 
+            contents: prompt,
             config: { 
                 tools: [{googleSearch: {}}]
             }
         });
-        return safeJsonParse(response.text, {} as ScientificArticleResult);
+        const parsedResult = safeJsonParse<ScientificArticleResult>(response.text, {} as ScientificArticleResult);
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
+        if (groundingSources) {
+            parsedResult.groundingSources = groundingSources;
+        }
+        return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'fetchScientificArticle');
     }
@@ -736,7 +825,12 @@ export async function fetchReligiousText(query: string, instruction: string, set
                 tools: [{googleSearch: {}}]
             }
         });
-        return safeJsonParse(response.text, {} as ScientificArticleResult);
+        const parsedResult = safeJsonParse<ScientificArticleResult>(response.text, {} as ScientificArticleResult);
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
+        if (groundingSources) {
+            parsedResult.groundingSources = groundingSources;
+        }
+        return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'fetchReligiousText');
     }
@@ -754,12 +848,19 @@ export async function generateContextualFilters(listType: string, context: any, 
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', 
-            contents: prompt, 
+            contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }]
             }
         });
-        return safeJsonParse(response.text, []);
+        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
+        const parsed = safeJsonParse<unknown>(response.text, []);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        // FIX: The `safeJsonParse` function can return an array of any type.
+        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
+        return parsed.filter((item): item is string => typeof item === 'string');
     } catch (error) {
         handleGeminiError(error, 'generateContextualFilters');
     }
@@ -776,12 +877,12 @@ export async function analyzeVideoFromUrl(url: string, type: string, keywords: s
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', 
-            contents: prompt, 
+            contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }] 
             }
         });
-        return safeJsonParse(response.text, {});
+        return safeJsonParse<any>(response.text, {});
     } catch (error) {
         handleGeminiError(error, 'analyzeVideoFromUrl');
     }
@@ -809,7 +910,7 @@ export async function analyzeAgentRequest(topic: string, request: string, instru
             Do not include any other text or markdown formatting.
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json" }});
-        return safeJsonParse(response.text, { isClear: true });
+        return safeJsonParse<AgentClarificationRequest>(response.text, { isClear: true });
     } catch (error) {
         handleGeminiError(error, 'analyzeAgentRequest');
     }
@@ -828,7 +929,7 @@ export async function executeAgentTask(prompt: string, instruction: string, sett
             `,
             config: { tools:[{googleSearch:{}}] }
         });
-        return safeJsonParse(response.text, {} as AgentExecutionResult);
+        return safeJsonParse<AgentExecutionResult>(response.text, {} as AgentExecutionResult);
     } catch (error) {
         handleGeminiError(error, 'executeAgentTask');
     }
@@ -846,12 +947,19 @@ export async function generateKeywordsForTopic(mainTopic: string, comparisonTopi
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', 
-            contents: prompt, 
+            contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }]
             }
         });
-        return safeJsonParse(response.text, []);
+        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
+        const parsed = safeJsonParse<unknown>(response.text, []);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        // FIX: The `safeJsonParse` function can return an array of any type.
+        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
+        return parsed.filter((item): item is string => typeof item === 'string');
     } catch (error) {
         handleGeminiError(error, 'generateKeywordsForTopic');
     }
@@ -868,7 +976,16 @@ export async function fetchGeneralTopicAnalysis(mainTopic: string, comparisonTop
             Do not include any other text or markdown formatting.
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}});
-        return safeJsonParse(response.text, {} as GeneralTopicResult);
+        const parsedResult = safeJsonParse<GeneralTopicResult>(response.text, {} as GeneralTopicResult);
+
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web) || [];
+        if (groundingSources.length > 0) {
+            const existingUris = new Set(parsedResult.sources?.map(s => s.uri));
+            const newSources = groundingSources.filter(s => !existingUris.has(s.uri));
+            parsedResult.sources = [...(parsedResult.sources || []), ...newSources];
+        }
+        return parsedResult;
+
     } catch (error) {
         handleGeminiError(error, 'fetchGeneralTopicAnalysis');
     }
@@ -885,7 +1002,7 @@ export async function fetchCryptoData(type: string, timeframe: string, count: nu
             Do not include any other text or markdown formatting.
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}});
-        return safeJsonParse(response.text, []);
+        return safeJsonParse<CryptoCoin[]>(response.text, []);
     } catch (error) {
         handleGeminiError(error, 'fetchCryptoData');
     }
@@ -902,12 +1019,12 @@ export async function fetchCoinList(instruction: string, settings: AppSettings):
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', 
-            contents: prompt, 
+            contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }]
             }
         });
-        return safeJsonParse(response.text, []);
+        return safeJsonParse<SimpleCoin[]>(response.text, []);
     } catch (error) {
         handleGeminiError(error, 'fetchCoinList');
     }
@@ -923,7 +1040,12 @@ export async function searchCryptoCoin(query: string, instruction: string, setti
             Do not include any other text or markdown formatting.
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
-        return safeJsonParse(response.text, {} as CryptoSearchResult);
+        const parsedResult = safeJsonParse<CryptoSearchResult>(response.text, {} as CryptoSearchResult);
+        const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
+        if (groundingSources) {
+            parsedResult.groundingSources = groundingSources;
+        }
+        return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'searchCryptoCoin');
     }
@@ -939,7 +1061,7 @@ export async function fetchCryptoAnalysis(coinName: string, instruction: string,
             Do not include any other text or markdown formatting.
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
-        return safeJsonParse(response.text, {} as CryptoAnalysisResult);
+        return safeJsonParse<CryptoAnalysisResult>(response.text, {} as CryptoAnalysisResult);
     } catch (error) {
         handleGeminiError(error, 'fetchCryptoAnalysis');
     }
@@ -957,7 +1079,11 @@ export async function analyzeContentDeeply(topic: string, file: any, instruction
         ` }];
         if(file) contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
-        return safeJsonParse(response.text, {} as AnalysisResult);
+        const parsedResult = safeJsonParse<AnalysisResult>(response.text, {} as AnalysisResult);
+        if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+            parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
+        }
+        return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'analyzeContentDeeply');
     }
@@ -974,7 +1100,11 @@ export async function findFallacies(topic: string, file: any, instruction: strin
         ` }];
         if(file) contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
-        return safeJsonParse(response.text, {} as FallacyResult);
+        const parsedResult = safeJsonParse<FallacyResult>(response.text, {} as FallacyResult);
+        if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+            parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
+        }
+        return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'findFallacies');
     }
@@ -986,7 +1116,7 @@ export async function generateWordPressThemePlan(themeType: string, url: string,
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `${instruction}\nType: ${themeType}\nInspiration URL: ${url}\nDescription: ${desc}\nImage Desc: ${imgDesc}`;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json" }});
-        return safeJsonParse(response.text, {} as WordPressThemePlan);
+        return safeJsonParse<WordPressThemePlan>(response.text, {} as WordPressThemePlan);
     } catch (error) {
         handleGeminiError(error, 'generateWordPressThemePlan');
     }
@@ -1138,7 +1268,7 @@ export async function analyzeUserDebate(
             },
         });
 
-        return safeJsonParse(response.text, {} as DebateAnalysisResult);
+        return safeJsonParse<DebateAnalysisResult>(response.text, {} as DebateAnalysisResult);
     } catch (error) {
         handleGeminiError(error, 'analyzeUserDebate');
     }
@@ -1155,7 +1285,7 @@ export async function findFeedsWithAI(category: SourceCategory, existing: RSSFee
             Do not include any other text or markdown formatting.
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
-        return safeJsonParse(response.text, []);
+        return safeJsonParse<Partial<RSSFeed>[]>(response.text, []);
     } catch (error) {
         handleGeminiError(error, 'findFeedsWithAI');
     }
@@ -1168,7 +1298,14 @@ export async function generateEditableListItems(listName: string, listType: stri
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `Generate a list of ${count} items for a settings page. The list is for "${listName}". Return a JSON array of strings.`;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }});
-        return safeJsonParse(response.text, []);
+        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
+        const parsed = safeJsonParse<unknown>(response.text, []);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        // FIX: The `safeJsonParse` function can return an array of any type.
+        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
+        return parsed.filter((item): item is string => typeof item === 'string');
     } catch (error) {
         handleGeminiError(error, 'generateEditableListItems');
     }
@@ -1185,7 +1322,14 @@ export async function generateResearchKeywords(topic: string, field: string, set
             contents: prompt,
             config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
         });
-        return safeJsonParse(response.text, []);
+        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
+        const parsed = safeJsonParse<unknown>(response.text, []);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        // FIX: The `safeJsonParse` function can return an array of any type.
+        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
+        return parsed.filter((item): item is string => typeof item === 'string');
     } catch (error) {
         handleGeminiError(error, 'generateResearchKeywords');
     }
@@ -1223,7 +1367,7 @@ export async function fetchResearchData(topic: string, field: string, keywords: 
             }
         });
 
-        const parsedResult = safeJsonParse(response.text, {} as ResearchResult);
+        const parsedResult = safeJsonParse<ResearchResult>(response.text, {} as ResearchResult);
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
             parsedResult.webSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
         }
@@ -1283,7 +1427,7 @@ export async function fetchStatisticalResearch(
             }
         });
 
-        const parsedResult = safeJsonParse(response.text, {} as StatisticalResearchResult);
+        const parsedResult = safeJsonParse<StatisticalResearchResult>(response.text, {} as StatisticalResearchResult);
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
             parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
         }
