@@ -30,8 +30,8 @@ export const exportToPdf = async (element: HTMLElement, fileName: string): Promi
 
 // --- HTML Export ---
 export const exportToHtml = (element: HTMLElement, fileName: string): void => {
-    const styleContent = document.querySelector('head > style')?.innerHTML || '';
-    const themeClass = document.querySelector('.min-h-screen[class*="theme-"]')?.className.match(/theme-\S+/)?.[0] || 'theme-base';
+    const styleContent = Array.from(document.head.querySelectorAll('style')).map(s => s.innerHTML).join('\n');
+    const themeClass = document.querySelector('[class*="theme-"]')?.className.match(/theme-\S+/)?.[0] || 'theme-base';
     
     const blob = new Blob([`
         <!DOCTYPE html>
@@ -42,10 +42,10 @@ export const exportToHtml = (element: HTMLElement, fileName: string): void => {
             <script src="https://cdn.tailwindcss.com"></script>
             <style>${styleContent}</style>
         </head>
-        <body class="${themeClass} bg-main-gradient p-8">
-            <div class="container mx-auto">
-                ${element.innerHTML}
-            </div>
+        <body class="${themeClass} bg-main-gradient">
+            <main class="container mx-auto p-4 sm:p-6">
+                ${element.outerHTML}
+            </main>
         </body>
         </html>
     `], { type: 'text/html;charset=utf-8' });

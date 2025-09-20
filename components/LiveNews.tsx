@@ -83,7 +83,7 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center p-4 bg-black/20 rounded-lg border border-cyan-400/10">
                 <form onSubmit={handleSearch} className="flex-grow w-full sm:w-auto">
                     <div className="relative">
                         <input
@@ -91,10 +91,10 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="جستجو در اخبار خبرخوان‌ها..."
-                            className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 pr-10"
+                            className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5 pl-10"
                         />
-                        <button type="submit" className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                            <SearchIcon className="w-5 h-5 text-gray-400"/>
+                        <button type="submit" className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 hover:text-cyan-300">
+                            <SearchIcon className="w-5 h-5"/>
                         </button>
                     </div>
                 </form>

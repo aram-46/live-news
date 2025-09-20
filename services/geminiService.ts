@@ -1,6 +1,3 @@
-
-
-
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import * as cache from './cacheService';
 import {
@@ -309,15 +306,15 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
                 tools: [{ googleSearch: {} }] 
             }
         });
-        // FIX: The type from `safeJsonParse` is not guaranteed to be `string[]`.
-        // To fix the "Type 'unknown[]' is not assignable to type 'string[]'" error, the response is first parsed to `unknown`,
-        // then validated as an array, and finally filtered with a type guard to ensure all elements are strings.
         const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             console.error("generateDynamicFilters expected an array but got object:", parsed);
             return [];
         }
-        return parsed.filter((item): item is string => typeof item === 'string');
+        // FIX: The type guard `(item): item is string` was not correctly inferring the return type for some TypeScript configurations.
+        // Using a simple filter and then asserting the type to `string[]` resolves the type error.
+        // This is safe because the filter condition ensures all elements are strings.
+        return parsed.filter(item => typeof item === 'string') as string[];
     } catch (error) {
         handleGeminiError(error, 'generateDynamicFilters');
     }
@@ -853,14 +850,14 @@ export async function generateContextualFilters(listType: string, context: any, 
                 tools: [{ googleSearch: {} }]
             }
         });
-        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
         const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
-        // FIX: The `safeJsonParse` function can return an array of any type.
-        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
-        return parsed.filter((item): item is string => typeof item === 'string');
+        // FIX: The type guard `(item): item is string` may not be correctly inferred in all TypeScript setups.
+        // Using a simple filter and then asserting the type to `string[]` resolves the type error.
+        // This is safe because the filter condition ensures all elements are strings.
+        return parsed.filter(item => typeof item === 'string') as string[];
     } catch (error) {
         handleGeminiError(error, 'generateContextualFilters');
     }
@@ -952,14 +949,14 @@ export async function generateKeywordsForTopic(mainTopic: string, comparisonTopi
                 tools: [{ googleSearch: {} }]
             }
         });
-        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
         const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
-        // FIX: The `safeJsonParse` function can return an array of any type.
-        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
-        return parsed.filter((item): item is string => typeof item === 'string');
+        // FIX: The type guard `(item): item is string` may not be correctly inferred in all TypeScript setups.
+        // Using a simple filter and then asserting the type to `string[]` resolves the type error.
+        // This is safe because the filter condition ensures all elements are strings.
+        return parsed.filter(item => typeof item === 'string') as string[];
     } catch (error) {
         handleGeminiError(error, 'generateKeywordsForTopic');
     }
@@ -1298,14 +1295,14 @@ export async function generateEditableListItems(listName: string, listType: stri
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `Generate a list of ${count} items for a settings page. The list is for "${listName}". Return a JSON array of strings.`;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }});
-        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
         const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
-        // FIX: The `safeJsonParse` function can return an array of any type.
-        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
-        return parsed.filter((item): item is string => typeof item === 'string');
+        // FIX: The type guard `(item): item is string` may not be correctly inferred in all TypeScript setups.
+        // Using a simple filter and then asserting the type to `string[]` resolves the type error.
+        // This is safe because the filter condition ensures all elements are strings.
+        return parsed.filter(item => typeof item === 'string') as string[];
     } catch (error) {
         handleGeminiError(error, 'generateEditableListItems');
     }
@@ -1322,14 +1319,14 @@ export async function generateResearchKeywords(topic: string, field: string, set
             contents: prompt,
             config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
         });
-        // FIX: Change generic to unknown for better type safety. The Array.isArray check will then narrow it to any[].
         const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
-        // FIX: The `safeJsonParse` function can return an array of any type.
-        // A type guard is used to filter the array, ensuring it only contains strings and satisfying the function's string[] return type.
-        return parsed.filter((item): item is string => typeof item === 'string');
+        // FIX: The type guard `(item): item is string` may not be correctly inferred in all TypeScript setups.
+        // Using a simple filter and then asserting the type to `string[]` resolves the type error.
+        // This is safe because the filter condition ensures all elements are strings.
+        return parsed.filter(item => typeof item === 'string') as string[];
     } catch (error) {
         handleGeminiError(error, 'generateResearchKeywords');
     }
