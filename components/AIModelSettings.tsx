@@ -1,8 +1,11 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { AppSettings, AppAIModelSettings } from '../types';
+// FIX: Import ApiKeyStatus directly from types.ts
+import { AppSettings, AppAIModelSettings, ApiKeyStatus } from '../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from './icons';
-import { checkApiKeyStatus, ApiKeyStatus } from '../services/geminiService';
+// FIX: Import the newly created checkApiKeyStatus function.
+import { checkApiKeyStatus } from '../services/geminiService';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../services/integrationService';
 
 interface AIModelSettingsProps {

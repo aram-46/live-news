@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AppSettings, AppAIModelSettings } from '../../types';
+import { AppSettings, AppAIModelSettings, ApiKeyStatus, AIModelProvider } from '../../types';
 import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from '../icons';
-import { checkApiKeyStatus, ApiKeyStatus } from '../../services/geminiService';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../../services/integrationService';
 
 interface AIModelSettingsProps {
@@ -12,18 +11,31 @@ interface AIModelSettingsProps {
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
 const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsChange }) => {
-    const [geminiRealStatus, setGeminiRealStatus] = useState<ApiKeyStatus | 'checking'>('checking');
+    const [geminiRealStatus, setGeminiRealStatus] = useState<ApiKeyStatus>('checking');
     const [openaiStatus, setOpenaiStatus] = useState<TestStatus>('idle');
     const [openrouterStatus, setOpenrouterStatus] = useState<TestStatus>('idle');
     const [groqStatus, setGroqStatus] = useState<TestStatus>('idle');
 
     useEffect(() => {
-        const checkStatus = async () => {
-            const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
-            const status = await checkApiKeyStatus(keyToCheck);
-            setGeminiRealStatus(status);
+        const handleStatusChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            if (customEvent.detail && customEvent.detail.status) {
+                setGeminiRealStatus(customEvent.detail.status);
+            }
         };
-        checkStatus();
+        window.addEventListener('apiKeyStatusChange', handleStatusChange);
+
+        // Initial check for 'not_set' case if no API call is made immediately.
+        const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+        if (!keyToCheck) {
+            setGeminiRealStatus('not_set');
+        } else {
+            setGeminiRealStatus('checking');
+        }
+
+        return () => {
+            window.removeEventListener('apiKeyStatusChange', handleStatusChange);
+        };
     }, [settings.aiModelSettings.gemini.apiKey]);
 
     const handleApiKeyChange = (
@@ -42,14 +54,19 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
             aiModelSettings: newAiModelSettings
         });
     };
-
-    const handleTestGemini = async () => {
-        setGeminiRealStatus('checking');
-        const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
-        const status = await checkApiKeyStatus(keyToCheck);
-        setGeminiRealStatus(status);
-        setTimeout(() => setGeminiRealStatus('checking'), 5000); // Reset after a while
+    
+    const handleDefaultProviderChange = (provider: AIModelProvider) => {
+        onSettingsChange({ ...settings, defaultProvider: provider });
     };
+
+    const isProviderEnabled = (provider: AIModelProvider): boolean => {
+        if (provider === 'gemini') return !!(settings.aiModelSettings.gemini.apiKey || process.env.API_KEY);
+        const providerSettings = settings.aiModelSettings[provider as 'openai' | 'openrouter' | 'groq'];
+        return !!(providerSettings && 'apiKey' in providerSettings && providerSettings.apiKey);
+    };
+    
+    const availableProviders = (['gemini', 'openai', 'openrouter', 'groq'] as AIModelProvider[])
+        .filter(isProviderEnabled);
 
     const handleTestOpenAI = async () => {
         setOpenaiStatus('testing');
@@ -72,11 +89,11 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
         setTimeout(() => setGroqStatus('idle'), 4000);
     };
     
-    const renderStatusIcon = (status: TestStatus | ApiKeyStatus | 'checking') => {
+    const renderStatusIcon = (status: TestStatus | ApiKeyStatus) => {
         if (status === 'testing' || status === 'checking') return <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>;
         if (status === 'success' || status === 'valid') return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
         if (status === 'error' || status === 'invalid_key' || status === 'not_set') return <CloseIcon className="w-5 h-5 text-red-400" />;
-        if (status === 'network_error') return <CloseIcon className="w-5 h-5 text-yellow-400" />;
+        if (status === 'network_error' || status === 'quota_exceeded') return <CloseIcon className="w-5 h-5 text-yellow-400" />;
         return null;
     }
 
@@ -89,6 +106,8 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
                 return <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded-full">پیکربندی نشده</span>;
             case 'network_error':
                  return <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">خطای شبکه</span>;
+             case 'quota_exceeded':
+                 return <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">سهمیه تمام شده</span>;
             case 'checking':
                  return <span className="text-xs bg-gray-500/20 text-gray-300 px-2 py-1 rounded-full">در حال بررسی...</span>;
         }
@@ -97,6 +116,29 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
     return (
         <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
             <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
+            
+            <div className="mb-8 p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20">
+                <label htmlFor="default-provider" className="block text-sm font-medium text-cyan-300 mb-2">
+                    ارائه‌دهنده پیش‌فرض هوش مصنوعی
+                </label>
+                <p className="text-xs text-gray-400 mb-3">
+                    این مدل برای قابلیت‌هایی استفاده می‌شود که مدل خاصی به آن‌ها در تب "تخصیص مدل‌ها" اختصاص داده نشده است.
+                </p>
+                <select
+                    id="default-provider"
+                    value={settings.defaultProvider}
+                    onChange={(e) => handleDefaultProviderChange(e.target.value as AIModelProvider)}
+                    className="w-full max-w-xs bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"
+                >
+                    {availableProviders.map(provider => (
+                        <option key={provider} value={provider}>
+                            {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                        </option>
+                    ))}
+                </select>
+                {availableProviders.length === 0 && <p className="text-xs text-red-400 mt-2">هیچ ارائه‌دهنده‌ای فعال نیست. لطفاً حداقل یک کلید API وارد کنید.</p>}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Gemini Settings */}
                 <div className="space-y-4 p-4 border border-cyan-500 rounded-lg bg-gray-900/30 ring-2 ring-cyan-500/50">
@@ -117,9 +159,6 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
                             )}
                         </div>
                          <input id="gemini-apiKey" name="apiKey" type="password" value={settings.aiModelSettings.gemini.apiKey} onChange={(e) => { const newSettings = {...settings, aiModelSettings: {...settings.aiModelSettings, gemini: {apiKey: e.target.value}}}; onSettingsChange(newSettings); }} placeholder="برای اولویت دادن، کلید را اینجا وارد کنید" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:ring-cyan-500 focus:border-cyan-500 p-2.5 mt-2"/>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <button onClick={handleTestGemini} disabled={geminiRealStatus === 'checking'} className="text-sm bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition disabled:opacity-50">تست مجدد اتصال</button>
                     </div>
                 </div>
 

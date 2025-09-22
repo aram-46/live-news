@@ -1,3 +1,4 @@
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 // --- Utility ---
 export function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -12,6 +13,10 @@ export enum Credibility {
     Medium = "معتبر",
     Low = "نیازمند بررسی",
 }
+
+// --- API Status ---
+export type ApiKeyStatus = 'valid' | 'invalid_key' | 'not_set' | 'quota_exceeded' | 'network_error' | 'checking';
+
 
 // --- Core Data Structures ---
 

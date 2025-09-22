@@ -1,25 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { checkApiKeyStatus, ApiKeyStatus } from '../services/geminiService';
+import { AppSettings, ApiKeyStatus } from '../types';
 import ApiKeyHelpModal from './ApiKeyHelpModal';
-import { AppSettings } from '../types';
 
 interface ConnectionStatusProps {
     settings: AppSettings;
 }
 
 const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ settings }) => {
-    const [status, setStatus] = useState<ApiKeyStatus | 'checking'>('checking');
+    const [status, setStatus] = useState<ApiKeyStatus>('checking');
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
-        const verifyConnection = async () => {
-            const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
-            const result = await checkApiKeyStatus(keyToCheck);
-            setStatus(result);
+        const handleStatusChange = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            if (customEvent.detail && customEvent.detail.status) {
+                setStatus(customEvent.detail.status);
+            }
         };
-        // Delay check slightly to not block initial render
-        const timer = setTimeout(verifyConnection, 500);
-        return () => clearTimeout(timer);
+        window.addEventListener('apiKeyStatusChange', handleStatusChange);
+
+        // Initial check for 'not_set' case if no API call is made immediately.
+        const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+        if (!keyToCheck) {
+            setStatus('not_set');
+        }
+
+        return () => {
+            window.removeEventListener('apiKeyStatusChange', handleStatusChange);
+        };
     }, [settings.aiModelSettings.gemini.apiKey]);
 
     const getStatusInfo = () => {
@@ -30,6 +38,8 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ settings }) => {
                 return { color: 'bg-red-500', text: 'کلید API نامعتبر است. برای راهنمایی کلیک کنید.', canOpenModal: true };
             case 'not_set':
                  return { color: 'bg-red-500', text: 'کلید API تنظیم نشده است. برای راهنمایی کلیک کنید.', canOpenModal: true };
+            case 'quota_exceeded':
+                return { color: 'bg-yellow-500', text: 'سهمیه API تمام شده است. برای راهنمایی کلیک کنید.', canOpenModal: true };
             case 'network_error':
                 return { color: 'bg-yellow-500', text: 'خطا در ارتباط با سرور Gemini', canOpenModal: false };
             case 'checking':

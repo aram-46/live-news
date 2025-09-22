@@ -1,4 +1,3 @@
-
 import { AppSettings, generateUUID } from '../types';
 
 export const THEMES = [
