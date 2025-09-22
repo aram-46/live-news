@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AppSettings, ConductDebateConfig, DebateRole, debateRoleLabels, AIModelProvider, ConductDebateMessage, generateUUID, DebateAnalysisResult, SearchHistoryItem } from '../types';
+import { AppSettings, ConductDebateConfig, DebateRole, debateRoleLabels, AIModelProvider, ConductDebateMessage, generateUUID, DebateAnalysisResult } from '../types';
 import { getAIOpponentResponse, analyzeUserDebate } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import { ChatIcon, SparklesIcon, CheckCircleIcon } from './icons';
 import ExportButton from './ExportButton';
 
@@ -92,22 +93,12 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     };
     
     const saveDebateToHistory = (analysis: DebateAnalysisResult) => {
-        try {
-            const historyString = localStorage.getItem('search-history');
-            const currentHistory: SearchHistoryItem[] = historyString ? JSON.parse(historyString) : [];
-            const newItem: SearchHistoryItem = {
-                id: generateUUID(),
-                type: 'user-debate',
-                query: config.topic,
-                timestamp: Date.now(),
-                resultSummary: `مناظره پایان یافت. امتیاز شما: ${analysis.overallScore}/100. ${analysis.summary.slice(0, 100)}...`,
-                isFavorite: false,
-            };
-            const newHistory = [newItem, ...currentHistory].slice(0, 100);
-            localStorage.setItem('search-history', JSON.stringify(newHistory));
-        } catch (err) {
-            console.error("Failed to save debate to history:", err);
-        }
+        saveHistoryItem({
+            type: 'user-debate',
+            query: config.topic,
+            resultSummary: `مناظره پایان یافت. امتیاز شما: ${analysis.overallScore}/100. ${analysis.summary.slice(0, 100)}...`,
+            data: { analysis, transcript },
+        });
     };
 
 

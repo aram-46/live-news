@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback } from 'react';
 import { AppSettings, GroundingSource } from '../types';
 import { generateSeoKeywords, suggestWebsiteNames, suggestDomainNames, generateArticle, generateImagesForArticle } from '../services/geminiService';
@@ -20,7 +18,7 @@ const ResultCard: React.FC<{
 
     const handleCopy = () => {
         const textToCopy = Array.isArray(content) 
-            ? content.map(item => typeof item === 'string' ? item : item.uri).join('\n') 
+            ? content.map(item => typeof item === 'string' ? item : (item as GroundingSource).uri).join('\n') 
             : String(content);
         navigator.clipboard.writeText(textToCopy);
         setIsCopied(true);
@@ -41,7 +39,7 @@ const ResultCard: React.FC<{
                         <li key={index} className="text-sm truncate">
                             <a href={item.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-400 hover:underline">
                                 <LinkIcon className="w-4 h-4 flex-shrink-0"/>
-                                <span className="truncate" title={item.title}>{item.title}</span>
+                                <span className="truncate" title={item.title}>{item.title || item.uri}</span>
                             </a>
                         </li>
                     ))}
@@ -114,12 +112,10 @@ const ContentCreator: React.FC<ContentCreatorProps> = ({ settings }) => {
         setArticleKeywords([]);
         setArticleSources([]);
         try {
-            // FIX: The generateArticle function now returns an object. Destructure it correctly.
-            const { articleText, groundingSources } = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation'], settings);
-            setArticleText(articleText);
+            const { articleText: generatedText, groundingSources } = await generateArticle(articleTopic, wordCount, settings.aiInstructions['article-generation'], settings);
+            setArticleText(generatedText);
             setArticleSources(groundingSources || []);
             
-            // Also generate keywords for the article
             const keywords = await generateSeoKeywords(articleTopic, settings.aiInstructions['seo-keywords'], settings);
             setArticleKeywords(keywords);
         } catch (err) { console.error(err); } finally { setArticleLoading(null); }

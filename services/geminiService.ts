@@ -1,5 +1,3 @@
-
-
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import * as cache from './cacheService';
 import {
@@ -127,7 +125,7 @@ function handleGeminiError(error: any, functionName: string): never {
     if (errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('quota')) {
         status = 'quota_exceeded';
         userMessage = 'شما از سقف استفاده رایگان خود از API هوش مصنوعی Gemini عبور کرده‌اید.';
-    } else if (errorMessage.includes('500') || errorMessage.includes('Internal error')) {
+    } else if (errorMessage.includes('500') || errorMessage.includes('Internal error') || errorMessage.includes('xhr error')) {
         status = 'network_error';
         userMessage = 'سرویس هوش مصنوعی Gemini با یک خطای داخلی مواجه شد. لطفاً بعداً دوباره تلاش کنید.';
     } else if (errorMessage.includes('API key not valid')) {
@@ -136,11 +134,7 @@ function handleGeminiError(error: any, functionName: string): never {
     } else if (errorMessage.includes('Gemini API key not configured')) {
         status = 'not_set';
         userMessage = 'کلید API برای Gemini تنظیم نشده است. لطفاً برنامه را طبق راهنما اجرا کنید.';
-    } else if (errorMessage.includes('xhr error')) {
-        status = 'network_error';
-        userMessage = 'سرویس هوش مصنوعی Gemini با یک خطای داخلی مواجه شد. لطفاً بعداً دوباره تلاش کنید.';
     }
-
 
     window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status } }));
     throw new Error(userMessage);
@@ -202,7 +196,7 @@ export async function fetchNews(filters: Filters, instruction: string, articlesP
 
         const prompt = `
             ${truncatedInstruction}
-            Find the top ${articlesPerColumn} news articles matching these criteria:
+            Based on a real-time web search, find the top ${articlesPerColumn} news articles matching these criteria:
             - Query: "${truncatedQuery}"
             - Categories: ${formatFilterList(filters.categories)}
             - Regions: ${formatFilterList(filters.regions)}
@@ -210,12 +204,15 @@ export async function fetchNews(filters: Filters, instruction: string, articlesP
             - Images: ${showImages ? 'Required' : 'Not required'}
             Generate some related search suggestions as well.
             Your entire response MUST be a single, valid JSON object with two keys: "articles" and "suggestions".
-            Each article object must have these keys: title, summary, link, source, publicationTime (in Persian Jalali format), credibility, category, imageUrl.
+            Each article object must have these keys: title, summary, link (must be a direct, working URL to the article), source, publicationTime (in Persian Jalali format), credibility, category, imageUrl.
             Do not include any other text or markdown formatting.
         `;
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }]
+            }
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const result = safeJsonParse<{ articles: NewsArticle[], suggestions: string[] }>(response.text, { articles: [], suggestions: [] });
@@ -261,18 +258,26 @@ export async function fetchLiveNews(tabId: string, sources: Sources, instruction
 
         const prompt = `
             ${truncatedInstruction}
-            Find the latest top ${specifics.articlesToDisplay} news articles for the category: "${tabId}".
+            Search the web for the absolute latest, up-to-the-minute top ${specifics.articlesToDisplay} news articles for the category: "${tabId}".
             ${sourcePromptPart}
             Images: ${showImages ? 'Required' : 'Not required'}.
-            Your entire response MUST be a single, valid JSON array of article objects. All text values in the JSON, including title, summary, source, credibility, and category, MUST be in Persian.
-            Each article object must have these keys: title, summary, link, source, publicationTime (in Persian Jalali format), credibility, category, and an optional imageUrl.
-            The 'credibility' field is mandatory and MUST be one of these exact Persian strings: "بسیار معتبر", "معتبر", or "نیازمند بررسی". Do not use English terms.
-            Ensure every field is populated. If an image is not found, the imageUrl can be null.
-            Do not include any other text or markdown formatting outside of the JSON array.
+            Your entire response MUST be a single, valid JSON array of objects. Do not include any other text or markdown formatting.
+            Each object in the array must have the following keys:
+            - "title": string (The article title in Persian)
+            - "summary": string (A concise summary in Persian)
+            - "link": string (A direct, working URL to the full article)
+            - "source": string (The name of the news source in Persian)
+            - "publicationTime": string (The publication date in Persian Jalali format, e.g., '۱۴۰۳/۰۵/۰۲')
+            - "credibility": string (MUST be one of these exact Persian strings: "بسیار معتبر", "معتبر", or "نیازمند بررسی")
+            - "category": string (The news category in Persian)
+            - "imageUrl": string or null (A direct URL to a relevant image, or null if not available)
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }]
+            }
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const result = safeJsonParse<NewsArticle[]>(response.text, []);
@@ -344,8 +349,8 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
             }
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        const parsed = safeJsonParse<string[]>(response.text, []);
+        // FIX: Explicitly set the generic type for `safeJsonParse` to `string[]` to ensure correct type inference.
+        const parsed = safeJsonParse<string[]>(response.text, []) as string[];
         if (!Array.isArray(parsed)) {
             console.error("generateDynamicFilters expected an array but got object:", parsed);
             return [];
@@ -435,7 +440,7 @@ export async function factCheckNews(text: string, file: { data: string, mimeType
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
 
         let prompt = `
-            ${truncatedInstruction}\nAnalyze the following content for fact-checking.
+            ${truncatedInstruction}\nAnalyze the following content for fact-checking. Use a live web search to find verified information.
             Your entire response MUST be a single, valid JSON object matching the FactCheckResult structure.
             The JSON should have keys: "overallCredibility", "summary", and "sources" (an array).
             Each source object in the array must have "name", "link", "publicationDate" (in Persian Jalali format), "credibility", and "summary".
@@ -490,8 +495,33 @@ export async function analyzeMedia(
         
         let prompt = `
             ${truncatedInstruction}
-            تحلیل را بر اساس این درخواست کاربر انجام بده: "${truncatedUserPrompt}"
-            ${url ? `محتوای اصلی در این آدرس قرار دارد: ${url}` : 'محتوای اصلی یک فایل ضمیمه شده است.'}
+            Analyze the provided media content based on the user's request. Use a real-time web search to find context and verify claims.
+            User request: "${truncatedUserPrompt}"
+            ${url ? `The main content is at this URL: ${url}` : 'The main content is in the attached file.'}
+
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting.
+            The JSON object must have the following structure:
+            {
+              "summary": "string (A comprehensive summary of the media content in Persian.)",
+              "transcript": "string (The full, accurate transcription of dialogues in the video, in Persian. Leave this field empty if it's an image.)",
+              "analyzedClaims": [
+                {
+                  "claimText": "string (The exact text of the claim being made.)",
+                  "timestamp": "string (The exact timestamp of the claim in the video (e.g., '02:35'). Use 'N/A' for images.)",
+                  "credibility": "integer (A credibility score for the claim from 0 to 100.)",
+                  "analysis": "string (A short, neutral analysis of the claim's validity and credibility.)"
+                }
+              ],
+              "critique": {
+                "logic": "string (Critique of logical fallacies.)",
+                "science": "string (Critique of scientific inaccuracies.)",
+                "argumentation": "string (Critique of argumentation flaws.)",
+                "rhetoric": "string (Critique of rhetoric and delivery.)",
+                "grammar": "string (Critique of grammatical errors.)",
+                "evidence": "string (Critique of evidence and sources provided.)",
+                "philosophy": "string (Critique of philosophical flaws.)"
+              }
+            }
         `;
         contentParts.push({ text: prompt });
 
@@ -503,44 +533,14 @@ export async function analyzeMedia(
             model: 'gemini-2.5-flash',
             contents: { parts: contentParts },
             config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        summary: { type: Type.STRING, description: 'خلاصه‌ای جامع از محتوای رسانه به زبان فارسی.' },
-                        transcript: { type: Type.STRING, description: 'متن کامل و دقیق گفتگوهای موجود در ویدئو به زبان فارسی. اگر تصویر است، این فیلد را خالی بگذار.' },
-                        analyzedClaims: {
-                            type: Type.ARRAY,
-                            description: 'لیستی از ادعاها، موضوعات و استدلال‌های اصلی مطرح شده در رسانه.',
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    claimText: { type: Type.STRING, description: 'متن دقیق ادعای مطرح شده.' },
-                                    timestamp: { type: Type.STRING, description: 'زمان دقیق بیان ادعا در ویدئو (مثال: "02:35"). اگر تصویر است "N/A" بگذار.' },
-                                    credibility: { type: Type.INTEGER, description: 'امتیاز اعتبار ادعا از ۰ تا ۱۰۰.' },
-                                    analysis: { type: Type.STRING, description: 'تحلیل کوتاه و بی‌طرفانه از صحت و اعتبار این ادعا.' },
-                                },
-                            },
-                        },
-                        critique: {
-                            type: Type.OBJECT,
-                            description: 'نقد و بررسی محتوا از جنبه‌های مختلف.',
-                            properties: {
-                                logic: { type: Type.STRING, description: 'نقد ایرادات منطقی.' },
-                                science: { type: Type.STRING, description: 'نقد ایرادات علمی.' },
-                                argumentation: { type: Type.STRING, description: 'نقد ایرادات استدلالی.' },
-                                rhetoric: { type: Type.STRING, description: 'نقد ایرادات کلامی و فن بیان.' },
-                                grammar: { type: Type.STRING, description: 'نقد ایرادات دستوری.' },
-                                evidence: { type: Type.STRING, description: 'نقد ایرادات سندی و مدارک ارائه شده.' },
-                                philosophy: { type: Type.STRING, description: 'نقد ایرادات فلسفی.' },
-                            },
-                        },
-                    },
-                },
+                tools: [{ googleSearch: {} }]
             },
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<MediaAnalysisResult>(response.text, {} as MediaAnalysisResult);
+        if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
+            parsedResult.groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
+        }
         return parsedResult;
     } catch (error) {
         handleGeminiError(error, 'analyzeMedia');
@@ -637,9 +637,10 @@ export async function fetchPodcasts(query: string, instruction: string, settings
         const parsedResult = safeJsonParse<PodcastResult[]>(response.text, []);
 
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-            if(parsedResult.length > 0){
-                 parsedResult[0].groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
-            }
+            const groundingSources = response.candidates[0].groundingMetadata.groundingChunks.map((c: any) => c.web);
+            parsedResult.forEach(podcast => {
+                podcast.groundingSources = groundingSources;
+            });
         }
 
         return parsedResult;
@@ -814,10 +815,18 @@ export async function fetchStatistics(query: string, instruction: string, settin
         const truncatedQuery = (query || '').substring(0, 500);
 
         const prompt = `
-          ${truncatedInstruction}\nFind statistics for: "${truncatedQuery}"
-          Your entire response MUST be a single, valid JSON object matching the StatisticsResult structure.
-          The JSON should have keys: title, summary, keywords, chart, sourceDetails, analysis, relatedSuggestions.
-          Do not include any other text or markdown formatting.
+          ${truncatedInstruction}
+          Find statistics for: "${truncatedQuery}"
+          Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must strictly adhere to this structure:
+          {
+            "title": "string",
+            "summary": "string",
+            "keywords": ["string"],
+            "chart": { "type": "bar" | "pie" | "line" | "table", "title": "string", "labels": ["string"], "datasets": [{ "label": "string", "data": [number] }] },
+            "sourceDetails": { "name": "string", "link": "string", "author": "string", "publicationDate": "string", "credibility": "string" },
+            "analysis": { "acceptancePercentage": number, "currentValidity": "string", "alternativeResults": "string" },
+            "relatedSuggestions": ["string"]
+          }
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash', 
@@ -847,8 +856,15 @@ export async function fetchScientificArticle(query: string, instruction: string,
 
         const prompt = `
             ${truncatedInstruction}\nFind scientific articles for: "${truncatedQuery}"
-            Your entire response MUST be a single, valid JSON object matching the ScientificArticleResult structure.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must strictly adhere to this structure (it's the same as StatisticsResult but without the chart):
+             {
+                "title": "string",
+                "summary": "string",
+                "keywords": ["string"],
+                "sourceDetails": { "name": "string", "link": "string", "author": "string", "publicationDate": "string", "credibility": "string" },
+                "analysis": { "acceptancePercentage": number, "currentValidity": "string", "alternativeResults": "string" },
+                "relatedSuggestions": ["string"]
+            }
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -878,8 +894,15 @@ export async function fetchReligiousText(query: string, instruction: string, set
         
         const prompt = `
             ${truncatedInstruction}\nFind religious text for: "${truncatedQuery}"
-            Your entire response MUST be a single, valid JSON object matching the ScientificArticleResult structure.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must strictly adhere to this structure (it's the same as StatisticsResult but without the chart):
+             {
+                "title": "string",
+                "summary": "string",
+                "keywords": ["string"],
+                "sourceDetails": { "name": "string", "link": "string", "author": "string", "publicationDate": "string", "credibility": "string" },
+                "analysis": { "acceptancePercentage": number, "currentValidity": "string", "alternativeResults": "string" },
+                "relatedSuggestions": ["string"]
+            }
         `;
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -918,7 +941,7 @@ export async function generateContextualFilters(listType: string, context: any, 
             }
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
+        // FIX(L1024): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
         const parsed = safeJsonParse<string[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
@@ -981,10 +1004,18 @@ export async function analyzeAgentRequest(topic: string, request: string, instru
 
         const prompt = `
             ${truncatedInstruction}\nAnalyze this agent request.\nTopic: ${truncatedTopic}\nRequest: ${truncatedRequest}
-            Your entire response MUST be a single, valid JSON object matching the AgentClarificationRequest structure.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must adhere to this structure:
+            {
+              "isClear": boolean,
+              "questions": [{ "questionText": "string", "questionType": "text-input" | "multiple-choice", "options": ["string"] }],
+              "refinedPrompt": "string"
+            }
         `;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json" }});
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash', 
+            contents: prompt,
+            config: { tools: [{googleSearch: {}}] }
+        });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<AgentClarificationRequest>(response.text, { isClear: true });
     } catch (error) {
@@ -1034,7 +1065,7 @@ export async function generateKeywordsForTopic(mainTopic: string, comparisonTopi
             }
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
+        // FIX(L1137): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
         const parsed = safeJsonParse<string[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
@@ -1131,8 +1162,12 @@ export async function searchCryptoCoin(query: string, instruction: string, setti
 
         const prompt = `
             ${truncatedInstruction}\nSearch for crypto coin: "${truncatedQuery}"
-            Your entire response MUST be a single, valid JSON object matching the CryptoSearchResult structure.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON object. Do not include any text or markdown formatting. The JSON must adhere to this structure:
+            {
+              "coin": { "id": "string", "symbol": "string", "name": "string", "image": "string", "price_usd": number, "price_toman": number, "price_change_percentage_24h": number, "market_cap_usd": number, "market_cap_toman": number },
+              "summary": "string",
+              "sources": [{ "name": "string", "link": "string", "credibility": "string" }]
+            }
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
@@ -1156,8 +1191,14 @@ export async function fetchCryptoAnalysis(coinName: string, instruction: string,
 
         const prompt = `
             ${truncatedInstruction}\nAnalyze crypto coin: "${truncatedCoinName}"
-            Your entire response MUST be a single, valid JSON object matching the CryptoAnalysisResult structure.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must adhere to this structure:
+            {
+              "coinName": "string", "symbol": "string", "summary": "string",
+              "technicalAnalysis": { "title": "string", "content": "string", "keyLevels": { "support": ["string"], "resistance": ["string"] } },
+              "fundamentalAnalysis": { "title": "string", "content": "string", "keyMetrics": [{ "name": "string", "value": "string" }] },
+              "sentimentAnalysis": { "title": "string", "content": "string", "score": number },
+              "futureOutlook": "string"
+            }
         `;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
@@ -1176,8 +1217,15 @@ export async function analyzeContentDeeply(topic: string, file: any, instruction
 
         const contentParts: any[] = [{ text: `
             ${truncatedInstruction}\nAnalyze topic: ${truncatedTopic}
-            Your entire response MUST be a single, valid JSON object matching the AnalysisResult structure.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must adhere to this structure:
+            {
+                "understanding": "string", "analysis": "string (HTML-formatted)", "proponentPercentage": number,
+                "proponents": [{ "name": "string", "argument": "string", "scientificLevel": number }],
+                "opponents": [{ "name": "string", "argument": "string", "scientificLevel": number }],
+                "examples": [{ "title": "string", "content": "string" }],
+                "mentionedSources": [{ "title": "string", "url": "string", "sourceCredibility": "string", "argumentCredibility": "string" }],
+                "techniques": ["string"], "suggestions": [{ "title": "string", "url": "string" }]
+            }
         ` }];
         if(file) contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
@@ -1201,8 +1249,8 @@ export async function findFallacies(topic: string, file: any, instruction: strin
 
         const contentParts: any[] = [{ text: `
             ${truncatedInstruction}\nFind fallacies in: ${truncatedTopic}
-            Your entire response MUST be a single, valid JSON object matching the FallacyResult structure.
-            Do not include any other text or markdown formatting.
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must adhere to this structure:
+            { "identifiedFallacies": [{ "type": "string", "quote": "string", "explanation": "string", "correctedStatement": "string" }] }
         ` }];
         if(file) contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
@@ -1225,8 +1273,11 @@ export async function generateWordPressThemePlan(themeType: string, url: string,
         const truncatedDesc = (desc || '').substring(0, 2000);
         const truncatedImgDesc = (imgDesc || '').substring(0, 1000);
 
-        const prompt = `${truncatedInstruction}\nType: ${themeType}\nInspiration URL: ${url}\nDescription: ${truncatedDesc}\nImage Desc: ${truncatedImgDesc}`;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json" }});
+        const prompt = `${truncatedInstruction}\nType: ${themeType}\nInspiration URL: ${url}\nDescription: ${truncatedDesc}\nImage Desc: ${truncatedImgDesc}.
+        Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must adhere to this structure:
+        { "themeName": "string", "understanding": "string", "colorPalette": { "primary": "string", "secondary": "string", "accent": "string", "background": "string", "text": "string" }, "fontPairings": { "headings": "string", "body": "string" }, "layout": "string", "features": ["string"] }
+        `;
+        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools: [{googleSearch:{}}] }});
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<WordPressThemePlan>(response.text, {} as WordPressThemePlan);
     } catch (error) {
@@ -1343,48 +1394,25 @@ export async function analyzeUserDebate(
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
 
         const prompt = `
+            ${truncatedInstruction}
             Analyze the following debate transcript on the topic "${topic}".
             Focus exclusively on the **User's** performance.
             The latest part of the transcript is provided below for context.
             Your entire output must be in Persian.
-
-            **Transcript:**
-            ${truncatedTranscript}
+            Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must adhere to this structure:
+            {
+                "summary": "string",
+                "performanceAnalysis": { "knowledgeLevel": number, "eloquence": number, "argumentStrength": number, "feedback": "string" },
+                "fallacyDetection": [{ "fallacyType": "string", "userQuote": "string", "explanation": "string" }],
+                "overallScore": number
+            }
         `;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
-                systemInstruction: truncatedInstruction,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        summary: { type: Type.STRING, description: 'A brief, neutral summary of the entire debate in Persian.' },
-                        performanceAnalysis: {
-                            type: Type.OBJECT,
-                            properties: {
-                                knowledgeLevel: { type: Type.INTEGER, description: 'User\'s knowledge level on the topic (1-10).' },
-                                eloquence: { type: Type.INTEGER, description: 'User\'s eloquence and fluency (1-10).' },
-                                argumentStrength: { type: Type.INTEGER, description: 'Strength and logic of user\'s arguments (1-10).' },
-                                feedback: { type: Type.STRING, description: 'Constructive feedback for the user in Persian.' },
-                            },
-                        },
-                        fallacyDetection: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    fallacyType: { type: Type.STRING, description: 'The type of logical fallacy used by the user.' },
-                                    userQuote: { type: Type.STRING, description: 'The exact quote from the user that contains the fallacy.' },
-                                    explanation: { type: Type.STRING, description: 'A brief explanation of why this is a fallacy in Persian.' },
-                                },
-                            },
-                        },
-                        overallScore: { type: Type.INTEGER, description: 'An overall score for the user\'s performance (0-100).' },
-                    },
-                },
+                tools: [{ googleSearch: {} }]
             },
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
@@ -1419,7 +1447,7 @@ export async function generateEditableListItems(listName: string, listType: stri
         const prompt = `Generate a list of ${count} items for a settings page. The list is for "${listName}". Return a JSON array of strings.`;
         const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }});
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
+        // FIX(L1318): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
         const parsed = safeJsonParse<string[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
@@ -1442,7 +1470,7 @@ export async function generateResearchKeywords(topic: string, field: string, set
             config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
         });
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
+        // FIX(L1341): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
         const parsed = safeJsonParse<string[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];

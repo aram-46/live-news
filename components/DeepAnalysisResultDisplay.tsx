@@ -147,7 +147,7 @@ const DeepAnalysisResultDisplay: React.FC<DeepAnalysisResultDisplayProps> = ({ r
 
             {/* Grounding Sources */}
             {analysisResult.groundingSources && analysisResult.groundingSources.length > 0 && (
-                <div className="pt-3">
+                <div className="pt-4 border-t border-gray-700/50">
                     <h4 className="font-semibold text-cyan-200 text-sm">منابع اصلی جستجوی آنلاین (AI):</h4>
                     <ul className="list-disc list-inside text-xs space-y-1 mt-2">
                     {analysisResult.groundingSources.map((source, i) => (

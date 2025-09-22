@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Filters, NewsArticle, AppSettings, SearchTab, PodcastResult, StanceHolder, HostingSite, GroundingSource } from '../types';
+import { Filters, NewsArticle, AppSettings, SearchTab, PodcastResult, StanceHolder, HostingSite, GroundingSource, SearchHistoryItem } from '../types';
 import { fetchNews, fetchPodcasts, fetchWebResults } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import FilterPanel from './FilterPanel';
 import NewsResults from './NewsResults';
 import { RefreshIcon, SparklesIcon, SpeakerWaveIcon, SearchIcon, ThumbsUpIcon, ThumbsDownIcon, LinkIcon, ClipboardIcon, CheckCircleIcon } from './icons';
@@ -204,6 +205,14 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onSettingsCha
       const { articles, suggestions: apiSuggestions } = await fetchNews(filters, settings.aiInstructions['news-search'], settings.display.articlesPerColumn, settings.display.showImages, settings);
       setNews(articles);
       setSuggestions(apiSuggestions);
+      if (filters.query.trim()) {
+          saveHistoryItem({
+              type: 'news',
+              query: filters.query,
+              resultSummary: `${articles.length} مقاله خبری یافت شد.`,
+              data: { articles, suggestions: apiSuggestions },
+          });
+      }
     } catch (error) {
       console.error('Error fetching news:', error);
       setNewsError('خطا در دریافت اخبار. لطفاً دوباره تلاش کنید.');

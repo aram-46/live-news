@@ -13,6 +13,17 @@ interface RSSFeedManagerProps {
   settings: AppSettings;
 }
 
+// FIX: Define a type for imported rows to prevent 'unknown' type errors.
+type ImportedRow = {
+    "نام سایت"?: string;
+    "name"?: string;
+    "آدرس خبرخوان"?: string;
+    "url"?: string;
+    "دسته بندی"?: SourceCategory;
+    "category"?: SourceCategory;
+};
+
+
 const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, settings }) => {
   const [editingFeed, setEditingFeed] = useState<RSSFeed | null>(null);
   const [isAdding, setIsAdding] = useState<SourceCategory | null>(null);
@@ -51,7 +62,7 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
   const handleFindWithAI = async (category: SourceCategory) => {
     setAiLoading(category);
     try {
-        // FIX: Pass settings object as the third argument.
+        // FIX: Pass the settings object as the third argument.
         const newFoundFeeds = await findFeedsWithAI(category, feeds[category], settings);
         
         if(newFoundFeeds.length === 0) {
@@ -121,7 +132,8 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             
-            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+            // FIX: Explicitly type the parsed JSON to prevent 'unknown' type errors on `row`.
+            const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet);
             const newFeeds: RSSFeeds = JSON.parse(JSON.stringify(feeds));
             const existingUrls = new Set(Object.values(feeds).flat().map(f => f.url.toLowerCase().trim()));
             let addedCount = 0;

@@ -64,6 +64,7 @@ export interface SearchHistoryItem {
     timestamp: number;
     resultSummary: string;
     isFavorite: boolean;
+    data?: any; // To store the full JSON output
 }
 
 // --- Settings-related types ---

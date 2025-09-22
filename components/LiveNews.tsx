@@ -1,6 +1,9 @@
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { NewsArticle, AppSettings, RSSFeed, SearchHistoryItem, generateUUID } from '../types';
+import { NewsArticle, AppSettings, RSSFeed, SearchHistoryItem } from '../types';
 import { fetchLiveNews, checkForUpdates, fetchNewsFromFeeds } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import NewsResults from './NewsResults';
 import { RefreshIcon, SearchIcon } from './icons';
 import ExportButton from './ExportButton';
@@ -16,35 +19,12 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const resultsRef = useRef<HTMLDivElement>(null);
 
-    const saveSearchToHistory = (query: string, results: NewsArticle[]) => {
-        if (!query.trim()) return; // Don't save empty searches
-        try {
-            const historyString = localStorage.getItem('search-history');
-            const currentHistory: SearchHistoryItem[] = historyString ? JSON.parse(historyString) : [];
-
-            const newItem: SearchHistoryItem = {
-                id: generateUUID(),
-                type: 'rss-feed',
-                query: query,
-                timestamp: Date.now(),
-                resultSummary: `تعداد ${results.length} خبر از خبرخوان‌ها یافت شد.`,
-                isFavorite: false,
-            };
-            
-            // Add to the beginning and keep history to a reasonable size, e.g., 100 items.
-            const newHistory = [newItem, ...currentHistory].slice(0, 100);
-            localStorage.setItem('search-history', JSON.stringify(newHistory));
-        } catch (error) {
-            console.error("Failed to save search to history:", error);
-        }
-    };
-
-
     const loadFeedNews = useCallback(async (query?: string) => {
         setIsLoading(true);
         setError(null);
         try {
-            const allFeeds = Object.values(settings.rssFeeds).flat();
+            // FIX: Replaced `Object.values(...).flat()` with a type-safe `reduce` to avoid type inference issues.
+            const allFeeds: RSSFeed[] = Object.values(settings.rssFeeds).reduce((acc, val) => acc.concat(val), []);
             if (allFeeds.length === 0) {
                 setArticles([]);
                 setError("هیچ آدرس خبرخوانی در تنظیمات ثبت نشده است.");
@@ -53,7 +33,12 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             const results = await fetchNewsFromFeeds(allFeeds, settings.aiInstructions['rss-feeds'], settings, query);
             setArticles(results);
             if (query) {
-                saveSearchToHistory(query, results);
+                saveHistoryItem({
+                    type: 'rss-feed',
+                    query: query,
+                    resultSummary: `تعداد ${results.length} خبر از خبرخوان‌ها یافت شد.`,
+                    data: results,
+                });
             }
         } catch (err) {
             console.error(err);

@@ -1,9 +1,11 @@
 
 
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { AIInstructions, AIInstructionType, aiInstructionLabels, AppSettings } from '../types';
 import { generateAIInstruction, testAIInstruction } from '../services/geminiService';
-import { MagicIcon, CheckCircleIcon, CloseIcon } from './icons';
+import { MagicIcon, CheckCircleIcon, CloseIcon, DownloadIcon, ImportIcon } from './icons';
+import { exportToJson } from '../services/exportService';
 
 interface AIInstructionsProps {
   instructions: AIInstructions;
@@ -14,6 +16,7 @@ interface AIInstructionsProps {
 const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, onInstructionsChange, settings }) => {
   const [loadingInstruction, setLoadingInstruction] = useState<AIInstructionType | null>(null);
   const [testStatus, setTestStatus] = useState<Record<string, 'idle' | 'testing' | 'success' | 'error'>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
 
   const handleChange = (type: AIInstructionType, value: string) => {
@@ -46,6 +49,44 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
       setTimeout(() => setTestStatus(prev => ({...prev, [type]: 'idle'})), 4000);
   };
   
+    const handleExport = () => {
+        exportToJson(instructions, 'smart-news-ai-instructions');
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') throw new Error("File is not readable");
+                
+                const importedInstructions = JSON.parse(text);
+
+                if (typeof importedInstructions !== 'object' || !importedInstructions['news-ticker']) {
+                    throw new Error("Invalid JSON format or missing required keys.");
+                }
+
+                const newInstructions = { ...instructions, ...importedInstructions };
+                onInstructionsChange(newInstructions);
+                alert('دستورالعمل‌ها با موفقیت بارگذاری شدند.');
+
+            } catch (error: any) {
+                console.error("Failed to import instructions:", error);
+                alert(`خطا در بارگذاری فایل. لطفاً از معتبر بودن فایل JSON اطمینان حاصل کنید. (${error.message})`);
+            } finally {
+                if(event.target) event.target.value = "";
+            }
+        };
+        reader.readAsText(file);
+    };
+
   const renderStatusIcon = (status: 'idle' | 'testing' | 'success' | 'error') => {
         if (status === 'testing') return <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>;
         if (status === 'success') return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
@@ -56,12 +97,27 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
 
   return (
     <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
-      <h2 className="text-xl font-bold mb-4 text-cyan-300">
-        تنظیمات رفتار هوش مصنوعی
-      </h2>
-      <p className="text-sm text-gray-400 mb-6">
-        در این بخش می‌توانید دستورالعمل‌های خاصی برای هوش مصنوعی در وظایف مختلف تعریف کنید.
-      </p>
+       <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".json" className="hidden" />
+       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+            <div>
+                <h2 className="text-xl font-bold text-cyan-300">
+                    تنظیمات رفتار هوش مصنوعی
+                </h2>
+                <p className="text-sm text-gray-400 mt-2">
+                    در این بخش می‌توانید دستورالعمل‌های خاصی برای هوش مصنوعی در وظایف مختلف تعریف کنید.
+                </p>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+                 <button onClick={handleImportClick} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition text-sm">
+                    <ImportIcon className="w-4 h-4" />
+                    <span>بارگذاری</span>
+                </button>
+                <button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg transition text-sm">
+                    <DownloadIcon className="w-4 h-4" />
+                    <span>خروجی</span>
+                </button>
+            </div>
+        </div>
       <div className="space-y-6">
         {(Object.keys(aiInstructionLabels) as AIInstructionType[]).map((key) => (
           <div key={key}>

@@ -74,3 +74,10 @@ export const exportToXlsx = (data: any[], fileName: string): void => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
     XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
+
+// --- JSON Export ---
+export const exportToJson = (data: object, fileName: string): void => {
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+    saveAs(blob, `${fileName}.json`);
+};
