@@ -686,6 +686,7 @@ export interface ResearchResult {
     };
     proponents: AnalysisStance[];
     opponents: AnalysisStance[];
+    neutral?: AnalysisStance[];
     academicSources: {
         title: string;
         link: string;

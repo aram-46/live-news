@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { AppSettings, ResearchResult } from '../types';
 import { generateResearchKeywords, fetchResearchData } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import { BeakerIcon, MagicIcon, TrashIcon, SearchIcon } from './icons';
 import ResearchResultDisplay from './ResearchResultDisplay';
 import StatisticalResearch from './StatisticalResearch';
@@ -46,6 +47,14 @@ const Research: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         try {
             const res = await fetchResearchData(topic, field, keywords, settings);
             setResult(res);
+            if (res) {
+                saveHistoryItem({
+                    type: 'research',
+                    query: topic,
+                    resultSummary: `تحقیق انجام شد. امتیاز اعتبار: ${res.credibilityScore}/100. ${res.comprehensiveSummary.slice(0, 100)}...`,
+                    data: res,
+                });
+            }
         } catch (err) {
              setError(err instanceof Error ? err.message : 'خطا در دریافت اطلاعات تحقیق.');
         } finally {

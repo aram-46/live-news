@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { AppSettings } from '../types';
 import SourcesManager from './SourcesManager';
@@ -151,7 +149,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
                     password={settings.password || ''}
                     onPasswordChange={(password) => handlePartialChange({ password })}
                 />
-                <DataManagementSettings />
+                <DataManagementSettings settings={settings} onSettingsChange={onSettingsChange} />
             </div>
         )}
         

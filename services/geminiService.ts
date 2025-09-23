@@ -140,6 +140,31 @@ function handleGeminiError(error: any, functionName: string): never {
     throw new Error(userMessage);
 }
 
+// FIX: Added a retry mechanism for generateContent to handle transient network errors.
+async function generateContentWithRetry(ai: GoogleGenAI, request: any, retries: number = 2, delay: number = 1000): Promise<GenerateContentResponse> {
+    let lastError: any;
+    for (let i = 0; i <= retries; i++) {
+        try {
+            const response = await ai.models.generateContent(request);
+            return response;
+        } catch (error: any) {
+            lastError = error;
+            const errorMessage = error.toString();
+            // Only retry on 500-level errors or network issues ("xhr error")
+            if ((errorMessage.includes('500') || errorMessage.includes('xhr error')) && i < retries) {
+                console.warn(`Gemini API call failed (attempt ${i + 1}/${retries + 1}). Retrying in ${delay * (i + 1)}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay * (i + 1))); // linear backoff
+            } else {
+                // If it's not a retryable error or retries are exhausted, re-throw.
+                throw error;
+            }
+        }
+    }
+    // This line should not be reachable if the loop logic is correct, but it satisfies TypeScript's control flow analysis.
+    throw lastError;
+}
+
+
 // FIX: Added function to check API key status, required by AIModelSettings component.
 export async function checkApiKeyStatus(apiKey: string | undefined | null): Promise<ApiKeyStatus> {
     if (!apiKey) {
@@ -207,13 +232,14 @@ export async function fetchNews(filters: Filters, instruction: string, articlesP
             Each article object must have these keys: title, summary, link (must be a direct, working URL to the article), source, publicationTime (in Persian Jalali format), credibility, category, imageUrl.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const result = safeJsonParse<{ articles: NewsArticle[], suggestions: string[] }>(response.text, { articles: [], suggestions: [] });
         
@@ -272,13 +298,14 @@ export async function fetchLiveNews(tabId: string, sources: Sources, instruction
             - "category": string (The news category in Persian)
             - "imageUrl": string or null (A direct URL to a relevant image, or null if not available)
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const result = safeJsonParse<NewsArticle[]>(response.text, []);
         
@@ -314,13 +341,14 @@ export async function fetchTickerHeadlines(categories: string[], instruction: st
             Your entire response MUST be a single, valid JSON array of objects. Each object must have "title" and "link" properties.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const result = safeJsonParse<TickerArticle[]>(response.text, []);
         cache.set(cacheKey, result, 30 * 60 * 1000);
@@ -341,16 +369,18 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
             Your entire response MUST be a single, valid JSON array of strings.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }] 
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Explicitly set the generic type for `safeJsonParse` to `string[]` to ensure correct type inference.
-        const parsed = safeJsonParse<string[]>(response.text, []) as string[];
+        // FIX: Explicitly set the generic type for `safeJsonParse` to `string[]` and removed the redundant cast to ensure correct type inference.
+        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
+        const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             console.error("generateDynamicFilters expected an array but got object:", parsed);
             return [];
@@ -404,13 +434,14 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
             Do not include any other text or markdown formatting outside of the JSON array.
         `;
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const result = safeJsonParse<NewsArticle[]>(response.text, []);
         
@@ -457,13 +488,14 @@ export async function factCheckNews(text: string, file: { data: string, mimeType
             contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
         }
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: { parts: contentParts },
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult: FactCheckResult = safeJsonParse<FactCheckResult>(response.text, { overallCredibility: "Error", summary: "Failed to parse model response.", sources: [] });
         
@@ -529,13 +561,14 @@ export async function analyzeMedia(
             contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
         }
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: { parts: contentParts },
             config: {
                 tools: [{ googleSearch: {} }]
             },
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<MediaAnalysisResult>(response.text, {} as MediaAnalysisResult);
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
@@ -553,10 +586,11 @@ export async function generateAIInstruction(taskLabel: string, settings: AppSett
         const ai = new GoogleGenAI({ apiKey });
         
         const prompt = `Create a detailed, expert-level system instruction prompt in Persian for an AI model. The task is: "${taskLabel}". The prompt should be clear, concise, and guide the model to produce high-quality, structured output.`;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response.text;
     } catch (error) {
@@ -569,11 +603,12 @@ export async function testAIInstruction(instruction: string, settings: AppSettin
     
     try {
         const ai = new GoogleGenAI({ apiKey });
-        await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: "Test prompt",
             config: { systemInstruction: instruction, maxOutputTokens: 5 }
-        });
+        };
+        await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return true;
     } catch (e) {
@@ -598,13 +633,14 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
             Each object must have these keys: name, field, url, activity, credibility, region.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<Partial<Source>[]>(response.text, []);
     } catch (error) {
@@ -626,13 +662,14 @@ export async function fetchPodcasts(query: string, instruction: string, settings
             Your entire response MUST be a single, valid JSON array of PodcastResult objects.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<PodcastResult[]>(response.text, []);
 
@@ -662,13 +699,14 @@ export async function fetchWebResults(searchType: string, filters: Filters, inst
           Your entire response MUST be a single, valid JSON object with two keys: "results" (an array of WebResult objects) and "suggestions" (an array of strings).
           Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<{ results: WebResult[], suggestions: string[] }>(response.text, { results: [], suggestions: [] });
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web) || [];
@@ -689,11 +727,12 @@ export async function generateSeoKeywords(topic: string, instruction: string, se
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `${truncatedInstruction}\nGenerate SEO keywords for: "${truncatedTopic}"`;
-        const response = await ai.models.generateContent({ 
+        const request = { 
             model: "gemini-2.5-flash", 
             contents: prompt,
             config: { tools: [{ googleSearch: {} }] }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response.text.split(',').map(k => k.trim());
     } catch (error) {
@@ -708,7 +747,8 @@ export async function suggestWebsiteNames(topic: string, instruction: string, se
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `${truncatedInstruction}\nSuggest website names for: "${truncatedTopic}"`;
-        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
+        const request = { model: "gemini-2.5-flash", contents: prompt };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response.text.split('\n').map(k => k.trim().replace(/^- /, ''));
     } catch (error) {
@@ -723,7 +763,8 @@ export async function suggestDomainNames(topic: string, instruction: string, set
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `${truncatedInstruction}\nSuggest domain names for: "${truncatedTopic}"`;
-        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
+        const request = { model: "gemini-2.5-flash", contents: prompt };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response.text.split('\n').map(k => k.trim());
     } catch (error) {
@@ -740,13 +781,14 @@ export async function generateArticle(topic: string, wordCount: number, instruct
         const truncatedTopic = (topic || '').substring(0, 1000);
 
         const prompt = `${truncatedInstruction}\nWrite an article about "${truncatedTopic}" with approximately ${wordCount} words.`;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web) || [];
 
@@ -795,10 +837,11 @@ export async function generateAboutMePage(description: string, siteUrl: string, 
             contentParts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
         });
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: { parts: contentParts }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response.text.replace(/^```html\s*|```\s*$/g, '').trim();
     } catch (error) {
@@ -828,13 +871,14 @@ export async function fetchStatistics(query: string, instruction: string, settin
             "relatedSuggestions": ["string"]
           }
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash', 
             contents: prompt,
             config: { 
                 tools: [{googleSearch: {}}]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<StatisticsResult>(response.text, {} as StatisticsResult);
         const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
@@ -866,13 +910,14 @@ export async function fetchScientificArticle(query: string, instruction: string,
                 "relatedSuggestions": ["string"]
             }
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: { 
                 tools: [{googleSearch: {}}]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<ScientificArticleResult>(response.text, {} as ScientificArticleResult);
         const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
@@ -904,13 +949,14 @@ export async function fetchReligiousText(query: string, instruction: string, set
                 "relatedSuggestions": ["string"]
             }
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: { 
                 tools: [{googleSearch: {}}]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<ScientificArticleResult>(response.text, {} as ScientificArticleResult);
         const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
@@ -933,16 +979,18 @@ export async function generateContextualFilters(listType: string, context: any, 
             Your entire response MUST be a single, valid JSON array of strings.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash', 
             contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX(L1024): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        const parsed = safeJsonParse<string[]>(response.text, []);
+        // FIX: Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
+        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
+        const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -964,13 +1012,14 @@ export async function analyzeVideoFromUrl(url: string, type: string, keywords: s
             Your entire response MUST be a single, valid JSON object.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash', 
             contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }] 
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<any>(response.text, {});
     } catch (error) {
@@ -986,7 +1035,8 @@ export async function formatTextContent(text: string | null, url: string | null,
         const truncatedText = (text || '').substring(0, MAX_TEXT_LENGTH);
 
         const prompt = `${truncatedInstruction}\nFormat this content:\n${truncatedText || `Content from URL: ${url}`}`;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt});
+        const request = {model: 'gemini-2.5-flash', contents: prompt};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response.text;
     } catch (error) {
@@ -1011,11 +1061,12 @@ export async function analyzeAgentRequest(topic: string, request: string, instru
               "refinedPrompt": "string"
             }
         `;
-        const response = await ai.models.generateContent({
+        const requestBody = {
             model: 'gemini-2.5-flash', 
             contents: prompt,
             config: { tools: [{googleSearch: {}}] }
-        });
+        };
+        const response = await generateContentWithRetry(ai, requestBody);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<AgentClarificationRequest>(response.text, { isClear: true });
     } catch (error) {
@@ -1030,7 +1081,7 @@ export async function executeAgentTask(prompt: string, instruction: string, sett
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedPrompt = (prompt || '').substring(0, 8000);
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: `
                 ${truncatedInstruction}\n${truncatedPrompt}
@@ -1038,7 +1089,8 @@ export async function executeAgentTask(prompt: string, instruction: string, sett
                 Do not include any other text or markdown formatting.
             `,
             config: { tools:[{googleSearch:{}}] }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<AgentExecutionResult>(response.text, {} as AgentExecutionResult);
     } catch (error) {
@@ -1057,16 +1109,18 @@ export async function generateKeywordsForTopic(mainTopic: string, comparisonTopi
             Your entire response MUST be a single, valid JSON array of strings.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash', 
             contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         // FIX(L1137): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        const parsed = safeJsonParse<string[]>(response.text, []);
+        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
+        const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -1091,7 +1145,8 @@ export async function fetchGeneralTopicAnalysis(mainTopic: string, comparisonTop
             Your entire response MUST be a single, valid JSON object matching the GeneralTopicResult structure.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}});
+        const request = {model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<GeneralTopicResult>(response.text, {} as GeneralTopicResult);
 
@@ -1120,7 +1175,8 @@ export async function fetchCryptoData(type: string, timeframe: string, count: nu
             Your entire response MUST be a single, valid JSON array of CryptoCoin objects.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}});
+        const request = {model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}]}};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<CryptoCoin[]>(response.text, []);
     } catch (error) {
@@ -1139,13 +1195,14 @@ export async function fetchCoinList(instruction: string, settings: AppSettings):
             Your entire response MUST be a single, valid JSON array of SimpleCoin objects.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash', 
             contents: prompt,
             config: { 
                 tools: [{ googleSearch: {} }]
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<SimpleCoin[]>(response.text, []);
     } catch (error) {
@@ -1169,7 +1226,8 @@ export async function searchCryptoCoin(query: string, instruction: string, setti
               "sources": [{ "name": "string", "link": "string", "credibility": "string" }]
             }
         `;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
+        const request = {model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<CryptoSearchResult>(response.text, {} as CryptoSearchResult);
         const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => c.web);
@@ -1200,7 +1258,8 @@ export async function fetchCryptoAnalysis(coinName: string, instruction: string,
               "futureOutlook": "string"
             }
         `;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
+        const request = {model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<CryptoAnalysisResult>(response.text, {} as CryptoAnalysisResult);
     } catch (error) {
@@ -1228,7 +1287,8 @@ export async function analyzeContentDeeply(topic: string, file: any, instruction
             }
         ` }];
         if(file) contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
+        const request = {model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<AnalysisResult>(response.text, {} as AnalysisResult);
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
@@ -1253,7 +1313,8 @@ export async function findFallacies(topic: string, file: any, instruction: strin
             { "identifiedFallacies": [{ "type": "string", "quote": "string", "explanation": "string", "correctedStatement": "string" }] }
         ` }];
         if(file) contentParts.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }});
+        const request = {model: 'gemini-2.5-flash', contents: { parts: contentParts }, config: { tools:[{googleSearch:{}}] }};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<FallacyResult>(response.text, {} as FallacyResult);
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
@@ -1277,7 +1338,8 @@ export async function generateWordPressThemePlan(themeType: string, url: string,
         Your entire response MUST be a single, valid JSON object. Do not include any other text or markdown formatting. The JSON must adhere to this structure:
         { "themeName": "string", "understanding": "string", "colorPalette": { "primary": "string", "secondary": "string", "accent": "string", "background": "string", "text": "string" }, "fontPairings": { "headings": "string", "body": "string" }, "layout": "string", "features": ["string"] }
         `;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools: [{googleSearch:{}}] }});
+        const request = {model: 'gemini-2.5-flash', contents: prompt, config: { tools: [{googleSearch:{}}] }};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<WordPressThemePlan>(response.text, {} as WordPressThemePlan);
     } catch (error) {
@@ -1289,7 +1351,8 @@ export async function generateWordPressThemeCode(plan: WordPressThemePlan, file:
         const apiKey = getApiKey(settings);
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `Based on this plan: ${JSON.stringify(plan).substring(0, 4000)}\nGenerate the code for the file: ${file}`;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt});
+        const request = {model: 'gemini-2.5-flash', contents: prompt};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response.text.replace(/^```(php|css|js)?\s*|```\s*$/g, '').trim();
     } catch (error) {
@@ -1329,11 +1392,12 @@ export async function getDebateTurnResponse(transcript: TranscriptEntry[], role:
             prompt += `Based on the conversation so far, provide your response according to your role and the configured tone and length.`;
         }
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash', 
             contents: prompt,
             config: { tools: [{ googleSearch: {} }] }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response;
     } catch (error) {
@@ -1366,11 +1430,12 @@ export async function getAIOpponentResponse(
             **Your turn:** Based on the user's last message and your role, provide a concise and relevant response in Persian.
         `;
         
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: { tools: [{ googleSearch: {} }] }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return response;
     } catch (error) {
@@ -1408,13 +1473,14 @@ export async function analyzeUserDebate(
             }
         `;
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }]
             },
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<DebateAnalysisResult>(response.text, {} as DebateAnalysisResult);
     } catch (error) {
@@ -1432,7 +1498,8 @@ export async function findFeedsWithAI(category: SourceCategory, existing: RSSFee
             Your entire response MUST be a single, valid JSON array of objects. Each object MUST have "name" and "url" properties.
             Do not include any other text or markdown formatting.
         `;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }});
+        const request = {model: 'gemini-2.5-flash', contents: prompt, config: { tools:[{googleSearch:{}}] }};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         return safeJsonParse<Partial<RSSFeed>[]>(response.text, []);
     } catch (error) {
@@ -1445,10 +1512,12 @@ export async function generateEditableListItems(listName: string, listType: stri
         const apiKey = getApiKey(settings);
         const ai = new GoogleGenAI({ apiKey });
         const prompt = `Generate a list of ${count} items for a settings page. The list is for "${listName}". Return a JSON array of strings.`;
-        const response = await ai.models.generateContent({model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }});
+        const request = {model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }};
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         // FIX(L1318): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        const parsed = safeJsonParse<string[]>(response.text, []);
+        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
+        const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -1464,14 +1533,16 @@ export async function generateResearchKeywords(topic: string, field: string, set
         const ai = new GoogleGenAI({ apiKey });
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `Based on the research topic "${truncatedTopic}" in the field of "${field}", generate 5 to 7 highly relevant academic and scientific keywords for database searches. Your response MUST be a single, valid JSON array of strings. Do not include any other text or markdown formatting.`;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         // FIX(L1341): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        const parsed = safeJsonParse<string[]>(response.text, []);
+        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
+        const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -1491,7 +1562,8 @@ export async function fetchResearchData(topic: string, field: string, keywords: 
             - Field: "${(field || '').substring(0, 200)}"
             - Keywords: ${keywords.join(', ').substring(0, 500)}
 
-            Your task is to search academic databases and the web to provide a structured report.
+            Your task is to search the most up-to-date and recent academic, scientific, and credible web sources.
+            It is crucial that you remain completely neutral and objective. Present the information as it exists from the sources, without adding your own opinions or trying to align with any potential user bias. Your goal is to provide a factual, balanced overview.
             The entire response must be in Persian.
             Your entire response MUST be a single, valid JSON object. Do not include any other text, explanations, or markdown formatting like \`\`\`json. The JSON object must have the following structure:
             {
@@ -1501,16 +1573,18 @@ export async function fetchResearchData(topic: string, field: string, keywords: 
               "viewpointDistribution": { "proponentPercentage": number, "opponentPercentage": number, "neutralPercentage": number },
               "proponents": [ { "name": "string", "argument": "string", "scientificLevel": number } ],
               "opponents": [ { "name": "string", "argument": "string", "scientificLevel": number } ],
+              "neutral": [ { "name": "string", "argument": "string", "scientificLevel": number } ],
               "academicSources": [ { "title": "string", "link": "string", "snippet": "string" } ]
             }
         `;
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<ResearchResult>(response.text, {} as ResearchResult);
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
@@ -1563,13 +1637,14 @@ export async function fetchStatisticalResearch(
             ${jsonStructure}
         `;
 
-        const response = await ai.models.generateContent({
+        const request = {
             model: "gemini-2.5-flash",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
             }
-        });
+        };
+        const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
         const parsedResult = safeJsonParse<StatisticalResearchResult>(response.text, {} as StatisticalResearchResult);
         if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {

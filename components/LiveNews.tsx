@@ -23,8 +23,9 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setIsLoading(true);
         setError(null);
         try {
-            // FIX: Replaced `Object.values(...).flat()` with a type-safe `reduce` to avoid type inference issues.
-            const allFeeds: RSSFeed[] = Object.values(settings.rssFeeds).reduce((acc, val) => acc.concat(val), []);
+            // FIX: Explicitly type the initial value of reduce to avoid type inference issues.
+            // FIX: Explicitly type the initial value of reduce to RSSFeed[] to prevent type inference issues where the initial empty array is treated as 'never[]' or 'unknown', causing concat errors.
+            const allFeeds: RSSFeed[] = Object.values(settings.rssFeeds).reduce((acc, val) => acc.concat(val), [] as RSSFeed[]);
             if (allFeeds.length === 0) {
                 setArticles([]);
                 setError("هیچ آدرس خبرخوانی در تنظیمات ثبت نشده است.");

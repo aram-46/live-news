@@ -26,7 +26,7 @@ const StanceView: React.FC<{ title: string; icon: React.ReactNode; stances: Anal
 
 const ResearchResultDisplay: React.FC<{ result: ResearchResult; topic: string; }> = ({ result, topic }) => {
     const resultRef = useRef<HTMLDivElement>(null);
-    const { proponentPercentage, opponentPercentage, neutralPercentage } = result.viewpointDistribution;
+    const { proponentPercentage = 0, opponentPercentage = 0, neutralPercentage = 0 } = result.viewpointDistribution || {};
     
     return (
         <div ref={resultRef} className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6 animate-fade-in">
@@ -47,8 +47,8 @@ const ResearchResultDisplay: React.FC<{ result: ResearchResult; topic: string; }
                 <div className="p-4 bg-gray-800/30 rounded-lg space-y-3">
                     <h4 className="font-semibold text-cyan-200">میزان اعتبار کلی اطلاعات</h4>
                     <div className="w-full bg-gray-700 rounded-full h-4">
-                        <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full text-center text-xs text-white font-bold" style={{ width: `${result.credibilityScore}%` }}>
-                            {result.credibilityScore}%
+                        <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full text-center text-xs text-white font-bold" style={{ width: `${result.credibilityScore || 0}%` }}>
+                            {result.credibilityScore || 0}%
                         </div>
                     </div>
                 </div>
@@ -62,26 +62,27 @@ const ResearchResultDisplay: React.FC<{ result: ResearchResult; topic: string; }
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <StanceView title="دیدگاه موافقین" icon={<ThumbsUpIcon className="w-5 h-5"/>} stances={result.proponents} className="text-green-300" />
-                 <StanceView title="دیدگاه مخالفین" icon={<ThumbsDownIcon className="w-5 h-5"/>} stances={result.opponents} className="text-red-300" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <StanceView title="دیدگاه موافقین" icon={<ThumbsUpIcon className="w-5 h-5"/>} stances={result.proponents || []} className="text-green-300" />
+                 <StanceView title="دیدگاه بی‌طرف" icon={<CircleIcon className="w-5 h-5"/>} stances={result.neutral || []} className="text-gray-300" />
+                 <StanceView title="دیدگاه مخالفین" icon={<ThumbsDownIcon className="w-5 h-5"/>} stances={result.opponents || []} className="text-red-300" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-700">
                 <div>
                     <h4 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><DocumentTextIcon className="w-5 h-5"/>منابع آکادمیک و دانشگاهی</h4>
                     <ul className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                        {result.academicSources.map((s, i) => <li key={i} className="text-sm">
+                        {(result.academicSources || []).map((s, i) => <li key={i} className="text-sm">
                             <a href={s.link} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-400 hover:underline">{s.title}</a>
                             <p className="text-xs text-gray-400 mt-1">{s.snippet}</p>
                         </li>)}
-                        {result.academicSources.length === 0 && <p className="text-xs text-gray-500">منبع آکادمیک مشخصی یافت نشد.</p>}
+                        {(!result.academicSources || result.academicSources.length === 0) && <p className="text-xs text-gray-500">منبع آکادمیک مشخصی یافت نشد.</p>}
                     </ul>
                 </div>
                 <div>
                      <h4 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><LinkIcon className="w-5 h-5"/>منابع وب</h4>
                      <ul className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                         {result.webSources?.map((s, i) => <li key={i}><a href={s.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title || s.uri}</span></a></li>)}
+                         {(result.webSources || []).map((s, i) => <li key={i}><a href={s.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-blue-400 hover:underline"><span className="truncate">{s.title || s.uri}</span></a></li>)}
                          {(!result.webSources || result.webSources.length === 0) && <p className="text-xs text-gray-500">منبع وبی یافت نشد.</p>}
                      </ul>
                 </div>

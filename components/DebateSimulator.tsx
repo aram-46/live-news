@@ -92,6 +92,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
         
         const totalTurns = config.participants.length * config.turnLimit;
         // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown'.
+        // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown', which causes comparison errors.
         const completedTurns = Object.values(turnCountRef.current).reduce((a: number, b: number) => a + b, 0);
 
         if (completedTurns >= totalTurns) {
@@ -128,6 +129,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
 
         try {
             // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown'.
+            // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown', which causes comparison errors.
             const isFinalTurn = Object.values(turnCountRef.current).reduce((a: number, b: number) => a + b, 0) >= config.participants.length * config.turnLimit;
             const speaker = config.participants.find(p => p.role === speakerRole)!;
             // FIX: Pass settings as the last argument.
@@ -309,7 +311,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
                         const isSpeaking = activeSpeaker === p.role;
                         return (
                             <div key={p.id} className={`participant-node ${isSpeaking ? 'active' : ''}`} style={{ top: `${y}%`, left: `${x}%`, '--glow-color-rgb': '6, 182, 212' } as React.CSSProperties} title={p.name}>
-                                 {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full rounded-full object-cover" /> : getRoleIcon(p.role)}
+                                 {p.avatar ? <img src={p.avatar} alt={p.name} className="w-full h-full object-cover rounded-full" /> : getRoleIcon(p.role)}
                             </div>
                         );
                     })}

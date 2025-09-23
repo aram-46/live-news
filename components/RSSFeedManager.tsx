@@ -140,9 +140,9 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
             let skippedCount = 0;
             
             json.forEach(row => {
-                const url = row['آدرس خبرخوان'] || row['url'];
-                const name = row['نام سایت'] || row['name'];
-                const category = row['دسته بندی'] || row['category'];
+                const url = row['آدرس خبرخوان'] || row.url;
+                const name = row['نام سایت'] || row.name;
+                const category = row['دسته بندی'] || row.category;
 
                 if(category && newFeeds[category as SourceCategory] && url && name) {
                      if (existingUrls.has(url.toLowerCase().trim())) {

@@ -1,18 +1,16 @@
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, SearchHistoryItem } from '../types';
-// FIX: Replaced non-existent EyeIcon with DocumentTextIcon.
-import { TrashIcon, SearchIcon, StarIcon, DownloadIcon, DocumentTextIcon } from './icons';
+import { TrashIcon, SearchIcon, StarIcon, DownloadIcon, DocumentTextIcon, ImportIcon } from './icons';
 import HistoryItemModal from './HistoryItemModal';
-// FIX: Added missing imports for history management functions.
 import { getHistory, updateHistory, clearHistory } from '../services/historyService';
+import { exportToJson } from '../services/exportService';
+
 
 interface SearchHistoryProps {
   settings: AppSettings;
 }
 
-type HistoryFilter = 'all' | 'news' | 'fact-check' | 'analyzer' | 'browser-agent' | 'live-news' | 'rss-feed' | 'user-debate';
+type HistoryFilter = 'all' | 'news' | 'fact-check' | 'analyzer' | 'browser-agent' | 'live-news' | 'rss-feed' | 'user-debate' | 'research';
 
 const historyTypeLabels: Record<string, string> = {
     'news': 'جستجوی اخبار',
@@ -25,6 +23,7 @@ const historyTypeLabels: Record<string, string> = {
     'religion': 'دینی',
     'rss-feed': 'خبرخوان',
     'user-debate': 'مناظره کاربر',
+    'research': 'تحقیقات عمومی',
 };
 
 
@@ -34,6 +33,7 @@ const SearchHistory: React.FC<SearchHistoryProps> = ({ settings }) => {
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>('all');
   const [showFavorites, setShowFavorites] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SearchHistoryItem | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setHistory(getHistory());
@@ -61,15 +61,46 @@ const SearchHistory: React.FC<SearchHistoryProps> = ({ settings }) => {
   };
 
   const handleExport = () => {
-    const dataStr = JSON.stringify(history, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.download = 'search-history-backup.json';
-    link.href = url;
-    link.click();
-    URL.revokeObjectURL(url);
+    exportToJson(history, 'smart-news-search-history');
   };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const text = e.target?.result as string;
+            const importedHistory: SearchHistoryItem[] = JSON.parse(text);
+
+            if (!Array.isArray(importedHistory)) {
+                throw new Error("Invalid format. Expected an array of history items.");
+            }
+
+            const currentHistory = getHistory();
+            const currentIds = new Set(currentHistory.map(item => item.id));
+            const newItems = importedHistory.filter(item => item.id && !currentIds.has(item.id));
+            
+            const mergedHistory = [...newItems, ...currentHistory]
+                .sort((a, b) => b.timestamp - a.timestamp)
+                .slice(0, 100);
+
+            updateHistory(mergedHistory);
+            setHistory(mergedHistory);
+            alert(`${newItems.length} مورد جدید به تاریخچه اضافه شد.`);
+        } catch (error: any) {
+            alert(`خطا در بارگذاری فایل تاریخچه: ${error.message}`);
+        } finally {
+            if(event.target) event.target.value = "";
+        }
+    };
+    reader.readAsText(file);
+};
   
   const filteredHistory = history
     .filter(item => {
@@ -94,6 +125,7 @@ const SearchHistory: React.FC<SearchHistoryProps> = ({ settings }) => {
     const filterButtons: {id: HistoryFilter, label: string}[] = [
         {id: 'all', label: 'همه'},
         {id: 'news', label: 'اخبار'},
+        {id: 'research', label: 'تحقیق'},
         {id: 'rss-feed', label: 'خبرخوان'},
         {id: 'fact-check', label: 'فکت چک'},
         {id: 'analyzer', label: 'تحلیل‌گر'},
@@ -104,11 +136,13 @@ const SearchHistory: React.FC<SearchHistoryProps> = ({ settings }) => {
 
   return (
     <>
+      <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".json" className="hidden" />
       {selectedItem && <HistoryItemModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
       <div className="max-w-5xl mx-auto p-4 md:p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <h2 className="text-xl font-bold text-cyan-300">تاریخچه فعالیت‌ها</h2>
           <div className="flex items-center gap-2">
+            <button onClick={handleImportClick} className="text-sm flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition"><ImportIcon className="w-4 h-4" /> بازیابی</button>
             <button onClick={handleExport} className="text-sm flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg transition"><DownloadIcon className="w-4 h-4" /> پشتیبان‌گیری</button>
             <button onClick={handleClearHistory} className="text-sm flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-3 rounded-lg transition"><TrashIcon className="w-4 h-4" /> پاک کردن همه</button>
           </div>
@@ -154,7 +188,6 @@ const SearchHistory: React.FC<SearchHistoryProps> = ({ settings }) => {
                   <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       {item.data && (
                           <button onClick={() => setSelectedItem(item)} className="text-gray-400 hover:text-cyan-300" title="مشاهده خروجی کامل">
-                              {/* FIX: Replaced non-existent EyeIcon with DocumentTextIcon. */}
                               <DocumentTextIcon className="w-5 h-5" />
                           </button>
                       )}
