@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, AppAIModelSettings, ApiKeyStatus, AIModelProvider } from '../../types';
-import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon } from '../icons';
+import { BrainIcon, CheckCircleIcon, CloseIcon, OpenAIIcon, OpenRouterIcon, GroqIcon, DownloadIcon, ImportIcon } from '../icons';
 import { testOpenAIConnection, testOpenRouterConnection, testGroqConnection } from '../../services/integrationService';
+import { exportToJson } from '../../services/exportService';
 
 interface AIModelSettingsProps {
   settings: AppSettings;
@@ -15,6 +16,7 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
     const [openaiStatus, setOpenaiStatus] = useState<TestStatus>('idle');
     const [openrouterStatus, setOpenrouterStatus] = useState<TestStatus>('idle');
     const [groqStatus, setGroqStatus] = useState<TestStatus>('idle');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const handleStatusChange = (event: Event) => {
@@ -25,18 +27,19 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
         };
         window.addEventListener('apiKeyStatusChange', handleStatusChange);
 
-        // Initial check for 'not_set' case if no API call is made immediately.
         const keyToCheck = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
         if (!keyToCheck) {
             setGeminiRealStatus('not_set');
         } else {
-            setGeminiRealStatus('checking');
+            // Let the global status checker handle this, don't set to 'checking' here
+            // to avoid flicker if a call is already in progress.
         }
 
         return () => {
             window.removeEventListener('apiKeyStatusChange', handleStatusChange);
         };
     }, [settings.aiModelSettings.gemini.apiKey]);
+
 
     const handleApiKeyChange = (
         provider: keyof AppAIModelSettings, 
@@ -49,10 +52,7 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
             ...settings.aiModelSettings,
             [provider]: { ...settings.aiModelSettings[provider], [field]: value }
         };
-        onSettingsChange({
-            ...settings,
-            aiModelSettings: newAiModelSettings
-        });
+        onSettingsChange({ ...settings, aiModelSettings: newAiModelSettings });
     };
     
     const handleDefaultProviderChange = (provider: AIModelProvider) => {
@@ -62,11 +62,45 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
     const isProviderEnabled = (provider: AIModelProvider): boolean => {
         if (provider === 'gemini') return !!(settings.aiModelSettings.gemini.apiKey || process.env.API_KEY);
         const providerSettings = settings.aiModelSettings[provider as 'openai' | 'openrouter' | 'groq'];
+        // @ts-ignore
         return !!(providerSettings && 'apiKey' in providerSettings && providerSettings.apiKey);
     };
-    
-    const availableProviders = (['gemini', 'openai', 'openrouter', 'groq'] as AIModelProvider[])
-        .filter(isProviderEnabled);
+    const availableProviders: AIModelProvider[] = (Object.keys(settings.aiModelSettings) as AIModelProvider[]).filter(isProviderEnabled);
+
+    const handleExport = () => {
+        exportToJson(settings.aiModelSettings, 'smart-news-ai-models-backup');
+    };
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result as string;
+                const importedData = JSON.parse(text);
+
+                if (typeof importedData !== 'object' || !importedData.gemini || !importedData.openai) {
+                    throw new Error("Invalid AI Models settings file format.");
+                }
+                
+                const newAiModelSettings = { ...settings.aiModelSettings, ...importedData };
+                onSettingsChange({ ...settings, aiModelSettings: newAiModelSettings });
+                alert('تنظیمات مدل‌های AI با موفقیت بارگذاری شد. لطفاً اتصال‌ها را مجدداً تست کنید.');
+
+            } catch (error: any) {
+                alert(`خطا در بارگذاری فایل: ${error.message}`);
+            } finally {
+                if(event.target) event.target.value = "";
+            }
+        };
+        reader.readAsText(file);
+    };
 
     const handleTestOpenAI = async () => {
         setOpenaiStatus('testing');
@@ -115,7 +149,20 @@ const AIModelSettings: React.FC<AIModelSettingsProps> = ({ settings, onSettingsC
     
     return (
         <div className="p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10">
-            <h2 className="text-xl font-bold mb-6 text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
+            <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".json" className="hidden" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h2 className="text-xl font-bold text-cyan-300">تنظیمات مدل هوش مصنوعی</h2>
+                <div className="flex gap-2">
+                    <button onClick={handleImportClick} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg transition text-sm">
+                        <ImportIcon className="w-4 h-4" />
+                        <span>بازیابی</span>
+                    </button>
+                    <button onClick={handleExport} className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg transition text-sm">
+                        <DownloadIcon className="w-4 h-4" />
+                        <span>پشتیبان‌گیری</span>
+                    </button>
+                </div>
+            </div>
             
             <div className="mb-8 p-4 bg-gray-900/30 rounded-lg border border-cyan-400/20">
                 <label htmlFor="default-provider" className="block text-sm font-medium text-cyan-300 mb-2">

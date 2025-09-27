@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat } from "@google/genai";
+import { Chat } from "@google/genai";
 import { FactCheckResult, Credibility, AppSettings, MediaFile, ChatMessage, generateUUID } from '../types';
 import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon, NewsIcon, VideoIcon, AudioIcon, ImageIcon, FilePdfIcon, LinkIcon, ScaleIcon } from './icons';
-import { factCheckNews } from '../services/geminiService';
+import { factCheckNews, createChat } from '../services/geminiService';
 import DeepAnalysis from './DeepAnalysis';
 import ExportButton from './ExportButton';
 
@@ -101,10 +101,20 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             setInitialResult(apiResult);
             const summaryMessage: ChatMessage = { id: generateUUID(), role: 'model', text: `**نتیجه کلی: ${apiResult.overallCredibility}**\n\n${apiResult.summary}`, timestamp: Date.now() };
             setChatHistory([summaryMessage]);
+
+            try {
+                const chat = createChat(settings, 'fact-check', settings.aiInstructions['fact-check']);
+                setChatSession(chat);
+            } catch (chatError) {
+                console.error('Could not create chat session:', chatError);
+                setError((chatError as Error).message); // Show provider error
+            }
+
             setIsChatActive(true);
         } catch (err) {
+            const errorMessage = (err as Error).message || 'خطا در بررسی اولیه محتوا. لطفاً دوباره تلاش کنید.';
             console.error('Error during fact-check:', err);
-            setError('خطا در بررسی اولیه محتوا. لطفاً دوباره تلاش کنید.');
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -112,17 +122,19 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
     const handleSendMessage = async (messageText: string) => {
         if (!messageText.trim() || isLoading) return;
+        
+        if (!chatSession) {
+            setError("خطا: نشست گفتگو ایجاد نشده است. ممکن است ارائه‌دهنده AI انتخاب شده پشتیبانی نشود.");
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
-        const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
-        if (!apiKey || !initialResult) { setError("خطا: امکان شروع گفتگو وجود ندارد."); return; }
-        const ai = new GoogleGenAI({ apiKey });
-        const chat = chatSession || ai.chats.create({ model: 'gemini-2.5-flash', config: { systemInstruction: settings.aiInstructions['fact-check'] } });
-        setChatSession(chat);
         const userMessage: ChatMessage = { id: generateUUID(), role: 'user', text: messageText, timestamp: Date.now() };
         setChatHistory(prev => [...prev, userMessage]);
         setUserInput('');
         try {
-            const resultStream = await chat.sendMessageStream({ message: messageText });
+            const resultStream = await chatSession.sendMessageStream({ message: messageText });
             let modelResponse = '';
             const thinkingMessage: ChatMessage = { id: generateUUID(), role: 'model', text: '...', timestamp: Date.now() };
             setChatHistory(prev => [...prev, thinkingMessage]);

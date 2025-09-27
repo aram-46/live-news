@@ -56,12 +56,12 @@ const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
             if (isFallacyFinder) {
                 apiResult = await findFallacies(topic, fileData, instruction, settings);
             } else {
-                apiResult = await analyzeContentDeeply(topic, fileData, instruction, settings);
+                apiResult = await analyzeContentDeeply(topic, fileData, instruction, settings, instructionKey);
             }
             setResult(apiResult);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            setError("خطا در انجام تحلیل. لطفا دوباره تلاش کنید.");
+            setError(err.message || "خطا در انجام تحلیل. لطفا دوباره تلاش کنید.");
         } finally {
             setIsLoading(false);
         }

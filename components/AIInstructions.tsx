@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useRef } from 'react';
 import { AIInstructions, AIInstructionType, aiInstructionLabels, AppSettings } from '../types';
 import { generateAIInstruction, testAIInstruction } from '../services/geminiService';
@@ -10,7 +9,7 @@ import { exportToJson } from '../services/exportService';
 interface AIInstructionsProps {
   instructions: AIInstructions;
   onInstructionsChange: (instructions: AIInstructions) => void;
-  settings: AppSettings; // Add settings to props
+  settings: AppSettings;
 }
 
 const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, onInstructionsChange, settings }) => {
@@ -30,7 +29,6 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
   const handleGenerateWithAI = async (type: AIInstructionType) => {
     setLoadingInstruction(type);
     try {
-      // FIX: Pass the settings object as the second argument.
       const generatedInstruction = await generateAIInstruction(aiInstructionLabels[type], settings);
       handleChange(type, generatedInstruction);
     } catch (error) {
@@ -43,7 +41,6 @@ const AIInstructionsSettings: React.FC<AIInstructionsProps> = ({ instructions, o
 
   const handleTestInstruction = async (type: AIInstructionType) => {
       setTestStatus(prev => ({...prev, [type]: 'testing'}));
-      // FIX: Pass the settings object as the second argument.
       const success = await testAIInstruction(instructions[type], settings);
       setTestStatus(prev => ({...prev, [type]: success ? 'success' : 'error'}));
       setTimeout(() => setTestStatus(prev => ({...prev, [type]: 'idle'})), 4000);

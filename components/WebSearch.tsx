@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useCallback, useRef } from 'react';
 import { AppSettings, Filters, WebResult, GroundingSource, SearchTab } from '../types';
 import { fetchWebResults } from '../services/geminiService';
@@ -102,7 +100,6 @@ const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onSettingsC
                 dollar: 'dollar-search'
             };
             const instruction = settings.aiInstructions[instructionMap[searchType]];
-            // FIX: Pass the settings object as the fourth argument.
             const { results: apiResults, sources: apiSources, suggestions: apiSuggestions } = await fetchWebResults(searchType, filters, instruction, settings);
             setResults(apiResults);
             setSources(apiSources);
@@ -115,7 +112,7 @@ const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onSettingsC
         }
     }, [searchType, settings]);
 
-    const currentSearchOptions = settings.searchOptions[searchType];
+    const currentSearchOptions = settings.searchOptions[searchType as SearchTab];
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -128,7 +125,7 @@ const WebSearch: React.FC<WebSearchProps> = ({ searchType, settings, onSettingsC
                     sources={currentSearchOptions.sources}
                     settings={settings}
                     onSettingsChange={onSettingsChange}
-                    searchType={searchType}
+                    searchType={searchType as SearchTab}
                 />
             </div>
             <div className="lg:col-span-2" ref={webResultsRef}>

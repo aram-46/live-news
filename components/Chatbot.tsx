@@ -1,9 +1,8 @@
-
-
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat } from "@google/genai";
+import { Chat } from "@google/genai";
 import { PaperClipIcon, CloseIcon, ClipboardIcon, ShareIcon, CheckCircleIcon } from './icons';
-import { MediaFile, AppSettings } from '../types';
+import { MediaFile, AppSettings, AIInstructionType } from '../types';
+import { createChat } from '../services/geminiService';
 
 const expertSystemInstruction = `You are a friendly and highly knowledgeable expert assistant for the "Smart News Search" application. Your primary goal is to provide comprehensive, clear, and step-by-step help to users. Your responses must be in PERSIAN.
 
@@ -72,25 +71,23 @@ const Chatbot: React.FC<ChatbotProps> = ({ settings }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Initialize or re-initialize chat session when tab or API key changes.
-    const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
-
-    if (!apiKey) {
-      console.error("Chatbot: Gemini API key is not configured.");
-      setMessages([{ role: 'model', text: 'خطا: کلید API برای مدل Gemini تنظیم نشده است. لطفاً به بخش تنظیمات بروید.' }]);
-      return;
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    const systemInstruction = activeTab === 'expert' ? expertSystemInstruction : undefined;
-    const newChat = ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: { systemInstruction },
-    });
-    setChatSession(newChat);
     setMessages([]);
     setMediaFile(null);
-  }, [activeTab, settings.aiModelSettings.gemini.apiKey]);
+    try {
+        const instructionKey: AIInstructionType = 'general-topics'; // Default for general chat
+        const systemInstruction = activeTab === 'expert' 
+            ? expertSystemInstruction 
+            : settings.aiInstructions[instructionKey];
+        
+        const newChat = createChat(settings, instructionKey, systemInstruction);
+        setChatSession(newChat);
+
+    } catch (err) {
+        console.error("Chatbot: Failed to create session", err);
+        const errorMessage = (err as Error).message || 'خطا در ایجاد نشست گفتگو.';
+        setMessages([{ role: 'model', text: `خطا: ${errorMessage}` }]);
+    }
+  }, [activeTab, settings]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

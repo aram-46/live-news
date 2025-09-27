@@ -4,7 +4,6 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { RSSFeeds, RSSFeed, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings } from '../types';
 import { findFeedsWithAI } from '../services/geminiService';
-// FIX: Add missing icon imports
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
 
 interface RSSFeedManagerProps {
@@ -13,7 +12,6 @@ interface RSSFeedManagerProps {
   settings: AppSettings;
 }
 
-// FIX: Define a type for imported rows to prevent 'unknown' type errors.
 type ImportedRow = {
     "نام سایت"?: string;
     "name"?: string;
@@ -62,7 +60,6 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
   const handleFindWithAI = async (category: SourceCategory) => {
     setAiLoading(category);
     try {
-        // FIX: Pass the settings object as the third argument.
         const newFoundFeeds = await findFeedsWithAI(category, feeds[category], settings);
         
         if(newFoundFeeds.length === 0) {
@@ -132,17 +129,18 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             
-            // FIX: Explicitly type the parsed JSON to prevent 'unknown' type errors on `row`.
             const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet);
             const newFeeds: RSSFeeds = JSON.parse(JSON.stringify(feeds));
             const existingUrls = new Set(Object.values(feeds).flat().map(f => f.url.toLowerCase().trim()));
             let addedCount = 0;
             let skippedCount = 0;
             
-            json.forEach(row => {
-                const url = row['آدرس خبرخوان'] || row.url;
-                const name = row['نام سایت'] || row.name;
-                const category = row['دسته بندی'] || row.category;
+            json.forEach((row: ImportedRow) => {
+                // FIX: Cast row to 'any' to prevent TypeScript from inferring it as 'unknown', allowing property access.
+                const anyRow = row as any;
+                const url = anyRow['آدرس خبرخوان'] || anyRow.url;
+                const name = anyRow['نام سایت'] || anyRow.name;
+                const category = anyRow['دسته بندی'] || anyRow.category;
 
                 if(category && newFeeds[category as SourceCategory] && url && name) {
                      if (existingUrls.has(url.toLowerCase().trim())) {

@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppSettings, DebateConfig, DebateParticipant, DebateRole, debateRoleLabels, TranscriptEntry, AIModelProvider } from '../types';
 import { getDebateTurnResponse } from '../services/geminiService';
-// FIX: Add missing icon imports.
 import { GavelIcon, PlusCircleIcon, MinusCircleIcon, CircleIcon, UploadIcon, PlayIcon, PauseIcon } from './icons';
 import ExportButton from './ExportButton';
 
@@ -91,9 +90,8 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
         const regularOrder: DebateRole[] = ['proponent', 'opponent', 'neutral'];
         
         const totalTurns = config.participants.length * config.turnLimit;
-        // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown'.
-        // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown', which causes comparison errors.
-        const completedTurns = Object.values(turnCountRef.current).reduce((a: number, b: number) => a + b, 0);
+        // FIX: Cast Object.values to number[] to ensure correct type for reduce operation.
+        const completedTurns = (Object.values(turnCountRef.current) as number[]).reduce((a: number, b: number) => a + b, 0);
 
         if (completedTurns >= totalTurns) {
             return turnCountRef.current['moderator'] <= config.turnLimit ? 'moderator' : null;
@@ -102,24 +100,24 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
         const currentInRegular = regularOrder.indexOf(currentSpeaker);
         if (currentInRegular !== -1) {
             let nextSpeaker = regularOrder[(currentInRegular + 1) % regularOrder.length];
-            if (turnCountRef.current[nextSpeaker] < config.turnLimit) {
+            if ((turnCountRef.current[nextSpeaker] || 0) < config.turnLimit) {
                 return nextSpeaker;
             }
              // If next in line is done, try the one after that
             nextSpeaker = regularOrder[(currentInRegular + 2) % regularOrder.length];
-             if (turnCountRef.current[nextSpeaker] < config.turnLimit) {
+             if ((turnCountRef.current[nextSpeaker] || 0) < config.turnLimit) {
                 return nextSpeaker;
             }
         }
         
         // Fallback or initial case
         for (const role of regularOrder) {
-            if (turnCountRef.current[role] < config.turnLimit) {
+            if ((turnCountRef.current[role] || 0) < config.turnLimit) {
                 return role;
             }
         }
 
-        return turnCountRef.current['moderator'] <= config.turnLimit ? 'moderator' : null;
+        return (turnCountRef.current['moderator'] || 0) <= config.turnLimit ? 'moderator' : null;
 
     }, [config.turnLimit, config.participants]);
     
@@ -128,11 +126,10 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
         turnCountRef.current[speakerRole] = (turnCountRef.current[speakerRole] || 0) + 1;
 
         try {
-            // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown'.
-            // FIX: Explicitly type the parameters of the reduce function to prevent them from being inferred as 'unknown', which causes comparison errors.
-            const isFinalTurn = Object.values(turnCountRef.current).reduce((a: number, b: number) => a + b, 0) >= config.participants.length * config.turnLimit;
+            // FIX: Cast Object.values to number[] to ensure correct type for reduce operation.
+            const completedTurns = (Object.values(turnCountRef.current) as number[]).reduce((a: number, b: number) => a + b, 0);
+            const isFinalTurn = completedTurns >= config.participants.length * config.turnLimit;
             const speaker = config.participants.find(p => p.role === speakerRole)!;
-            // FIX: Pass settings as the last argument.
             const response = await getDebateTurnResponse(transcript, speakerRole, turnCountRef.current[speakerRole], config, isFinalTurn, settings.aiInstructions['analyzer-debate'], speaker.modelProvider, settings);
 
             const newEntry: TranscriptEntry = { participant: speaker, text: response.text };
@@ -193,7 +190,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
     };
 
     const isProviderEnabled = (provider: AIModelProvider): boolean => {
-        if (provider === 'gemini') return !!process.env.API_KEY;
+        if (provider === 'gemini') return !!(settings.aiModelSettings.gemini.apiKey || process.env.API_KEY);
         const modelSettings = settings.aiModelSettings[provider as keyof typeof settings.aiModelSettings];
         // @ts-ignore
         return 'apiKey' in modelSettings && !!modelSettings.apiKey;

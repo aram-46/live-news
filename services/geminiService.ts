@@ -1,4 +1,6 @@
-import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
+
+
+import { GoogleGenAI, GenerateContentResponse, Type, Chat } from "@google/genai";
 import * as cache from './cacheService';
 import {
     NewsArticle,
@@ -58,20 +60,11 @@ const MAX_DESC_LENGTH = 5000;
 const MAX_CATEGORIES_IN_PROMPT = 20;
 
 
-// Helper to get the API key, prioritizing settings over environment variables.
-const getApiKey = (settings: AppSettings): string => {
-    const key = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
-    if (!key) {
-        throw new Error("Gemini API key not configured.");
-    }
-    return key;
-}
-
 // A helper to safely parse JSON from the model
 function safeJsonParse<T>(data: any, fallback: T): T {
     // If the SDK already parsed the JSON, return it directly.
     if (typeof data === 'object' && data !== null) {
-        // FIX: Use a double assertion to bypass strict type checking when the response is already a JSON object.
+        // Use a double assertion to bypass strict type checking when the response is already a JSON object.
         // This resolves issues where TypeScript infers array types as 'unknown[]' which cannot be assigned to more specific types like 'string[]'.
         return data as unknown as T;
     }
@@ -85,7 +78,7 @@ function safeJsonParse<T>(data: any, fallback: T): T {
     try {
         const markdownMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
         if (markdownMatch && markdownMatch[1]) {
-            // FIX: Use a double assertion to bypass strict type checking after parsing.
+            // Use a double assertion to bypass strict type checking after parsing.
             return JSON.parse(markdownMatch[1]) as unknown as T;
         }
         const firstBracket = jsonString.indexOf('[');
@@ -104,7 +97,7 @@ function safeJsonParse<T>(data: any, fallback: T): T {
             return fallback;
         }
         const jsonPart = jsonString.substring(start, end + 1);
-        // FIX: Use a double assertion to bypass strict type checking after parsing.
+        // Use a double assertion to bypass strict type checking after parsing.
         return JSON.parse(jsonPart) as unknown as T;
     } catch (error) {
         console.error("Failed to parse JSON from model:", error);
@@ -119,6 +112,10 @@ function handleGeminiError(error: any, functionName: string): never {
     console.error(`Gemini API Error in ${functionName}:`, error);
 
     const errorMessage = error.toString();
+    if (errorMessage.includes('implementation is not yet available')) {
+        throw new Error(error.message); // Rethrow the user-friendly message to be caught by the UI
+    }
+    
     let status: ApiKeyStatus = 'network_error';
     let userMessage = 'خطا در ارتباط با سرویس هوش مصنوعی Gemini. لطفاً اتصال اینترنت خود را بررسی کنید.';
 
@@ -140,7 +137,7 @@ function handleGeminiError(error: any, functionName: string): never {
     throw new Error(userMessage);
 }
 
-// FIX: Added a retry mechanism for generateContent to handle transient network errors.
+// Added a retry mechanism for generateContent to handle transient network errors.
 async function generateContentWithRetry(ai: GoogleGenAI, request: any, retries: number = 2, delay: number = 1000): Promise<GenerateContentResponse> {
     let lastError: any;
     for (let i = 0; i <= retries; i++) {
@@ -164,8 +161,55 @@ async function generateContentWithRetry(ai: GoogleGenAI, request: any, retries: 
     throw lastError;
 }
 
+const getAiClient = (settings: AppSettings, task?: AIInstructionType, providerOverride?: AIModelProvider): GoogleGenAI => {
+    const provider = providerOverride || (task ? settings.modelAssignments[task] : undefined) || settings.defaultProvider;
 
-// FIX: Added function to check API key status, required by AIModelSettings component.
+    const useGeminiFallback = (unsupportedProvider: string) => {
+        console.warn(
+            `Provider '${unsupportedProvider}' is configured but its implementation is not yet available. ` +
+            `Gracefully falling back to 'gemini' for this request. Please select 'gemini' in the settings for this task or as the default provider to remove this warning.`
+        );
+        const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+        if (!apiKey) {
+            // This will be caught by handleGeminiError and shown to user
+            throw new Error("Fallback to Gemini failed: Gemini API key not configured.");
+        }
+        return new GoogleGenAI({ apiKey });
+    }
+
+    switch (provider) {
+        case 'gemini':
+            const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+            if (!apiKey) {
+                // This will be caught by handleGeminiError and shown to user
+                throw new Error("Gemini API key not configured.");
+            }
+            return new GoogleGenAI({ apiKey });
+        case 'openai':
+        case 'openrouter':
+        case 'groq':
+            return useGeminiFallback(provider);
+        default:
+            // This should ideally not happen if UI is correct
+            throw new Error(`Unsupported AI provider: ${provider}`);
+    }
+};
+
+export function createChat(settings: AppSettings, task: AIInstructionType, systemInstruction?: string): Chat {
+    try {
+        const ai = getAiClient(settings, task); // This will no longer throw for unimplemented providers.
+        return ai.chats.create({
+            model: 'gemini-2.5-flash',
+            config: { systemInstruction }
+        });
+    } catch (error) {
+        // The error from getAiClient is still a user-friendly Error object. Re-throw it. 
+        throw error; 
+    }
+}
+
+
+// Added function to check API key status, required by AIModelSettings component.
 export async function checkApiKeyStatus(apiKey: string | undefined | null): Promise<ApiKeyStatus> {
     if (!apiKey) {
         return 'not_set';
@@ -173,7 +217,7 @@ export async function checkApiKeyStatus(apiKey: string | undefined | null): Prom
     try {
         const ai = new GoogleGenAI({ apiKey });
         // Use a very lightweight model call to check the key and quota.
-        await ai.models.generateContent({
+        await generateContentWithRetry(ai, {
             model: "gemini-2.5-flash",
             contents: "test",
             config: { maxOutputTokens: 1 }
@@ -206,9 +250,8 @@ export async function fetchNews(filters: Filters, instruction: string, articlesP
     if (cached) return cached;
 
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
-
+        const ai = getAiClient(settings, 'news-search');
+        
         const formatFilterList = (items: string[]): string => {
             if (items.includes('all') || items.length === 0) {
                 return 'any';
@@ -263,8 +306,7 @@ export async function fetchLiveNews(tabId: string, sources: Sources, instruction
     if (cached) return cached;
 
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'news-display');
 
         const allSourcesList: Source[] = Object.values(sources).flat();
         const selectedSourceIds: string[] = Object.values(specifics.selectedSources || {}).flat();
@@ -330,8 +372,7 @@ export async function fetchTickerHeadlines(categories: string[], instruction: st
     if (cached) return cached;
 
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'news-ticker');
 
         const truncatedCategories = categories.slice(0, MAX_CATEGORIES_IN_PROMPT);
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
@@ -360,8 +401,7 @@ export async function fetchTickerHeadlines(categories: string[], instruction: st
 
 export async function generateDynamicFilters(query: string, listType: 'categories' | 'regions' | 'sources', count: number, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
         const truncatedQuery = (query || '').substring(0, 500);
 
         const prompt = `
@@ -378,9 +418,8 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
         };
         const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Explicitly set the generic type for `safeJsonParse` to `string[]` and removed the redundant cast to ensure correct type inference.
-        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
-        const parsed = safeJsonParse<unknown>(response.text, []);
+        // FIX: Changed generic type from 'unknown' to 'any[]' to resolve type inference issue.
+        const parsed = safeJsonParse<any[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             console.error("generateDynamicFilters expected an array but got object:", parsed);
             return [];
@@ -402,8 +441,7 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
     const cached = cache.get<NewsArticle[]>(cacheKey, 20 * 60 * 1000); // 20 min TTL for RSS
     if (cached) return cached;
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'rss-feeds');
 
         const getDomainFromUrl = (url: string): string => {
             try {
@@ -463,8 +501,7 @@ export async function fetchNewsFromFeeds(feeds: RSSFeed[], instruction: string, 
 
 export async function factCheckNews(text: string, file: { data: string, mimeType: string } | null, settings: AppSettings, url?: string, instruction?: string): Promise<FactCheckResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'fact-check');
 
         const contentParts: any[] = [];
         
@@ -517,8 +554,7 @@ export async function analyzeMedia(
     settings: AppSettings
 ): Promise<MediaAnalysisResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'analyzer-media');
 
         const contentParts: any[] = [];
         
@@ -582,8 +618,7 @@ export async function analyzeMedia(
 
 export async function generateAIInstruction(taskLabel: string, settings: AppSettings): Promise<string> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
         
         const prompt = `Create a detailed, expert-level system instruction prompt in Persian for an AI model. The task is: "${taskLabel}". The prompt should be clear, concise, and guide the model to produce high-quality, structured output.`;
         const request = {
@@ -599,7 +634,10 @@ export async function generateAIInstruction(taskLabel: string, settings: AppSett
 }
 
 export async function testAIInstruction(instruction: string, settings: AppSettings): Promise<boolean> {
-    const apiKey = getApiKey(settings);
+    const apiKey = settings.aiModelSettings.gemini.apiKey || process.env.API_KEY;
+    if (!apiKey) {
+        handleGeminiError(new Error("Gemini API key not configured."), 'testAIInstruction');
+    }
     
     try {
         const ai = new GoogleGenAI({ apiKey });
@@ -618,8 +656,7 @@ export async function testAIInstruction(instruction: string, settings: AppSettin
 
 export async function findSourcesWithAI(category: SourceCategory, existingSources: Source[], options: FindSourcesOptions, settings: AppSettings): Promise<Partial<Source>[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
 
         const truncatedExisting = existingSources.slice(0, 50).map(s => s.url).join(', ').substring(0, 1000);
 
@@ -651,8 +688,7 @@ export async function findSourcesWithAI(category: SourceCategory, existingSource
 
 export async function fetchPodcasts(query: string, instruction: string, settings: AppSettings): Promise<PodcastResult[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'podcast-search');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedQuery = (query || '').substring(0, 500);
@@ -688,8 +724,7 @@ export async function fetchPodcasts(query: string, instruction: string, settings
 
 export async function fetchWebResults(searchType: string, filters: Filters, instruction: string, settings: AppSettings): Promise<{ results: WebResult[], sources: GroundingSource[], suggestions: string[] }> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, `${searchType}-search` as AIInstructionType);
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedQuery = (filters.query || '').substring(0, 500);
@@ -722,8 +757,7 @@ export async function fetchWebResults(searchType: string, filters: Filters, inst
 
 export async function generateSeoKeywords(topic: string, instruction: string, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'seo-keywords');
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `${truncatedInstruction}\nGenerate SEO keywords for: "${truncatedTopic}"`;
@@ -742,8 +776,7 @@ export async function generateSeoKeywords(topic: string, instruction: string, se
 
 export async function suggestWebsiteNames(topic: string, instruction: string, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'website-names');
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `${truncatedInstruction}\nSuggest website names for: "${truncatedTopic}"`;
@@ -758,8 +791,7 @@ export async function suggestWebsiteNames(topic: string, instruction: string, se
 
 export async function suggestDomainNames(topic: string, instruction: string, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'domain-names');
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `${truncatedInstruction}\nSuggest domain names for: "${truncatedTopic}"`;
@@ -774,8 +806,7 @@ export async function suggestDomainNames(topic: string, instruction: string, set
 
 export async function generateArticle(topic: string, wordCount: number, instruction: string, settings: AppSettings): Promise<{articleText: string, groundingSources: GroundingSource[]}> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'article-generation');
         
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 1000);
@@ -800,8 +831,7 @@ export async function generateArticle(topic: string, wordCount: number, instruct
 
 export async function generateImagesForArticle(prompt: string, count: number, style: string, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'article-generation'); // Image generation is part of article generation task
 
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
@@ -817,8 +847,7 @@ export async function generateImagesForArticle(prompt: string, count: number, st
 
 export async function generateAboutMePage(description: string, siteUrl: string, platform: string, images: {data: string, mimeType: string}[], pageConfig: PageConfig, instruction: string, settings: AppSettings): Promise<string> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'page-builder');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedDescription = (description || '').substring(0, MAX_DESC_LENGTH);
@@ -851,8 +880,7 @@ export async function generateAboutMePage(description: string, siteUrl: string, 
 
 export async function fetchStatistics(query: string, instruction: string, settings: AppSettings): Promise<StatisticsResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'stats-search');
         
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedQuery = (query || '').substring(0, 500);
@@ -892,8 +920,7 @@ export async function fetchStatistics(query: string, instruction: string, settin
 }
 export async function fetchScientificArticle(query: string, instruction: string, settings: AppSettings): Promise<ScientificArticleResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'science-search');
         
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedQuery = (query || '').substring(0, 500);
@@ -931,8 +958,7 @@ export async function fetchScientificArticle(query: string, instruction: string,
 }
 export async function fetchReligiousText(query: string, instruction: string, settings: AppSettings): Promise<ScientificArticleResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'religion-search');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedQuery = (query || '').substring(0, 1000);
@@ -970,8 +996,7 @@ export async function fetchReligiousText(query: string, instruction: string, set
 }
 export async function generateContextualFilters(listType: string, context: any, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
         const truncatedContext = JSON.stringify(context).substring(0, 1000);
 
         const prompt = `
@@ -988,9 +1013,7 @@ export async function generateContextualFilters(listType: string, context: any, 
         };
         const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
-        const parsed = safeJsonParse<unknown>(response.text, []);
+        const parsed = safeJsonParse<any[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -1001,8 +1024,7 @@ export async function generateContextualFilters(listType: string, context: any, 
 }
 export async function analyzeVideoFromUrl(url: string, type: string, keywords: string, instruction: string, settings: AppSettings): Promise<any> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'video-converter');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedKeywords = (keywords || '').substring(0, 500);
@@ -1028,8 +1050,7 @@ export async function analyzeVideoFromUrl(url: string, type: string, keywords: s
 }
 export async function formatTextContent(text: string | null, url: string | null, instruction: string, settings: AppSettings): Promise<string> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedText = (text || '').substring(0, MAX_TEXT_LENGTH);
@@ -1045,8 +1066,7 @@ export async function formatTextContent(text: string | null, url: string | null,
 }
 export async function analyzeAgentRequest(topic: string, request: string, instruction: string, settings: AppSettings): Promise<AgentClarificationRequest> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'browser-agent');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, 1000);
@@ -1075,8 +1095,7 @@ export async function analyzeAgentRequest(topic: string, request: string, instru
 }
 export async function executeAgentTask(prompt: string, instruction: string, settings: AppSettings): Promise<AgentExecutionResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'browser-agent');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedPrompt = (prompt || '').substring(0, 8000);
@@ -1099,8 +1118,7 @@ export async function executeAgentTask(prompt: string, instruction: string, sett
 }
 export async function generateKeywordsForTopic(mainTopic: string, comparisonTopic: string, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
         const truncatedMain = (mainTopic || '').substring(0, 500);
         const truncatedComp = (comparisonTopic || '').substring(0, 500);
 
@@ -1118,9 +1136,7 @@ export async function generateKeywordsForTopic(mainTopic: string, comparisonTopi
         };
         const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX(L1137): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
-        const parsed = safeJsonParse<unknown>(response.text, []);
+        const parsed = safeJsonParse<any[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -1131,8 +1147,7 @@ export async function generateKeywordsForTopic(mainTopic: string, comparisonTopi
 }
 export async function fetchGeneralTopicAnalysis(mainTopic: string, comparisonTopic: string, keywords: string[], domains: string[], instruction: string, settings: AppSettings): Promise<GeneralTopicResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'general-topics');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedMain = (mainTopic || '').substring(0, 1000);
@@ -1164,8 +1179,7 @@ export async function fetchGeneralTopicAnalysis(mainTopic: string, comparisonTop
 }
 export async function fetchCryptoData(type: string, timeframe: string, count: number, instruction: string, settings: AppSettings, ids?: string[]): Promise<CryptoCoin[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'crypto-data');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedIds = (ids || []).join(', ').substring(0, 1000);
@@ -1185,8 +1199,7 @@ export async function fetchCryptoData(type: string, timeframe: string, count: nu
 }
 export async function fetchCoinList(instruction: string, settings: AppSettings): Promise<SimpleCoin[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'crypto-data');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
 
@@ -1211,8 +1224,7 @@ export async function fetchCoinList(instruction: string, settings: AppSettings):
 }
 export async function searchCryptoCoin(query: string, instruction: string, settings: AppSettings): Promise<CryptoSearchResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'crypto-search');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedQuery = (query || '').substring(0, 200);
@@ -1241,8 +1253,7 @@ export async function searchCryptoCoin(query: string, instruction: string, setti
 }
 export async function fetchCryptoAnalysis(coinName: string, instruction: string, settings: AppSettings): Promise<CryptoAnalysisResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'crypto-analysis');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedCoinName = (coinName || '').substring(0, 200);
@@ -1266,10 +1277,9 @@ export async function fetchCryptoAnalysis(coinName: string, instruction: string,
         handleGeminiError(error, 'fetchCryptoAnalysis');
     }
 }
-export async function analyzeContentDeeply(topic: string, file: any, instruction: string, settings: AppSettings): Promise<AnalysisResult> {
+export async function analyzeContentDeeply(topic: string, file: any, instruction: string, settings: AppSettings, instructionKey: AIInstructionType): Promise<AnalysisResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, instructionKey);
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, MAX_TOPIC_LENGTH);
@@ -1301,8 +1311,7 @@ export async function analyzeContentDeeply(topic: string, file: any, instruction
 }
 export async function findFallacies(topic: string, file: any, instruction: string, settings: AppSettings): Promise<FallacyResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'analyzer-fallacy-finder');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedTopic = (topic || '').substring(0, MAX_TOPIC_LENGTH);
@@ -1327,8 +1336,7 @@ export async function findFallacies(topic: string, file: any, instruction: strin
 }
 export async function generateWordPressThemePlan(themeType: string, url: string, desc: string, imgDesc: string, instruction: string, settings: AppSettings): Promise<WordPressThemePlan> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'wordpress-theme');
 
         const truncatedInstruction = (instruction || '').substring(0, MAX_INSTRUCTION_LENGTH);
         const truncatedDesc = (desc || '').substring(0, 2000);
@@ -1348,8 +1356,7 @@ export async function generateWordPressThemePlan(themeType: string, url: string,
 }
 export async function generateWordPressThemeCode(plan: WordPressThemePlan, file: string, settings: AppSettings): Promise<string> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'wordpress-theme');
         const prompt = `Based on this plan: ${JSON.stringify(plan).substring(0, 4000)}\nGenerate the code for the file: ${file}`;
         const request = {model: 'gemini-2.5-flash', contents: prompt};
         const response = await generateContentWithRetry(ai, request);
@@ -1361,8 +1368,7 @@ export async function generateWordPressThemeCode(plan: WordPressThemePlan, file:
 }
 export async function getDebateTurnResponse(transcript: TranscriptEntry[], role: DebateRole, turn: number, config: DebateConfig, isFinal: boolean, instruction: string, provider: AIModelProvider, settings: AppSettings): Promise<GenerateContentResponse> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'analyzer-debate', provider);
 
         const transcriptText = transcript.map(t => `${t.participant.name} (${debateRoleLabels[t.participant.role]}): ${t.text}`).join('\n\n');
         const truncatedTranscript = transcriptText.substring(transcriptText.length - 8000);
@@ -1411,8 +1417,7 @@ export async function getAIOpponentResponse(
     settings: AppSettings
 ): Promise<GenerateContentResponse> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'analyzer-user-debate', config.aiModel);
         const transcriptText = transcript.map(t => `${t.role === 'user' ? 'شما' : 'هوش مصنوعی'}: ${t.text}`).join('\n\n');
         const truncatedTranscript = transcriptText.substring(transcriptText.length - 8000);
         
@@ -1450,8 +1455,7 @@ export async function analyzeUserDebate(
     settings: AppSettings
 ): Promise<DebateAnalysisResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'analyzer-user-debate');
 
         const transcriptText = transcript.map(t => `${t.role === 'user' ? 'User' : 'AI'}: ${t.text}`).join('\n\n');
         const truncatedTranscript = transcriptText.substring(transcriptText.length - 8000);
@@ -1490,8 +1494,7 @@ export async function analyzeUserDebate(
 
 export async function findFeedsWithAI(category: SourceCategory, existing: RSSFeed[], settings: AppSettings): Promise<Partial<RSSFeed>[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
         const truncatedExisting = existing.slice(0, 50).map(f => f.url).join(', ').substring(0, 1000);
         const prompt = `
             Find 5 new RSS feeds for category "${category}", excluding these URLs: ${truncatedExisting}
@@ -1509,15 +1512,12 @@ export async function findFeedsWithAI(category: SourceCategory, existing: RSSFee
 
 export async function generateEditableListItems(listName: string, listType: string, count: number, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings);
         const prompt = `Generate a list of ${count} items for a settings page. The list is for "${listName}". Return a JSON array of strings.`;
         const request = {model: 'gemini-2.5-flash', contents: prompt, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } }};
         const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX(L1318): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
-        const parsed = safeJsonParse<unknown>(response.text, []);
+        const parsed = safeJsonParse<any[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -1529,8 +1529,7 @@ export async function generateEditableListItems(listName: string, listType: stri
 
 export async function generateResearchKeywords(topic: string, field: string, settings: AppSettings): Promise<string[]> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'research-analysis');
         const truncatedTopic = (topic || '').substring(0, 500);
         const prompt = `Based on the research topic "${truncatedTopic}" in the field of "${field}", generate 5 to 7 highly relevant academic and scientific keywords for database searches. Your response MUST be a single, valid JSON array of strings. Do not include any other text or markdown formatting.`;
         const request = {
@@ -1540,9 +1539,7 @@ export async function generateResearchKeywords(topic: string, field: string, set
         };
         const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX(L1341): Replaced <unknown> with <string[]> to ensure correct type inference from safeJsonParse.
-        // FIX: Changed generic to `<unknown>` to handle loosely typed JSON from the API safely. The subsequent type guard ensures type safety.
-        const parsed = safeJsonParse<unknown>(response.text, []);
+        const parsed = safeJsonParse<any[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             return [];
         }
@@ -1554,8 +1551,7 @@ export async function generateResearchKeywords(topic: string, field: string, set
 
 export async function fetchResearchData(topic: string, field: string, keywords: string[], settings: AppSettings): Promise<ResearchResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'research-analysis');
         const prompt = `
             Conduct a deep academic analysis on the following topic for a Persian-speaking audience.
             - Topic: "${(topic || '').substring(0, 1000)}"
@@ -1603,8 +1599,7 @@ export async function fetchStatisticalResearch(
     settings: AppSettings
 ): Promise<StatisticalResearchResult> {
     try {
-        const apiKey = getApiKey(settings);
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient(settings, 'statistical-research');
         const jsonStructure = `
         {
           "understanding": "string",
@@ -1632,9 +1627,7 @@ export async function fetchStatisticalResearch(
             ${comparisonTopics.filter(t => t.trim() !== '').length > 0 ? `Compare it statistically against: "${comparisonTopics.join(' and ').substring(0, 500)}".` : ''}
             Use these keywords to guide your search: ${keywords.join(', ').substring(0, 500)}.
             Search only reputable academic, scientific, university, and top-tier English-language sources.
-            Your entire response must be a single, valid JSON object in PERSIAN. Do not include any text, markdown, or explanations outside of the JSON object.
-            The JSON object must strictly follow this structure:
-            ${jsonStructure}
+            Your entire response must be a single, valid JSON object in PERSIAN. Do not include any text, explanations, or markdown formatting. The JSON must strictly adhere to this structure: ${jsonStructure}
         `;
 
         const request = {
