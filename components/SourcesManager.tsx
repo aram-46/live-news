@@ -1,12 +1,9 @@
 
 
-
-
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Sources, Source, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings, FindSourcesOptions } from '../types';
 import { findSourcesWithAI } from '../services/geminiService';
-// FIX: Add missing icon imports
 import { PlusIcon, TrashIcon, PencilIcon, ImportIcon, MagicIcon, CloseIcon } from './icons';
 
 interface SourcesManagerProps {
@@ -77,7 +74,7 @@ const SourcesManager: React.FC<SourcesManagerProps> = ({ sources, onSourcesChang
     setAiLoading(true);
     try {
         const existingSources = sources[activeAiCategory];
-        // FIX: Pass settings as the fourth argument.
+        // FIX: Pass the 'settings' object as a required argument to the service function.
         const newFoundSources = await findSourcesWithAI(activeAiCategory, existingSources, aiOptions, settings);
         
         if(newFoundSources.length === 0) {

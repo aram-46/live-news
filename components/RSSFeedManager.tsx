@@ -136,7 +136,7 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
             let skippedCount = 0;
             
             json.forEach((row: ImportedRow) => {
-                // FIX: Cast row to 'any' to prevent TypeScript from inferring it as 'unknown', allowing property access.
+                // FIX: Cast `row` to `any` to allow property access, as TypeScript may incorrectly infer it as `unknown`.
                 const anyRow = row as any;
                 const url = anyRow['آدرس خبرخوان'] || anyRow.url;
                 const name = anyRow['نام سایت'] || anyRow.name;

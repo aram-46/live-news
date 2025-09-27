@@ -90,7 +90,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
         const regularOrder: DebateRole[] = ['proponent', 'opponent', 'neutral'];
         
         const totalTurns = config.participants.length * config.turnLimit;
-        // FIX: Cast Object.values to number[] to ensure correct type for reduce operation.
+        // FIX: Cast Object.values to number[] to ensure correct type for the reduce operation.
         const completedTurns = (Object.values(turnCountRef.current) as number[]).reduce((a: number, b: number) => a + b, 0);
 
         if (completedTurns >= totalTurns) {
@@ -126,7 +126,7 @@ const DebateSimulator: React.FC<DebateSimulatorProps> = ({ settings }) => {
         turnCountRef.current[speakerRole] = (turnCountRef.current[speakerRole] || 0) + 1;
 
         try {
-            // FIX: Cast Object.values to number[] to ensure correct type for reduce operation.
+            // FIX: Cast Object.values to number[] to ensure correct type for the reduce operation.
             const completedTurns = (Object.values(turnCountRef.current) as number[]).reduce((a: number, b: number) => a + b, 0);
             const isFinalTurn = completedTurns >= config.participants.length * config.turnLimit;
             const speaker = config.participants.find(p => p.role === speakerRole)!;

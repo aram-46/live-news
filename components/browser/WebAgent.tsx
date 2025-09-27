@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, AgentClarificationRequest, AgentExecutionResult } from '../../types';
 import { SparklesIcon, CheckCircleIcon } from '../icons';
@@ -68,7 +66,7 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
         setVisibleStep(-1);
 
         try {
-            // FIX: Pass settings object to service call.
+            // FIX: Pass the 'settings' object as a required argument to the service function.
             const clarificationResponse = await analyzeAgentRequest(topic, request, settings.aiInstructions['browser-agent'], settings);
             
             if (!clarificationResponse.isClear && clarificationResponse.questions) {
@@ -102,7 +100,7 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
     const handleExecute = async () => {
         setState('executing');
         try {
-            // FIX: Pass settings object to service call.
+            // FIX: Pass the 'settings' object as a required argument to the service function.
             const executionResult = await executeAgentTask(finalPrompt, settings.aiInstructions['browser-agent'], settings);
             setResult(executionResult);
             setState('done');

@@ -418,7 +418,8 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
         };
         const response = await generateContentWithRetry(ai, request);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: Changed generic type from 'unknown' to 'any[]' to resolve type inference issue.
+        // FIX: Using a generic type of `any[]` for `safeJsonParse` avoids potential TypeScript inference errors with `unknown[]`,
+        // while the subsequent `filter` call ensures the function's return type remains a clean `string[]`.
         const parsed = safeJsonParse<any[]>(response.text, []);
         if (!Array.isArray(parsed)) {
             console.error("generateDynamicFilters expected an array but got object:", parsed);

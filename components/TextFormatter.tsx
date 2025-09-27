@@ -1,11 +1,8 @@
 
-
-
-
 import React, { useState, useRef, useEffect } from 'react';
-import { AppSettings } from '../../types';
-import { formatTextContent } from '../../services/geminiService';
-import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../../services/exportService';
+import { AppSettings } from '../types';
+import { formatTextContent } from '../services/geminiService';
+import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
 // FIX: Add missing icon imports
 import { SparklesIcon, ClipboardIcon, CheckCircleIcon, CameraIcon, FilePdfIcon, FileWordIcon, FileExcelIcon, FileCodeIcon } from './icons';
 

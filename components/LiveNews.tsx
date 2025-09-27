@@ -23,7 +23,7 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setIsLoading(true);
         setError(null);
         try {
-            // FIX: Simplify array flattening using flat() to resolve reduce type inference issues.
+            // FIX: Use .flat() to correctly flatten the array of RSS feeds with proper type inference.
             const allFeeds: RSSFeed[] = Object.values(settings.rssFeeds).flat();
             if (allFeeds.length === 0) {
                 setArticles([]);

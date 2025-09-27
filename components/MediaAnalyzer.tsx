@@ -3,7 +3,6 @@
 import React, { useState, useRef } from 'react';
 import { AppSettings, MediaFile, MediaAnalysisResult } from '../types';
 import { analyzeMedia } from '../services/geminiService';
-// FIX: Add missing icon imports
 import { SparklesIcon, UploadIcon, LinkIcon, CloseIcon } from './icons';
 import VideoAnalysisResultDisplay from './VideoAnalysisResultDisplay';
 
@@ -40,7 +39,7 @@ const MediaAnalyzer: React.FC<{ settings: AppSettings }> = ({ settings }) => {
 
         try {
             const fileData = file ? { data: file.data, mimeType: file.type } : null;
-            // FIX: Pass settings as the fifth argument.
+            // FIX: Pass the 'settings' object as the fifth argument to the service function.
             const apiResult = await analyzeMedia(url, fileData, userPrompt, settings.aiInstructions['analyzer-media'], settings);
             setResult(apiResult);
         } catch (err) {
