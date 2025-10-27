@@ -164,21 +164,22 @@ const App: React.FC = () => {
       {tickerHeadlines.length > 0 && <NewsTicker headlines={tickerHeadlines} settings={settings.ticker} />}
 
       <main className="container mx-auto p-4 sm:p-6">
-        {activeView === 'live' && <LiveNews settings={settings} />}
-        {activeView === 'search' && <AdvancedSearch settings={settings} onSettingsChange={handleSettingsChange} onOpenUrl={handleOpenUrl} />}
-        {activeView === 'factcheck' && <FactCheck settings={settings} />}
-        {activeView === 'analyzer' && <Analyzer settings={settings} />}
-        {activeView === 'research' && <Research settings={settings} />}
-        {activeView === 'debate' && <Debate settings={settings} />}
-        {activeView === 'browseruse' && <BrowserUse settings={settings} />}
-        {activeView === 'online-tools' && <OnlineTools settings={settings} onOpenUrl={handleOpenUrl} />}
-        {activeView === 'history' && <SearchHistory settings={settings} />}
-        {activeView === 'settings' && (
-            isSettingsLocked ? 
+        <div className={activeView === 'live' ? '' : 'hidden'}><LiveNews settings={settings} /></div>
+        <div className={activeView === 'search' ? '' : 'hidden'}><AdvancedSearch settings={settings} onSettingsChange={handleSettingsChange} onOpenUrl={handleOpenUrl} /></div>
+        <div className={activeView === 'factcheck' ? '' : 'hidden'}><FactCheck settings={settings} /></div>
+        <div className={activeView === 'analyzer' ? '' : 'hidden'}><Analyzer settings={settings} /></div>
+        <div className={activeView === 'research' ? '' : 'hidden'}><Research settings={settings} /></div>
+        <div className={activeView === 'debate' ? '' : 'hidden'}><Debate settings={settings} /></div>
+        <div className={activeView === 'browseruse' ? '' : 'hidden'}><BrowserUse settings={settings} /></div>
+        <div className={activeView === 'online-tools' ? '' : 'hidden'}><OnlineTools settings={settings} onOpenUrl={handleOpenUrl} /></div>
+        <div className={activeView === 'history' ? '' : 'hidden'}><SearchHistory settings={settings} /></div>
+        <div className={activeView === 'settings' ? '' : 'hidden'}>
+          {isSettingsLocked ? 
             <PasswordPrompt password={settings.password!} onUnlock={() => setIsSettingsLocked(false)} /> :
             <Settings settings={settings} onSettingsChange={handleSettingsChange} />
-        )}
-        {activeView === 'chatbot' && <Chatbot settings={settings} />}
+          }
+        </div>
+        <div className={activeView === 'chatbot' ? '' : 'hidden'}><Chatbot settings={settings} /></div>
       </main>
 
       {dialogUrl && <DraggableDialog url={dialogUrl} onClose={() => setDialogUrl(null)} />}

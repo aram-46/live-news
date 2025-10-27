@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, ConductDebateConfig, DebateRole, debateRoleLabels, AIModelProvider, ConductDebateMessage, generateUUID, DebateAnalysisResult } from '../types';
 import { getAIOpponentResponse, analyzeUserDebate } from '../services/geminiService';
 import { saveHistoryItem } from '../services/historyService';
-import { ChatIcon, SparklesIcon, CheckCircleIcon } from './icons';
+import { SparklesIcon, CheckCircleIcon, GavelIcon } from './icons';
 import ExportButton from './ExportButton';
 
 const PerformanceMetric: React.FC<{ label: string; score: number }> = ({ label, score }) => (
@@ -80,7 +81,7 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setIsLoading(true);
 
         try {
-            const response = await getAIOpponentResponse(newTranscript, config, "You are a skilled debater. Respond to the user's argument according to your assigned role.", settings);
+            const response = await getAIOpponentResponse(newTranscript, config, settings.aiInstructions['analyzer-user-debate'], settings);
             const aiMessage: ConductDebateMessage = { id: generateUUID(), role: 'model', text: response.text, timestamp: Date.now() };
             setTranscript(prev => [...prev, aiMessage]);
         } catch (err) {
@@ -100,7 +101,6 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             data: { analysis, transcript },
         });
     };
-
 
     const handleEndAndAnalyze = async () => {
         setDebateState('analyzing');
@@ -129,14 +129,14 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
     if (debateState === 'configuring') {
         return (
             <div className="max-w-2xl mx-auto p-6 bg-black/30 backdrop-blur-lg rounded-2xl border border-cyan-400/20 shadow-2xl shadow-cyan-500/10 space-y-6">
-                <h2 className="text-xl font-bold text-cyan-300">آماده‌سازی مناظره</h2>
+                <h2 className="text-xl font-bold text-cyan-300">آماده‌سازی مناظره با هوش مصنوعی</h2>
                 <textarea value={config.topic} onChange={e => setConfig({...config, topic: e.target.value})} rows={3} placeholder="موضوع مناظره را وارد کنید..." className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5"/>
                 <div className="grid grid-cols-2 gap-4">
                     <select value={config.aiRole} onChange={e => setConfig({...config, aiRole: e.target.value as DebateRole})} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5">
-                        {Object.entries(debateRoleLabels).filter(([key]) => key !== 'moderator').map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                        {Object.entries(debateRoleLabels).filter(([key]) => key !== 'moderator' && key !== 'user').map(([key, label]) => <option key={key} value={key}>نقش AI: {label}</option>)}
                     </select>
                      <select value={config.aiModel} onChange={e => setConfig({...config, aiModel: e.target.value as AIModelProvider})} className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-2.5">
-                        {availableProviders.map(p => <option key={p} value={p}>{p}</option>)}
+                        {availableProviders.map(p => <option key={p} value={p}>مدل: {p}</option>)}
                     </select>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={config.analyzePerformance} onChange={e => setConfig({...config, analyzePerformance: e.target.checked})} className="w-4 h-4 rounded bg-gray-600 border-gray-500 text-cyan-500"/><span>تحلیل عملکرد من پس از پایان مناظره</span></label>
@@ -202,8 +202,8 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                             </div>
                         </div>
                          <div className="p-4 bg-gray-800/50 rounded-lg">
-                            <h3 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><SparklesIcon className="w-5 h-5"/> بازخورد و پیشنهادات</h3>
-                            <p className="text-sm text-gray-300">{analysisResult.performanceAnalysis.feedback}</p>
+                            <h3 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><SparklesIcon className="w-5 h-5"/> بازخورد و توصیه‌ها</h3>
+                            <p className="text-sm text-gray-300 whitespace-pre-wrap">{analysisResult.performanceAnalysis.feedback}</p>
                         </div>
                          {analysisResult.fallacyDetection.length > 0 && (
                             <div className="p-4 bg-red-900/20 rounded-lg">
@@ -219,6 +219,15 @@ const ConductDebate: React.FC<{ settings: AppSettings }> = ({ settings }) => {
                                 </div>
                             </div>
                         )}
+                         <div className="p-4 bg-gray-800/50 rounded-lg">
+                             <h3 className="font-semibold text-cyan-200 mb-2 flex items-center gap-2"><GavelIcon className="w-5 h-5"/> نتیجه‌گیری نهایی</h3>
+                             <p className="text-sm text-gray-300">{analysisResult.conclusion}</p>
+                             {analysisResult.winner && (
+                                 <p className="mt-3 text-center font-bold text-lg text-yellow-300">
+                                     برنده مناظره: {analysisResult.winner === 'user' ? 'شما' : analysisResult.winner === 'model' ? 'هوش مصنوعی' : 'مساوی'}
+                                 </p>
+                             )}
+                         </div>
                          {analysisResult.fallacyDetection.length === 0 && config.analyzePerformance && (
                              <div className="p-4 bg-green-900/20 rounded-lg flex items-center gap-2">
                                  <CheckCircleIcon className="w-5 h-5 text-green-300"/>

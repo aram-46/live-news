@@ -1,15 +1,17 @@
 /**
- * Cloudflare Worker for a Telegram Bot
+ * Cloudflare Worker for a Telegram Bot AND a Gemini API Proxy.
  *
  * How to use:
  * 1. Create a new Worker in your Cloudflare dashboard.
  * 2. Copy and paste this code into the Worker's editor.
  * 3. Go to the Worker's settings and add the following secrets:
- *    - `TELEGRAM_BOT_TOKEN`: Your token from BotFather.
+ *    - `TELEGRAM_BOT_TOKEN`: Your token from BotFather (for the bot feature).
  *    - `GEMINI_API_KEY`: Your Google Gemini API key.
+ *    - `CLOUDFLARE_WORKER_TOKEN`: A strong, secret password you create. This is used by the frontend to securely access the proxy.
  * 4. Deploy the Worker.
- * 5. Set the Telegram webhook to point to your Worker's URL. You can do this by visiting the following URL in your browser:
- *    https://api.telegram.org/bot<YOUR_TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<YOUR_WORKER_NAME>.<YOUR_SUBDOMAIN>.workers.dev/
+ * 5. To enable the Telegram bot, set the webhook to point to your Worker's URL + "/telegram-webhook".
+ *    Visit this URL in your browser:
+ *    https://api.telegram.org/bot<YOUR_TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<YOUR_WORKER_NAME>.<YOUR_SUBDOMAIN>.workers.dev/telegram-webhook
  */
 
 addEventListener('fetch', event => {
@@ -17,20 +19,85 @@ addEventListener('fetch', event => {
 });
 
 async function handleRequest(request) {
-  if (request.method === 'POST') {
-    try {
-      const update = await request.json();
-      await handleUpdate(update);
-      return new Response('OK', { status: 200 });
-    } catch (e) {
-      console.error('Error processing update:', e);
-      return new Response('Error', { status: 500 });
-    }
+  const url = new URL(request.url);
+
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*', // Allows your frontend to call this worker
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
-  return new Response('This worker only accepts POST requests for Telegram webhooks.', { status: 405 });
+  
+  // Simple Router based on URL path
+  if (url.pathname === '/telegram-webhook') {
+      if (request.method === 'POST') {
+          try {
+              const update = await request.json();
+              await handleTelegramUpdate(update);
+              return new Response('OK', { status: 200, headers: corsHeaders });
+          } catch (e) {
+              console.error('Error processing Telegram update:', e);
+              return new Response('Error', { status: 500, headers: corsHeaders });
+          }
+      } else {
+         return new Response('This endpoint only accepts POST requests for Telegram webhooks.', { status: 405, headers: corsHeaders });
+      }
+  } 
+  else if (url.pathname === '/gemini-proxy') {
+      if (request.method === 'POST') {
+          return handleGeminiProxy(request, corsHeaders);
+      } else {
+          return new Response('This endpoint only accepts POST requests for Gemini proxy.', { status: 405, headers: corsHeaders });
+      }
+  }
+
+  return new Response('Endpoint not found. Use /telegram-webhook or /gemini-proxy.', { status: 404, headers: corsHeaders });
 }
 
-async function handleUpdate(update) {
+
+// --- NEW: Gemini Proxy Handler ---
+async function handleGeminiProxy(request, corsHeaders) {
+  // Check for the secret token from the frontend application
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || authHeader !== `Bearer ${CLOUDFLARE_WORKER_TOKEN}`) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const { model, ...restOfPayload } = await request.json();
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  
+  try {
+    const geminiResponse = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(restOfPayload),
+    });
+
+    const geminiData = await geminiResponse.json();
+
+    // Forward Gemini's response (including errors) to the client
+    return new Response(JSON.stringify(geminiData), {
+      status: geminiResponse.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error("Worker error proxying to Gemini:", error);
+    return new Response(JSON.stringify({ error: { message: 'Worker internal error while contacting Gemini API.' } }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+
+// --- Renamed Telegram Functions from original file ---
+async function handleTelegramUpdate(update) {
   if (update.message) {
     const message = update.message;
     const chatId = message.chat.id;
@@ -84,6 +151,7 @@ async function sendMessage(chatId, text, parseMode = '') {
     text: text,
   };
   if (parseMode) {
+    // @ts-ignore
     payload.parse_mode = parseMode;
   }
   
@@ -95,8 +163,6 @@ async function sendMessage(chatId, text, parseMode = '') {
 }
 
 async function fetchNewsFromGemini() {
-  // This is a simplified call to the Gemini API.
-  // In a real scenario, you'd use the full schema and prompt structure from the main app.
   const prompt = "Find the single most important recent world news article for a Persian-speaking user. Provide title, summary, source, and link. CRITICAL: The 'link' must be a direct, working, and publicly accessible URL to the full news article. Do not provide links to homepages, paywalled content, or incorrect pages. Verify the link is valid.";
   
   const body = {
@@ -113,16 +179,12 @@ async function fetchNewsFromGemini() {
   try {
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
     const data = await response.json();
-    // The response structure might be complex. This is a simplified extraction.
     const jsonString = data.candidates[0].content.parts[0].text;
-    // The model might return a single object or an array. Let's handle both.
     const result = JSON.parse(jsonString);
     return Array.isArray(result) ? result : [result];
     
@@ -157,7 +219,6 @@ async function fetchRssNewsFromGemini() {
         return null;
     }
 }
-
 
 async function fetchCryptoFromGemini() {
     const prompt = "Find live price data for the top 5 most popular cryptocurrencies (like Bitcoin, Ethereum, etc.). For each, provide its ID, symbol, name, price in USD, price in Iranian Toman, and the 24-hour price change percentage. Use reliable sources like ramzarz.news for up-to-date information. Return as a JSON array.";

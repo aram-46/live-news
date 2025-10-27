@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { AppSettings, MediaFile, AnalysisResult, FallacyResult, AnalyzerTabId, analyzerTabLabels, AIInstructionType } from '../types';
 import { analyzeContentDeeply, findFallacies } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import { SearchIcon, UploadIcon, CloseIcon } from './icons';
 import DeepAnalysisResultDisplay from './AnalysisResult';
 import MediaAnalyzer from './MediaAnalyzer';
@@ -59,6 +60,16 @@ const DeepAnalysis: React.FC<DeepAnalysisProps> = ({ settings }) => {
                 apiResult = await analyzeContentDeeply(topic, fileData, instruction, settings, instructionKey);
             }
             setResult(apiResult);
+            const summary = isFallacyFinder 
+                ? `${(apiResult as FallacyResult).identifiedFallacies.length} مغالطه شناسایی شد.`
+                : `تحلیل انجام شد. ${(apiResult as AnalysisResult).proponentPercentage}% موافق.`;
+
+            saveHistoryItem({
+                type: isFallacyFinder ? 'analyzer-fallacy-finder' : `analyzer-${activeAnalysisTab}`,
+                query: topic || (mediaFile ? mediaFile.name : `تحلیل ${analyzerTabLabels[activeAnalysisTab]}`),
+                resultSummary: summary,
+                data: apiResult,
+            });
         } catch (err: any) {
             console.error(err);
             setError(err.message || "خطا در انجام تحلیل. لطفا دوباره تلاش کنید.");

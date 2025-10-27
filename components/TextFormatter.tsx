@@ -1,9 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { AppSettings } from '../types';
 import { formatTextContent } from '../services/geminiService';
 import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
-// FIX: Add missing icon imports
 import { SparklesIcon, ClipboardIcon, CheckCircleIcon, CameraIcon, FilePdfIcon, FileWordIcon, FileExcelIcon, FileCodeIcon } from './icons';
 
 const TextFormatter: React.FC<{ settings: AppSettings }> = ({ settings }) => {
@@ -38,7 +36,6 @@ const TextFormatter: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setFormattedHtml('');
 
         try {
-            // FIX: Pass settings object to the service function call.
             const resultHtml = await formatTextContent(
                 sourceType === 'text' ? inputText : null,
                 sourceType === 'url' ? inputUrl : null,
@@ -63,10 +60,8 @@ const TextFormatter: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         try {
             if (format === 'image') await exportToImage(outputRef.current!, fileName);
             if (format === 'pdf') await exportToPdf(outputRef.current!, fileName);
-            // FIX: The exportToHtml function expects an HTMLElement, not an HTML string. Pass the ref's current element.
             if (format === 'html') exportToHtml(editableContentRef.current, fileName);
             if (format === 'docx') exportToDocx(currentHtml, fileName);
-            // FIX: The exportToXlsx function expects an array of objects. Wrap the HTML content to satisfy the type.
             if (format === 'xlsx') exportToXlsx([{ content: editableContentRef.current.innerText }], fileName);
         } catch (err) {
             console.error(`Export to ${format} failed`, err);

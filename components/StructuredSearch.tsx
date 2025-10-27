@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, StatisticsResult, ScientificArticleResult, Credibility, StanceHolder, ChartData } from '../types';
 import { fetchStatistics, fetchScientificArticle, fetchReligiousText, generateContextualFilters } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import { SearchIcon, MagicIcon, LinkIcon, CheckCircleIcon, DocumentTextIcon, ThumbsUpIcon, ThumbsDownIcon, LightBulbIcon, ChartBarIcon, ChartLineIcon, ChartPieIcon, TableCellsIcon } from './icons';
 import BarChart from './charts/BarChart';
 import PieChart from './charts/PieChart';
@@ -99,6 +100,12 @@ const StructuredSearch: React.FC<StructuredSearchProps> = ({ searchType, setting
                 apiResult = await fetchReligiousText(fullQuery, instruction, settings);
             }
             setResult(apiResult);
+            saveHistoryItem({
+                type: `structured-${searchType}`,
+                query: fullQuery,
+                resultSummary: `نتیجه برای "${apiResult.title}" یافت شد.`,
+                data: apiResult,
+            });
         } catch (err) {
             console.error(err);
             setError(`خطا در جستجو. لطفا دوباره تلاش کنید.`);

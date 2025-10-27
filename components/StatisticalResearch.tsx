@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { AppSettings, StatisticalResearchResult } from '../types';
 import { generateResearchKeywords, fetchStatisticalResearch } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import { SearchIcon, MagicIcon, TrashIcon } from './icons';
 import StatisticalResearchResultDisplay from './StatisticalResearchResultDisplay';
 
@@ -44,6 +45,12 @@ const StatisticalResearch: React.FC<{ settings: AppSettings }> = ({ settings }) 
             const comparisonTopics = [comparisonTopic1, comparisonTopic2].filter(t => t.trim() !== '');
             const apiResult = await fetchStatisticalResearch(mainTopic, comparisonTopics, keywords, settings);
             setResult(apiResult);
+            saveHistoryItem({
+                type: 'statistical-research',
+                query: mainTopic,
+                resultSummary: `تحقیق آماری انجام شد. اعتبار آماری: ${apiResult.validationMetrics.statisticalCredibilityScore}%`,
+                data: apiResult
+            });
         } catch (err) {
             console.error("Error during statistical research:", err);
             setError("خطا در انجام تحقیق آماری. لطفا دوباره تلاش کنید.");

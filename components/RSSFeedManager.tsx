@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { RSSFeeds, RSSFeed, SourceCategory, sourceCategoryLabels, generateUUID, AppSettings } from '../types';
@@ -11,16 +12,6 @@ interface RSSFeedManagerProps {
   onFeedsChange: (feeds: RSSFeeds) => void;
   settings: AppSettings;
 }
-
-type ImportedRow = {
-    "نام سایت"?: string;
-    "name"?: string;
-    "آدرس خبرخوان"?: string;
-    "url"?: string;
-    "دسته بندی"?: SourceCategory;
-    "category"?: SourceCategory;
-};
-
 
 const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, settings }) => {
   const [editingFeed, setEditingFeed] = useState<RSSFeed | null>(null);
@@ -129,18 +120,28 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             
+            // FIX: Add English header aliases to the type to handle different import formats.
+            type ImportedRow = {
+                "نام سایت"?: string;
+                "name"?: string;
+                "آدرس خبرخوان"?: string;
+                "url"?: string;
+                "دسته بندی"?: SourceCategory;
+                "category"?: SourceCategory;
+            };
+
             const json: ImportedRow[] = XLSX.utils.sheet_to_json<ImportedRow>(worksheet);
             const newFeeds: RSSFeeds = JSON.parse(JSON.stringify(feeds));
             const existingUrls = new Set(Object.values(feeds).flat().map(f => f.url.toLowerCase().trim()));
             let addedCount = 0;
             let skippedCount = 0;
             
+            // FIX: Explicitly type the `row` parameter in the forEach callback to ensure
+            // TypeScript correctly infers its properties and avoids the 'unknown' type error.
             json.forEach((row: ImportedRow) => {
-                // FIX: Cast `row` to `any` to allow property access, as TypeScript may incorrectly infer it as `unknown`.
-                const anyRow = row as any;
-                const url = anyRow['آدرس خبرخوان'] || anyRow.url;
-                const name = anyRow['نام سایت'] || anyRow.name;
-                const category = anyRow['دسته بندی'] || anyRow.category;
+                const url = row['آدرس خبرخوان'] || row.url;
+                const name = row['نام سایت'] || row.name;
+                const category = row['دسته بندی'] || row.category;
 
                 if(category && newFeeds[category as SourceCategory] && url && name) {
                      if (existingUrls.has(url.toLowerCase().trim())) {

@@ -1,16 +1,12 @@
-
-
 import React, { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { exportToPdf, exportToImage, exportToHtml, exportToDocx, exportToXlsx } from '../services/exportService';
-// FIX: Add all missing icon imports.
 import { DownloadIcon, CameraIcon, FilePdfIcon, FileWordIcon, FileExcelIcon, FileCodeIcon } from './icons';
 
 interface ExportButtonProps {
     elementRef: React.RefObject<HTMLElement>;
     data: any;
     title: string;
-    // FIX: Add 'general_topic' to the union type to allow its use in the GeneralTopicsSearch component.
     type: 'news' | 'podcast' | 'structured' | 'web' | 'agent' | 'fact-check' | 'general_topic';
     disabled: boolean;
 }

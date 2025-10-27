@@ -8,13 +8,22 @@ interface ConnectionStatusProps {
 
 const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ settings }) => {
     const [status, setStatus] = useState<ApiKeyStatus>('checking');
+    const [attemptInfo, setAttemptInfo] = useState<{ attempt: number, maxRetries: number } | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
         const handleStatusChange = (event: Event) => {
             const customEvent = event as CustomEvent;
-            if (customEvent.detail && customEvent.detail.status) {
-                setStatus(customEvent.detail.status);
+            if (customEvent.detail) {
+                if (customEvent.detail.status) {
+                    setStatus(customEvent.detail.status);
+                }
+                if (customEvent.detail.status === 'retrying') {
+                    setAttemptInfo({ attempt: customEvent.detail.attempt, maxRetries: customEvent.detail.maxRetries });
+                } else {
+                    // Reset attempt info for any other status
+                    setAttemptInfo(null);
+                }
             }
         };
         window.addEventListener('apiKeyStatusChange', handleStatusChange);
@@ -42,6 +51,9 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ settings }) => {
                 return { color: 'bg-yellow-500', text: 'سهمیه API تمام شده است. برای راهنمایی کلیک کنید.', canOpenModal: true };
             case 'network_error':
                 return { color: 'bg-yellow-500', text: 'خطا در ارتباط با سرور Gemini', canOpenModal: false };
+            case 'retrying':
+                const attemptText = attemptInfo ? ` (تلاش ${attemptInfo.attempt}/${attemptInfo.maxRetries})` : '';
+                return { color: 'bg-yellow-500 animate-pulse', text: `خطای موقت، در حال تلاش مجدد...${attemptText}`, canOpenModal: false };
             case 'checking':
                 return { color: 'bg-gray-500 animate-pulse', text: 'در حال بررسی اتصال...', canOpenModal: false };
             default:
@@ -68,7 +80,8 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ settings }) => {
                 <span className={`w-2.5 h-2.5 rounded-full ${color}`}></span>
                 <span className="text-gray-400 hidden sm:inline">{
                     status === 'checking' ? 'بررسی اتصال...' :
-                    status === 'valid' ? 'متصل' : 'خطای اتصال'
+                    status === 'valid' ? 'متصل' :
+                    status === 'retrying' ? `تلاش مجدد...` : 'خطای اتصال'
                 }</span>
             </button>
             {isModalOpen && <ApiKeyHelpModal onClose={() => setIsModalOpen(false)} />}

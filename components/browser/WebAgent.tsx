@@ -1,9 +1,8 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { AppSettings, AgentClarificationRequest, AgentExecutionResult } from '../../types';
 import { SparklesIcon, CheckCircleIcon } from '../icons';
 import { analyzeAgentRequest, executeAgentTask } from '../../services/geminiService';
+import { saveHistoryItem } from '../../services/historyService';
 import ScreenshotModal from '../ScreenshotModal';
 import ExportButton from '../ExportButton';
 import html2canvas from 'html2canvas';
@@ -30,7 +29,7 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
     const [visibleStep, setVisibleStep] = useState(-1);
 
     useEffect(() => {
-        if (state === 'done' && result && visibleStep < result.steps.length) {
+        if (state === 'done' && result && visibleStep < (result.steps?.length || 0)) {
             const timer = setTimeout(() => {
                 setVisibleStep(i => i + 1);
             }, 750);
@@ -66,7 +65,6 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
         setVisibleStep(-1);
 
         try {
-            // FIX: Pass the 'settings' object as a required argument to the service function.
             const clarificationResponse = await analyzeAgentRequest(topic, request, settings.aiInstructions['browser-agent'], settings);
             
             if (!clarificationResponse.isClear && clarificationResponse.questions) {
@@ -100,11 +98,16 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
     const handleExecute = async () => {
         setState('executing');
         try {
-            // FIX: Pass the 'settings' object as a required argument to the service function.
             const executionResult = await executeAgentTask(finalPrompt, settings.aiInstructions['browser-agent'], settings);
             setResult(executionResult);
             setState('done');
             setVisibleStep(0);
+            saveHistoryItem({
+                type: 'browser-agent',
+                query: finalPrompt,
+                resultSummary: executionResult.summary,
+                data: executionResult,
+            });
         } catch (err) {
             console.error(err);
             setError('خطا در اجرای نهایی وظیفه.');
@@ -169,7 +172,7 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
                         </div>
                         <div className="space-y-3">
                              <h4 className="font-semibold text-cyan-200">مراحل انجام شده</h4>
-                             {result?.steps.map((step, i) => (
+                             {(result?.steps || []).map((step, i) => (
                                 <div key={i} className={`flex items-start gap-3 p-2 bg-gray-800/50 rounded transition-opacity duration-500 ${i < visibleStep ? 'opacity-100' : 'opacity-0'}`}>
                                     <CheckCircleIcon className="w-5 h-5 text-green-400 mt-1 flex-shrink-0" />
                                     <div>
@@ -179,10 +182,10 @@ const WebAgent: React.FC<WebAgentProps> = ({ settings }) => {
                                 </div>
                              ))}
                         </div>
-                        <div className={`transition-opacity duration-500 ${visibleStep > (result?.steps.length ?? 0) ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className={`transition-opacity duration-500 ${visibleStep > (result?.steps?.length ?? 0) ? 'opacity-100' : 'opacity-0'}`}>
                              <h4 className="font-semibold text-cyan-200">منابع اصلی استفاده شده</h4>
                               <ul className="list-disc list-inside space-y-1 mt-2">
-                                {result?.sources.map((s, i) => <li key={i}><a href={s.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-sm hover:underline">{s.title || s.uri}</a></li>)}
+                                {(result?.sources || []).map((s, i) => <li key={i}><a href={s.uri} target="_blank" rel="noopener noreferrer" className="text-blue-400 text-sm hover:underline">{s.title || s.uri}</a></li>)}
                              </ul>
                         </div>
                      </div>

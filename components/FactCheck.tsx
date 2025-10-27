@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Chat } from "@google/genai";
-import { FactCheckResult, Credibility, AppSettings, MediaFile, ChatMessage, generateUUID } from '../types';
-import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon, NewsIcon, VideoIcon, AudioIcon, ImageIcon, FilePdfIcon, LinkIcon, ScaleIcon } from './icons';
-import { factCheckNews, createChat } from '../services/geminiService';
+import { FactCheckResult, Credibility, AppSettings, MediaFile, ChatMessage, generateUUID, SiteValidationResult, ComparisonValidationResult, MediaAnalysisResult } from '../types';
+import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon, NewsIcon, VideoIcon, AudioIcon, ImageIcon, FilePdfIcon, LinkIcon, ScaleIcon, UsersIcon, ClipboardListIcon, ShieldCheckIcon } from './icons';
+import { factCheckNews, createChat, validateSite, validateArticleOrDoc, compareSites, analyzeMedia } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import DeepAnalysis from './DeepAnalysis';
 import ExportButton from './ExportButton';
+import VideoFactCheckStudio from './VideoFactCheckStudio';
 
 interface FactCheckProps {
   settings: AppSettings;
@@ -99,6 +101,12 @@ const QuickCheck: React.FC<{ settings: AppSettings }> = ({ settings }) => {
             const checkUrl = inputType === 'url' ? url : undefined;
             const apiResult = await factCheckNews(text, fileData, settings, checkUrl, settings.aiInstructions['fact-check']);
             setInitialResult(apiResult);
+            saveHistoryItem({
+                type: 'fact-check',
+                query: text || url || mediaFile?.name || "Media fact check",
+                resultSummary: `نتیجه کلی: ${apiResult.overallCredibility}`,
+                data: apiResult
+            });
             const summaryMessage: ChatMessage = { id: generateUUID(), role: 'model', text: `**نتیجه کلی: ${apiResult.overallCredibility}**\n\n${apiResult.summary}`, timestamp: Date.now() };
             setChatHistory([summaryMessage]);
 
@@ -323,6 +331,12 @@ const SpecializedFactCheck: React.FC<{ settings: AppSettings }> = ({ settings })
 
             const apiResult = await factCheckNews(fullPrompt, fileData, settings, url || undefined, settings.aiInstructions['fact-check']);
             setResult(apiResult);
+            saveHistoryItem({
+                type: `fact-check-${activeSubTab}`,
+                query: text || url || mediaFile?.name || `Specialized check`,
+                resultSummary: `نتیجه کلی: ${apiResult.overallCredibility}`,
+                data: apiResult
+            });
         } catch (err) {
             console.error(err);
             setError('خطا در انجام راستی‌آزمایی. لطفاً دوباره تلاش کنید.');
@@ -426,11 +440,79 @@ const SpecializedFactCheck: React.FC<{ settings: AppSettings }> = ({ settings })
     );
 };
 
+const Validation: React.FC<{ settings: AppSettings }> = ({ settings }) => {
+    const [siteA, setSiteA] = useState('');
+    const [siteB, setSiteB] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [result, setResult] = useState<ComparisonValidationResult | null>(null);
+    const fullResultRef = useRef<HTMLDivElement>(null);
+
+    const handleCompare = async () => {
+        if (!siteA.trim() || !siteB.trim()) {
+            setError('لطفا نام هر دو سایت یا موسسه را برای مقایسه وارد کنید.');
+            return;
+        }
+        setIsLoading(true);
+        setError(null);
+        setResult(null);
+        try {
+            const apiResult = await compareSites(siteA, siteB, settings);
+            setResult(apiResult);
+            saveHistoryItem({
+                type: 'validation-comparison',
+                query: `${siteA} vs ${siteB}`,
+                resultSummary: `مقایسه انجام شد. ${apiResult.siteA.siteName}: ${apiResult.siteA.credibilityScore} | ${apiResult.siteB.siteName}: ${apiResult.siteB.credibilityScore}`,
+                data: apiResult,
+            });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "خطا در پردازش درخواست.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    return (
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <input type="text" value={siteA} onChange={e => setSiteA(e.target.value)} placeholder="نام سایت یا موسسه اول" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-3" />
+                <input type="text" value={siteB} onChange={e => setSiteB(e.target.value)} placeholder="نام سایت یا موسسه دوم" className="w-full bg-gray-800/50 border border-gray-600/50 rounded-lg text-white p-3" />
+                <button onClick={handleCompare} disabled={isLoading} className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold py-3 rounded-lg transition">
+                    {isLoading ? <svg className="animate-spin h-5 w-5"/> : <ScaleIcon className="w-5 h-5"/>}
+                    {isLoading ? 'در حال تحلیل...' : 'شروع مقایسه'}
+                </button>
+            </div>
+
+            {error && <div className="p-4 bg-red-900/20 text-red-300 rounded-lg">{error}</div>}
+            
+            {isLoading && <div className="text-center p-8 text-cyan-300">در حال انجام اعتبارسنجی عمیق و مقایسه... این فرآیند ممکن است کمی طول بکشد.</div>}
+            
+            {result && (
+                <div ref={fullResultRef} className="space-y-8">
+                    <div className="flex justify-end">
+                       <ExportButton elementRef={fullResultRef} data={result} title={`comparison-${siteA}-vs-${siteB}`} type="structured" disabled={false} />
+                    </div>
+                    {/* These would need to be proper components */}
+                    {/* <SiteValidationResultDisplay result={result.siteA} title="تحلیل سایت اول" /> */}
+                    {/* <SiteValidationResultDisplay result={result.siteB} title="تحلیل سایت دوم" /> */}
+                    
+                    <div className="p-6 bg-gray-900/50 rounded-2xl border border-cyan-400/20 space-y-6">
+                        <h3 className="text-xl font-bold text-cyan-200">خلاصه و نتیجه‌گیری مقایسه</h3>
+                        <p className="text-sm text-gray-300 leading-relaxed">{result.comparisonSummary}</p>
+                        {/* <ComparisonChart scores={result.comparativeScores} nameA={result.siteA.siteName} nameB={result.siteB.siteName} /> */}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const FactCheck: React.FC<FactCheckProps> = ({ settings }) => {
-    const [activeMainTab, setActiveMainTab] = useState<'quick' | 'deep' | 'specialized'>('quick');
+    
+    type MainTab = 'quick' | 'specialized' | 'video-studio' | 'validation' | 'deep';
+    const [activeMainTab, setActiveMainTab] = useState<MainTab>('quick');
 
-    const renderTabButton = (tabId: 'quick' | 'deep' | 'specialized', label: string) => (
+    const renderTabButton = (tabId: MainTab, label: string) => (
         <button
             onClick={() => setActiveMainTab(tabId)}
             className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 ${
@@ -448,17 +530,21 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings }) => {
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                      <CheckCircleIcon className="w-6 h-6 text-cyan-300" />
-                     <h2 className="text-xl font-bold text-cyan-300">فکت چک و ردیابی شایعات</h2>
+                     <h2 className="text-xl font-bold text-cyan-300">فکت چک و اعتبارسنجی</h2>
                 </div>
-                <div className="flex border-b border-cyan-400/20">
+                <div className="flex border-b border-cyan-400/20 overflow-x-auto">
                     {renderTabButton('quick', 'بررسی سریع')}
                     {renderTabButton('specialized', 'بررسی تخصصی')}
+                    {renderTabButton('video-studio', 'فکت چک ویدئو')}
+                    {renderTabButton('validation', 'اعتبارسنجی عمیق')}
                     {renderTabButton('deep', 'تحلیل عمیق')}
                 </div>
             </div>
             
             {activeMainTab === 'quick' && <QuickCheck settings={settings} />}
             {activeMainTab === 'specialized' && <SpecializedFactCheck settings={settings} />}
+            {activeMainTab === 'video-studio' && <VideoFactCheckStudio settings={settings} />}
+            {activeMainTab === 'validation' && <Validation settings={settings} />}
             {activeMainTab === 'deep' && <DeepAnalysis settings={settings} />}
         </div>
     );

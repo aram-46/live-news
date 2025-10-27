@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { NewsArticle, AppSettings, RSSFeed, SearchHistoryItem } from '../types';
 import { fetchLiveNews, checkForUpdates, fetchNewsFromFeeds } from '../services/geminiService';
@@ -23,8 +21,10 @@ const RSSFeedReader: React.FC<{ settings: AppSettings }> = ({ settings }) => {
         setIsLoading(true);
         setError(null);
         try {
-            // FIX: Use .flat() to correctly flatten the array of RSS feeds with proper type inference.
-            const allFeeds: RSSFeed[] = Object.values(settings.rssFeeds).flat();
+            // FIX: Object.values on the RSSFeeds record returns an array of arrays (RSSFeed[][]).
+            // Using .flat() correctly converts it to a single array of RSSFeed items.
+            // Explicitly cast the intermediate value to avoid type inference issues.
+            const allFeeds: RSSFeed[] = (Object.values(settings.rssFeeds) as RSSFeed[][]).flat();
             if (allFeeds.length === 0) {
                 setArticles([]);
                 setError("هیچ آدرس خبرخوانی در تنظیمات ثبت نشده است.");

@@ -91,22 +91,24 @@ const StatisticalResearchResultDisplay: React.FC<{ result: StatisticalResearchRe
 
             {/* Charts */}
             {charts && charts.length > 0 && (
-                <div className="chart-container-shiny p-4 bg-gray-900/50">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-semibold text-cyan-200">{chartToDisplay?.title}</h3>
-                        <div className="flex gap-1 bg-gray-800/50 p-1 rounded-lg">
-                            {charts.map(chart => (
-                                <button key={chart.type} onClick={() => setChartTab(chart.type)} className={`p-1 rounded ${chartTab === chart.type ? 'bg-cyan-500/20' : 'hover:bg-gray-700/50'}`}>
-                                    {chart.type === 'bar' && <ChartBarIcon className="w-5 h-5"/>}
-                                    {chart.type === 'line' && <ChartLineIcon className="w-5 h-5"/>}
-                                    {chart.type === 'pie' && <ChartPieIcon className="w-5 h-5"/>}
-                                    {chart.type === 'table' && <TableCellsIcon className="w-5 h-5"/>}
-                                </button>
-                            ))}
+                <div className="perspective-container">
+                    <div className="chart-container-shiny p-4 bg-gray-900/50">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-semibold text-cyan-200">{chartToDisplay?.title}</h3>
+                            <div className="flex gap-1 bg-gray-800/50 p-1 rounded-lg">
+                                {charts.map(chart => (
+                                    <button key={chart.type} onClick={() => setChartTab(chart.type)} className={`p-1 rounded ${chartTab === chart.type ? 'bg-cyan-500/20' : 'hover:bg-gray-700/50'}`}>
+                                        {chart.type === 'bar' && <ChartBarIcon className="w-5 h-5"/>}
+                                        {chart.type === 'line' && <ChartLineIcon className="w-5 h-5"/>}
+                                        {chart.type === 'pie' && <ChartPieIcon className="w-5 h-5"/>}
+                                        {chart.type === 'table' && <TableCellsIcon className="w-5 h-5"/>}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                    <div className="h-[350px]">
-                        {chartToDisplay && renderChart(chartToDisplay)}
+                        <div className="h-[350px]">
+                            {chartToDisplay && renderChart(chartToDisplay)}
+                        </div>
                     </div>
                 </div>
             )}

@@ -11,7 +11,7 @@ const ScreenshotModal: React.FC<ScreenshotModalProps> = ({ image, onClose }) => 
 
     const handleDownload = () => {
         const link = document.createElement('a');
-        link.download = `fact-check-screenshot-${Date.now()}.png`;
+        link.download = `screenshot-${Date.now()}.png`;
         link.href = image;
         link.click();
     };
@@ -56,7 +56,7 @@ const ScreenshotModal: React.FC<ScreenshotModalProps> = ({ image, onClose }) => 
                     </div>
                 </div>
                 <div className="p-4 max-h-[80vh] overflow-auto">
-                    <img src={image} alt="Fact-check result screenshot" className="w-full h-auto" />
+                    <img src={image} alt="Result screenshot" className="w-full h-auto" />
                 </div>
             </div>
         </div>

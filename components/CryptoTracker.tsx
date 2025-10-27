@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { AppSettings, CryptoCoin, SimpleCoin, CryptoSearchResult, CryptoAnalysisResult, Credibility } from '../types';
 import { fetchCryptoData, fetchCoinList, searchCryptoCoin, fetchCryptoAnalysis } from '../services/geminiService';
+import { saveHistoryItem } from '../services/historyService';
 import TradingViewWidget from './TradingViewWidget';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { StarIcon, SearchIcon, LinkIcon, ChartPieIcon, CheckCircleIcon } from './icons';
@@ -127,6 +128,14 @@ const SearchTabComponent: React.FC<{ settings: AppSettings }> = ({ settings }) =
         try {
             const data = await searchCryptoCoin(query, settings.aiInstructions['crypto-search'], settings);
             setResult(data);
+            if (data) {
+                saveHistoryItem({
+                    type: 'crypto-search',
+                    query,
+                    resultSummary: `ارز ${data.coin.name} با قیمت $${formatPrice(data.coin.price_usd)} یافت شد.`,
+                    data,
+                });
+            }
         } catch (err) {
             setError('خطا در جستجوی ارز. لطفاً دوباره تلاش کنید.');
             console.error(err);
@@ -216,6 +225,14 @@ const AnalysisTabComponent: React.FC<{ settings: AppSettings; allCoins: SimpleCo
         try {
             const data = await fetchCryptoAnalysis(coin.name, settings.aiInstructions['crypto-analysis'], settings);
             setResult(data);
+            if (data) {
+                saveHistoryItem({
+                    type: 'crypto-analysis',
+                    query: coin.name,
+                    resultSummary: `تحلیل برای ${coin.name} انجام شد.`,
+                    data,
+                });
+            }
         } catch(err) {
             setError('خطا در دریافت تحلیل. لطفا دوباره تلاش کنید.');
             console.error(err);

@@ -15,7 +15,7 @@ export enum Credibility {
 }
 
 // --- API Status ---
-export type ApiKeyStatus = 'valid' | 'invalid_key' | 'not_set' | 'quota_exceeded' | 'network_error' | 'checking';
+export type ApiKeyStatus = 'valid' | 'invalid_key' | 'not_set' | 'quota_exceeded' | 'network_error' | 'checking' | 'retrying';
 
 
 // --- Core Data Structures ---
@@ -127,7 +127,10 @@ export type AIInstructionType =
     | 'analyzer-political' | 'analyzer-economic' | 'analyzer-social'
     | 'analyzer-propaganda' | 'analyzer-fallacy-finder' | 'analyzer-debate'
     | 'analyzer-user-debate' | 'research-analysis' | 'analyzer-media'
-    | 'statistical-research';
+    | 'statistical-research' | 'debate-final-analysis'
+    | 'article-search-academic' | 'article-search-journalistic'
+    | 'validation-site' | 'validation-article' | 'validation-document' | 'validation-comparison'
+    | 'fact-check-video-authenticity' | 'fact-check-video-studio';
 
 export type AIInstructions = Record<AIInstructionType, string>;
 
@@ -168,6 +171,15 @@ export const aiInstructionLabels: Record<AIInstructionType, string> = {
     'research-analysis': 'تحلیلگر تحقیقات',
     'analyzer-media': 'تحلیلگر رسانه (ویدئو/تصویر)',
     'statistical-research': 'تحلیلگر تحقیقات آماری',
+    'debate-final-analysis': 'تحلیل نهایی مناظره',
+    'article-search-academic': 'جستجوی مقالات علمی',
+    'article-search-journalistic': 'جستجوی مقالات خبری',
+    'validation-site': 'اعتبارسنجی سایت',
+    'validation-article': 'اعتبارسنجی مقاله',
+    'validation-document': 'اعتبارسنجی اسناد',
+    'validation-comparison': 'مقایسه اعتباری',
+    'fact-check-video-authenticity': 'فکت چک اصالت ویدئو',
+    'fact-check-video-studio': 'استودیو فکت چک ویدئو',
 };
 
 export type AIModelProvider = 'gemini' | 'openai' | 'openrouter' | 'groq';
@@ -219,7 +231,7 @@ export interface RSSFeed {
 
 export type RSSFeeds = Record<SourceCategory, RSSFeed[]>;
 
-export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'music' | 'dollar' | 'stats' | 'science' | 'religion' | 'podcast' | 'general_topics';
+export type SearchTab = 'news' | 'video' | 'audio' | 'book' | 'music' | 'dollar' | 'stats' | 'science' | 'religion' | 'podcast' | 'general_topics' | 'article_search';
 
 export interface SearchOptionsPerTab {
     categories: string[];
@@ -290,6 +302,48 @@ export interface FactCheckResult {
     groundingSources?: GroundingSource[];
 }
 
+// --- Validation Feature ---
+
+export interface SiteValidationResult {
+    siteName: string;
+    mainUrl: string;
+    socialMedia: { platform: string; url: string }[];
+    isActive: boolean;
+    lastActivityDate?: string;
+    archiveUrl?: string;
+    credibilityAnalysis: string;
+    credibilityScore: number; // 0-100
+    fundingSources: {
+        analysis: string;
+        hasExternalFunding: boolean;
+        knownFunders: string[];
+    };
+    sponsoredProjects: {
+        analysis: string;
+        hasSponsoredProjects: boolean;
+        projects: { name: string; client: string; }[];
+    };
+    registrationLocation: string;
+    founder: string;
+    totalProjects: number;
+    certifications: string[];
+    expertCount: number;
+    fieldOfWork: string;
+    groundingSources?: GroundingSource[];
+}
+
+export interface ComparisonValidationResult {
+    siteA: SiteValidationResult;
+    siteB: SiteValidationResult;
+    comparisonSummary: string;
+    comparativeScores: {
+        aspect: string;
+        scoreA: number;
+        scoreB: number;
+        analysis: string;
+    }[];
+}
+
 // --- Specialized Search Results ---
 
 export interface StanceHolder {
@@ -349,6 +403,13 @@ export interface StatisticsResult {
 
 export type ScientificArticleResult = Omit<StatisticsResult, 'chart'>;
 export type WebResult = { title: string; link: string; description: string; source: string; imageUrl?: string; };
+export interface ArticleSearchResult {
+    title: string;
+    link: string;
+    summary: string;
+    groundingSources?: GroundingSource[];
+}
+
 
 export interface GeneralTopicResult {
     title: string;
@@ -360,6 +421,17 @@ export interface GeneralTopicResult {
         points: { aspect: string; analysisA: string; analysisB: string; }[];
     };
     sources: GroundingSource[];
+}
+
+export interface BookResult {
+    title: string;
+    summary: string;
+    authors: string[];
+    publicationYear: string;
+    source: string;
+    downloadLinks: { format: string; url: string; }[];
+    imageUrl?: string;
+    groundingSources?: GroundingSource[];
 }
 
 // --- Video Converter ---
@@ -387,6 +459,98 @@ export interface VideoTimestampResult {
 export interface TranscriptionResult {
     transcription: string;
 }
+
+// --- Video Authenticity Check ---
+export interface VideoAuthenticityResult {
+    isAiGenerated: {
+        verdict: boolean;
+        confidence: number; // 0-100
+        explanation: string;
+    };
+    hasAiArtifacts: {
+        verdict: boolean;
+        confidence: number; // 0-100
+        explanation: string;
+    };
+    isManipulated: {
+        verdict: boolean;
+        confidence: number; // 0-100
+        explanation: string;
+    };
+    overallVerdict: 'احتمالاً واقعی' | 'احتمالاً ساختگی' | 'دستکاری شده' | 'غیرقابل تشخیص';
+    detailedAnalysis: string;
+    groundingSources?: GroundingSource[];
+}
+
+// --- Video Fact Check Studio ---
+export interface VideoFactCheckStudioResult {
+    videoInfo: {
+        videoTitle: string;
+        videoLink?: string;
+        viewCount?: number;
+        videoDuration?: string;
+        channelName?: string;
+        commentCount?: number;
+        commentSummary?: {
+            pro?: number;
+            con?: number;
+            neutral?: number;
+            understanding?: number;
+            proPercentage?: number;
+            conPercentage?: number;
+            neutralPercentage?: number;
+            understandingPercentage?: number;
+        };
+        channelCredibility?: string;
+        videoSummary?: string;
+        publicationDate?: string;
+        subscriberCount?: number;
+        likeCount?: number;
+        siteOrChannelName?: string;
+        foundationYear?: number;
+        liveViewCount?: number;
+        viewPercentage?: number;
+        totalChannelVideos?: number;
+    };
+    category_tree?: {
+        title: string;
+        duration_seconds: number;
+        explanation: string;
+    }[];
+    claims: {
+        title: string;
+        text: string;
+    }[];
+    evidence?: {
+        name: string;
+        url: string;
+        credibility: string;
+    }[];
+    verification_results?: {
+        item: string;
+        result: string;
+        confidence: number;
+        color: string;
+    }[];
+    credibilityAssessment?: {
+        overallPercentage: number;
+        scientificPercentage: number;
+        recencyPercentage: number;
+        correctnessPercentage: number;
+    };
+    similarVideos?: {
+        persianTitle: string;
+        link: string;
+    }[];
+    downloadLinks?: {
+        name: string;
+        url: string;
+    }[];
+    groundingSources?: GroundingSource[];
+}
+
+
+
 
 // --- Analyzer ---
 export interface MentionedSource {
@@ -554,13 +718,14 @@ export interface WordPressThemePlan {
 }
 
 // --- Debate ---
-export type DebateRole = 'moderator' | 'proponent' | 'opponent' | 'neutral';
+export type DebateRole = 'moderator' | 'proponent' | 'opponent' | 'neutral' | 'user';
 
 export const debateRoleLabels: Record<DebateRole, string> = {
     moderator: "مدیر جلسه",
     proponent: "موافق",
     opponent: "مخالف",
-    neutral: "بی‌طرف"
+    neutral: "بی‌طرف",
+    user: "شما"
 };
 
 // Debate Simulator
@@ -574,6 +739,7 @@ export interface DebateParticipant {
 
 export interface DebateConfig {
     topic: string;
+    pointsOfContention: string;
     participants: DebateParticipant[];
     starter: DebateRole;
     turnLimit: number;
@@ -583,8 +749,27 @@ export interface DebateConfig {
 }
 
 export interface TranscriptEntry {
-    participant: DebateParticipant;
+    speaker: DebateParticipant | { id: 'user'; name: 'شما'; role: 'user' };
     text: string;
+}
+
+export interface ParticipantPerformanceMetrics {
+    knowledgeLevel: number; // 1-10
+    eloquence: number; // 1-10
+    argumentStrength: number; // 1-10
+    fallacyCount: number;
+    feedback: string;
+}
+
+export interface FinalDebateAnalysis {
+    summary: string;
+    conclusion: string;
+    keyArguments: {
+        proponent: string[];
+        opponent: string[];
+    };
+    performanceAnalysis?: Record<string, ParticipantPerformanceMetrics>; // Key is participant name
+    winner?: string; // Participant name or 'tie'
 }
 
 // Conduct Debate (User vs AI)
@@ -616,6 +801,8 @@ export interface DebateAnalysisResult {
         explanation: string;
     }[];
     overallScore: number; // 0-100
+    winner?: 'user' | 'model' | 'tie';
+    conclusion?: string;
 }
 
 

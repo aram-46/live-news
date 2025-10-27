@@ -21,27 +21,22 @@ const NewsTicker: React.FC<NewsTickerProps> = ({ headlines, settings }) => {
       href={headline.link}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-sm px-6 py-1 rounded-md transition-colors duration-300 flex items-center group"
-      style={{ color: 'var(--ticker-text)' }}
+      className="text-sm px-6 py-1 rounded-md transition-colors duration-300 flex items-center group text-[var(--ticker-text)] hover:text-[var(--ticker-hover)]"
     >
-      <style>{`.group:hover span { color: var(--ticker-hover) !important; text-shadow: 0 0 5px var(--ticker-hover);}`}</style>
       <LinkIcon className="w-4 h-4 ml-2 opacity-70" />
-      <span style={{
-        backgroundImage: 'linear-gradient(to right, #c084fc, #f472b6)',
-        WebkitBackgroundClip: 'text',
-        backgroundClip: 'text',
-        color: 'transparent',
-        fontWeight: '600'
-      }}>{headline.title}</span>
+      <span className="font-semibold group-hover:drop-shadow-[0_0_5px_var(--ticker-hover)] transition-all">
+        {headline.title}
+      </span>
       <span className="text-cyan-600 mx-4">|</span>
     </a>
   ));
 
   return (
-    <div className="bg-black/50 overflow-hidden border-t border-b border-accent" style={{
+    <div className={`bg-black/50 overflow-hidden border-t border-b border-accent ${settings.pauseOnHover ? 'pause-on-hover' : ''}`} style={{
       // @ts-ignore
       '--ticker-text': settings.textColor,
       '--ticker-hover': settings.hoverColor,
+      borderColor: settings.borderColor,
     }}>
       <div className="relative flex overflow-x-hidden">
         <div className={`py-2 whitespace-nowrap flex items-center ${marqueeClass}`} style={{ animationDuration }}>

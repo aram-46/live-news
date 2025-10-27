@@ -4,7 +4,7 @@ import { fetchNews, fetchPodcasts, fetchWebResults } from '../services/geminiSer
 import { saveHistoryItem } from '../services/historyService';
 import FilterPanel from './FilterPanel';
 import NewsResults from './NewsResults';
-import { RefreshIcon, SparklesIcon, SpeakerWaveIcon, SearchIcon, ThumbsUpIcon, ThumbsDownIcon, LinkIcon, ClipboardIcon, CheckCircleIcon } from './icons';
+import { RefreshIcon, SparklesIcon, SpeakerWaveIcon, SearchIcon, ThumbsUpIcon, ThumbsDownIcon, LinkIcon, ClipboardIcon, CheckCircleIcon, BookOpenIcon, DocumentTextIcon } from './icons';
 import StructuredSearch from './StructuredSearch';
 import WebSearch from './WebSearch';
 import Converter from './Converter';
@@ -12,6 +12,8 @@ import ExportButton from './ExportButton';
 import Suggestions from './Suggestions';
 import GeneralTopicsSearch from './GeneralTopicsSearch';
 import CryptoTracker from './CryptoTracker';
+import BookSearch from './BookSearch';
+import ArticleSearch from './ArticleSearch';
 
 // --- START: New Podcast Components defined in this file ---
 
@@ -125,6 +127,12 @@ const PodcastSearch: React.FC<{ settings: AppSettings; }> = ({ settings }) => {
         try {
             const apiResults = await fetchPodcasts(query, settings.aiInstructions['podcast-search'], settings);
             setResults(apiResults);
+            saveHistoryItem({
+                type: 'podcast-search',
+                query,
+                resultSummary: `${apiResults.length} پادکست یافت شد.`,
+                data: apiResults,
+            });
         } catch (err) {
             setError('خطا در جستجوی پادکست. لطفا دوباره تلاش کنید.');
             console.error(err);
@@ -305,7 +313,6 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onSettingsCha
             );
         case 'video':
         case 'audio':
-        case 'book':
         case 'music':
              return (
                 <WebSearch
@@ -314,6 +321,10 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onSettingsCha
                     onSettingsChange={onSettingsChange}
                 />
             );
+        case 'article_search':
+            return <ArticleSearch settings={settings} />;
+        case 'book':
+            return <BookSearch settings={settings} />;
         case 'dollar':
             return <CryptoTracker settings={settings} />;
         case 'stats':
@@ -341,10 +352,11 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({ settings, onSettingsCha
        <div className="flex border-b border-cyan-400/20 overflow-x-auto">
           {renderTabButton('news', 'اخبار')}
           {renderTabButton('general_topics', 'موضوعات عمومی')}
+          {renderTabButton('article_search', 'مقالات', <DocumentTextIcon className="w-5 h-5" />)}
           {renderTabButton('video', 'ویدئو')}
           {renderTabButton('podcast', 'پادکست', <SpeakerWaveIcon className="w-5 h-5" />)}
           {renderTabButton('audio', 'صدا')}
-          {renderTabButton('book', 'کتاب و سایت')}
+          {renderTabButton('book', 'کتاب و سایت', <BookOpenIcon className="w-5 h-5"/>)}
           {renderTabButton('music', 'موزیک و آهنگ')}
           {renderTabButton('dollar', 'بازار ارز دیجیتال')}
           {renderTabButton('stats', 'آمار')}
