@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Chat } from "@google/genai";
 import { FactCheckResult, Credibility, AppSettings, MediaFile, ChatMessage, generateUUID, SiteValidationResult, ComparisonValidationResult, MediaAnalysisResult } from '../types';
-import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon, NewsIcon, VideoIcon, AudioIcon, ImageIcon, FilePdfIcon, LinkIcon, ScaleIcon, UsersIcon, ClipboardListIcon, ShieldCheckIcon } from './icons';
+import { CheckCircleIcon, UploadIcon, PaperClipIcon, MicrophoneIcon, StopIcon, CloseIcon, NewsIcon, VideoIcon, AudioIcon, ImageIcon, FilePdfIcon, LinkIcon, ScaleIcon, UsersIcon, ClipboardListIcon, ShieldCheckIcon, GavelIcon, BrainIcon } from './icons';
 import { factCheckNews, createChat, validateSite, validateArticleOrDoc, compareSites, analyzeMedia } from '../services/geminiService';
 import { saveHistoryItem } from '../services/historyService';
 import DeepAnalysis from './DeepAnalysis';
@@ -512,16 +512,17 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings }) => {
     type MainTab = 'quick' | 'specialized' | 'video-studio' | 'validation' | 'deep';
     const [activeMainTab, setActiveMainTab] = useState<MainTab>('quick');
 
-    const renderTabButton = (tabId: MainTab, label: string) => (
+    const renderTabButton = (tabId: MainTab, label: string, icon: React.ReactNode) => (
         <button
             onClick={() => setActiveMainTab(tabId)}
-            className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 ${
+            className={`nav-button flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 ${
             activeMainTab === tabId
-                ? 'border-cyan-400 text-cyan-300'
-                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
+                ? 'active border-cyan-400 text-cyan-300'
+                : 'border-transparent text-gray-400 hover:text-white'
             }`}
         >
-            {label}
+            {React.cloneElement(icon as React.ReactElement, { className: "w-5 h-5 nav-icon" })}
+            <span>{label}</span>
         </button>
     );
 
@@ -533,11 +534,11 @@ const FactCheck: React.FC<FactCheckProps> = ({ settings }) => {
                      <h2 className="text-xl font-bold text-cyan-300">فکت چک و اعتبارسنجی</h2>
                 </div>
                 <div className="flex border-b border-cyan-400/20 overflow-x-auto">
-                    {renderTabButton('quick', 'بررسی سریع')}
-                    {renderTabButton('specialized', 'بررسی تخصصی')}
-                    {renderTabButton('video-studio', 'فکت چک ویدئو')}
-                    {renderTabButton('validation', 'اعتبارسنجی عمیق')}
-                    {renderTabButton('deep', 'تحلیل عمیق')}
+                    {renderTabButton('quick', 'بررسی سریع', <CheckCircleIcon />)}
+                    {renderTabButton('specialized', 'بررسی تخصصی', <ShieldCheckIcon />)}
+                    {renderTabButton('video-studio', 'فکت چک ویدئو', <VideoIcon />)}
+                    {renderTabButton('validation', 'اعتبارسنجی عمیق', <GavelIcon />)}
+                    {renderTabButton('deep', 'تحلیل عمیق', <BrainIcon />)}
                 </div>
             </div>
             

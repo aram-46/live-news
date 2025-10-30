@@ -549,14 +549,13 @@ export async function generateDynamicFilters(query: string, listType: 'categorie
         };
         const response = await generateContentWithRetry(ai, request, settings);
         window.dispatchEvent(new CustomEvent('apiKeyStatusChange', { detail: { status: 'valid' } }));
-        // FIX: The parsed JSON from the model can be of any type. Parse as 'unknown' first,
-        // then perform type checks to safely handle the data and ensure it matches the function's return type.
         const parsed = safeJsonParse<unknown>(response.text, []);
         if (!Array.isArray(parsed)) {
             console.error("generateDynamicFilters expected an array but got:", typeof parsed, parsed);
             return [];
         }
-        // Filter to ensure all items in the array are strings to match the string[] return type.
+        // FIX: The `parsed` variable is of type `unknown[]`. The function must return `string[]`.
+        // We use .filter with a type guard to ensure all elements are strings and to satisfy TypeScript.
         return parsed.filter((item): item is string => typeof item === 'string');
     } catch (error) {
         handleGeminiError(error, 'generateDynamicFilters');

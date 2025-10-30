@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Add missing icon imports
-import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon, BeakerIcon } from './components/icons';
+import { SearchIcon, NewsIcon, SettingsIcon, CheckCircleIcon, ChatIcon, SparklesIcon, ToolsIcon, BrainIcon, DocumentTextIcon, BeakerIcon, GavelIcon } from './components/icons';
 import NewsTicker from './components/NewsTicker';
 // FIX: Import TickerArticle type for improved type safety.
 import { AppSettings, TickerArticle } from './types';
@@ -27,7 +27,17 @@ import Research from './components/Research';
 type View = 'live' | 'search' | 'factcheck' | 'chatbot' | 'browseruse' | 'analyzer' | 'settings' | 'online-tools' | 'history' | 'debate' | 'research';
 
 const FullScreenLoader: React.FC<{ message: string }> = ({ message }) => (
-    <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-90 backdrop-blur-sm flex flex-col items-center justify-center z-[200] theme-base">
+        <div className="perspective-container mb-8">
+            <div className="cube-loader">
+                <div className="cube-face front"></div>
+                <div className="cube-face back"></div>
+                <div className="cube-face right"></div>
+                <div className="cube-face left"></div>
+                <div className="cube-face top"></div>
+                <div className="cube-face bottom"></div>
+            </div>
+        </div>
         <div className="flex items-center gap-3">
              <div className="w-10 h-10 bg-cyan-400/20 rounded-lg flex items-center justify-center border border-cyan-400/30">
                 <NewsIcon className="w-6 h-6 text-cyan-400" />
@@ -37,7 +47,7 @@ const FullScreenLoader: React.FC<{ message: string }> = ({ message }) => (
             </h1>
         </div>
         <div className="mt-8 flex items-center gap-3 text-cyan-300">
-            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
             <span>{message}</span>
         </div>
     </div>
@@ -114,13 +124,11 @@ const App: React.FC = () => {
       <button
         onClick={() => setActiveView(view)}
         aria-label={label}
-        className={`flex flex-col items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-all duration-300 ${
-          activeView === view
-            ? 'bg-cyan-500/20 text-cyan-300 scale-105'
-            : 'text-gray-400 hover:bg-gray-700/50 hover:text-white'
+        className={`nav-button relative flex flex-col items-center justify-center w-20 h-16 rounded-lg transition-colors duration-200 group ${
+          activeView === view ? 'active' : ''
         }`}
       >
-        {icon}
+        {React.cloneElement(icon as React.ReactElement, { className: "nav-icon w-6 h-6 mb-1" })}
         <span className="text-xs font-medium">{label}</span>
       </button>
   );
@@ -144,17 +152,17 @@ const App: React.FC = () => {
             </h1>
           </div>
           <nav className="flex items-center gap-2">
-            {renderNavButton('live', <NewsIcon className="w-5 h-5" />, 'اخبار زنده')}
-            {renderNavButton('search', <SearchIcon className="w-5 h-5" />, 'جستجو')}
-            {renderNavButton('factcheck', <CheckCircleIcon className="w-5 h-5" />, 'فکت چک')}
-            {renderNavButton('analyzer', <BrainIcon className="w-5 h-5" />, 'تحلیل‌گر')}
-            {renderNavButton('research', <BeakerIcon className="w-5 h-5" />, 'تحقیقات')}
-            {renderNavButton('debate', <BrainIcon className="w-5 h-5" />, 'مناظره')}
-            {renderNavButton('online-tools', <ToolsIcon className="w-5 h-5" />, 'ابزار آنلاین')}
-            {renderNavButton('chatbot', <ChatIcon className="w-5 h-5" />, 'چت‌بات')}
-            {renderNavButton('browseruse', <SparklesIcon className="w-5 h-5" />, 'عامل هوشمند')}
-            {renderNavButton('history', <DocumentTextIcon className="w-5 h-5" />, 'تاریخچه')}
-            {renderNavButton('settings', <SettingsIcon className="w-5 h-5" />, 'تنظیمات')}
+            {renderNavButton('live', <NewsIcon />, 'اخبار زنده')}
+            {renderNavButton('search', <SearchIcon />, 'جستجو')}
+            {renderNavButton('factcheck', <CheckCircleIcon />, 'فکت چک')}
+            {renderNavButton('analyzer', <BrainIcon />, 'تحلیل‌گر')}
+            {renderNavButton('research', <BeakerIcon />, 'تحقیقات')}
+            {renderNavButton('debate', <GavelIcon />, 'مناظره')}
+            {renderNavButton('online-tools', <ToolsIcon />, 'ابزار آنلاین')}
+            {renderNavButton('chatbot', <ChatIcon />, 'چت‌بات')}
+            {renderNavButton('browseruse', <SparklesIcon />, 'عامل هوشمند')}
+            {renderNavButton('history', <DocumentTextIcon />, 'تاریخچه')}
+            {renderNavButton('settings', <SettingsIcon />, 'تنظیمات')}
             <div className="border-l border-gray-600/50 h-6 mx-2"></div>
             <ConnectionStatus settings={settings} />
           </nav>

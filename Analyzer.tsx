@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { AppSettings, AnalyzerTabId, analyzerTabLabels } from '../types';
 import DeepAnalysis from './DeepAnalysis';
 import MediaAnalyzer from './MediaAnalyzer';
-import { ScaleIcon, CurrencyDollarIcon, UsersIcon, SpeakerWaveIcon, LightBulbIcon, VideoIcon } from './icons';
 
 interface AnalyzerProps {
   settings: AppSettings;
@@ -11,26 +10,16 @@ interface AnalyzerProps {
 const Analyzer: React.FC<AnalyzerProps> = ({ settings }) => {
     const [activeTab, setActiveTab] = useState<AnalyzerTabId>('political');
 
-    const iconMap: Record<AnalyzerTabId, React.ReactNode> = {
-        'political': <ScaleIcon className="w-5 h-5 nav-icon" />,
-        'economic': <CurrencyDollarIcon className="w-5 h-5 nav-icon" />,
-        'social': <UsersIcon className="w-5 h-5 nav-icon" />,
-        'propaganda': <SpeakerWaveIcon className="w-5 h-5 nav-icon" />,
-        'fallacy-finder': <LightBulbIcon className="w-5 h-5 nav-icon" />,
-        'media': <VideoIcon className="w-5 h-5 nav-icon" />,
-    };
-
     const renderTabButton = (tabId: AnalyzerTabId, label: string) => (
         <button
             key={tabId}
             onClick={() => setActiveTab(tabId)}
-            className={`nav-button flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 whitespace-nowrap ${
+            className={`px-4 py-2 text-sm font-medium transition-colors duration-300 border-b-2 whitespace-nowrap ${
                 activeTab === tabId
-                ? 'active border-cyan-400 text-cyan-300'
-                : 'border-transparent text-gray-400 hover:text-white'
+                ? 'border-cyan-400 text-cyan-300'
+                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
             }`}
         >
-            {iconMap[tabId]}
             {label}
         </button>
     );

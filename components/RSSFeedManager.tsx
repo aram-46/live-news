@@ -120,7 +120,6 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             
-            // FIX: Add English header aliases to the type to handle different import formats.
             type ImportedRow = {
                 "نام سایت"?: string;
                 "name"?: string;
@@ -136,8 +135,9 @@ const RSSFeedManager: React.FC<RSSFeedManagerProps> = ({ feeds, onFeedsChange, s
             let addedCount = 0;
             let skippedCount = 0;
             
-            // FIX: Explicitly type the `row` parameter in the forEach callback to ensure
-            // TypeScript correctly infers its properties and avoids the 'unknown' type error.
+            // FIX: The `row` parameter in the forEach callback was inferred as `unknown`.
+            // Explicitly typing it as `ImportedRow` allows TypeScript to correctly
+            // identify its properties like 'url' and 'آدرس خبرخوان'.
             json.forEach((row: ImportedRow) => {
                 const url = row['آدرس خبرخوان'] || row.url;
                 const name = row['نام سایت'] || row.name;
